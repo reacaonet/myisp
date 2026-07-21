@@ -64,4 +64,9 @@ class Client extends Authenticatable
     {
         return $this->hasMany(ServiceOrder::class);
     }
+
+    public function tickets()
+    {
+        return $this->hasMany(Ticket::class);
+    }
 }

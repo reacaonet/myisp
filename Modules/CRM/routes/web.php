@@ -8,6 +8,7 @@ use Modules\CRM\Http\Controllers\Web\ContractController;
 use Modules\CRM\Http\Controllers\Web\ServiceOrderController;
 use Modules\CRM\Http\Controllers\Web\TechnicianController;
 use Modules\CRM\Http\Controllers\Web\PortalController;
+use Modules\CRM\Http\Controllers\Web\TicketController;
 
 Route::prefix('crm')->middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('crm.dashboard');
@@ -37,11 +38,36 @@ Route::prefix('crm')->middleware('auth')->group(function () {
 
     Route::resource('technicians', TechnicianController::class)
         ->names('crm.technicians');
+
+    Route::prefix('tickets')->name('crm.tickets.')->group(function () {
+        Route::get('/', [TicketController::class, 'index'])->name('index');
+        Route::get('/{ticket}', [TicketController::class, 'show'])->name('show');
+        Route::post('/{ticket}/status', [TicketController::class, 'updateStatus'])->name('status');
+        Route::post('/{ticket}/reply', [TicketController::class, 'reply'])->name('reply');
+        Route::delete('/{ticket}', [TicketController::class, 'destroy'])->name('destroy');
+    });
 });
 
 Route::prefix('crm/portal')->name('crm.portal.')->group(function () {
     Route::get('login', [PortalController::class, 'loginForm'])->name('login');
     Route::post('login', [PortalController::class, 'login']);
     Route::post('logout', [PortalController::class, 'logout'])->name('logout');
-    Route::get('dashboard', [PortalController::class, 'dashboard'])->name('dashboard')->middleware('auth:client');
+
+    Route::middleware('auth:client')->group(function () {
+        Route::get('dashboard', [PortalController::class, 'dashboard'])->name('dashboard');
+        Route::get('faturas', [PortalController::class, 'invoices'])->name('invoices');
+        Route::get('faturas/{invoice}', [PortalController::class, 'invoiceShow'])->name('invoices.show');
+        Route::get('faturas/{invoice}/recibo', [PortalController::class, 'invoiceReceipt'])->name('invoices.receipt');
+        Route::get('contratos', [PortalController::class, 'contracts'])->name('contracts');
+        Route::get('contratos/{contract}', [PortalController::class, 'contractShow'])->name('contracts.show');
+        Route::get('ordens-servico', [PortalController::class, 'serviceOrders'])->name('service-orders');
+        Route::get('perfil', [PortalController::class, 'profile'])->name('profile');
+        Route::post('perfil', [PortalController::class, 'updateProfile'])->name('profile.update');
+        Route::post('perfil/senha', [PortalController::class, 'changePassword'])->name('profile.password');
+        Route::get('chamados', [PortalController::class, 'tickets'])->name('tickets');
+        Route::get('chamados/abrir', [PortalController::class, 'ticketCreate'])->name('tickets.create');
+        Route::post('chamados', [PortalController::class, 'ticketStore'])->name('tickets.store');
+        Route::get('chamados/{ticket}', [PortalController::class, 'ticketShow'])->name('tickets.show');
+        Route::post('chamados/{ticket}/responder', [PortalController::class, 'ticketReply'])->name('tickets.reply');
+    });
 });

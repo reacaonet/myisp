@@ -1,127 +1,138 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portal do Cliente - {{ $client->name }}</title>
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-</head>
-<body class="bg-gray-100 font-sans antialiased">
-    <div class="max-w-4xl mx-auto py-8 px-4 space-y-6">
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex items-center justify-between">
-            <div>
-                <h2 class="text-xl font-bold text-gray-900">Bem-vindo, {{ $client->name }}</h2>
-                <p class="text-sm text-gray-500">{{ $client->document }} &middot; {{ $client->email ?? '-' }}</p>
-            </div>
-            <form method="POST" action="{{ route('crm.portal.logout') }}">
-                @csrf
-                <button type="submit" class="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Sair</button>
-            </form>
-        </div>
+@extends('crm::portal.layouts.master')
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <p class="text-sm text-gray-500">Contratos</p>
-                <p class="text-2xl font-bold text-gray-900">{{ $client->contracts->count() }}</p>
-            </div>
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <p class="text-sm text-gray-500">Faturas Pendentes</p>
-                <p class="text-2xl font-bold text-yellow-600">{{ $client->invoices->whereIn('status', ['pending', 'overdue'])->count() }}</p>
-            </div>
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <p class="text-sm text-gray-500">Ordens de Servico</p>
-                <p class="text-2xl font-bold text-gray-900">{{ $client->serviceOrders->count() }}</p>
-            </div>
-        </div>
+@section('title', 'Dashboard')
 
-        @if($client->contracts->isNotEmpty())
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-            <div class="p-6 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-gray-800">Meus Contratos</h3>
-            </div>
-            <div class="divide-y divide-gray-100">
-                @foreach($client->contracts as $contract)
-                <div class="p-6 flex items-center justify-between">
-                    <div>
-                        <p class="font-medium text-gray-900">{{ $contract->plan->name }}</p>
-                        <p class="text-sm text-gray-500">
-                            Ativado em {{ $contract->activation_date->format('d/m/Y') }}
-                            &middot; Vencimento dia {{ $contract->due_day }}
-                        </p>
-                    </div>
-                    <div class="text-right">
-                        <p class="font-bold text-gray-900">R$ {{ number_format($contract->plan->price - $contract->discount, 2, ',', '.') }}</p>
-                        @include('crm::clients._status_badge', ['status' => $contract->status])
-                    </div>
-                </div>
-                @endforeach
-            </div>
+@section('content')
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-xl font-bold text-gray-900">Bem-vindo, {{ $client->name }}</h2>
+            <p class="text-sm text-gray-500">{{ $client->document }} &middot; {{ $client->email ?? '-' }} &middot; {{ $client->cellphone ?? $client->phone ?? '-' }}</p>
         </div>
-        @endif
-
-        @if($client->invoices->isNotEmpty())
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-            <div class="p-6 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-gray-800">Minhas Faturas</h3>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="text-left text-gray-500 bg-gray-50 border-b border-gray-200">
-                            <th class="px-6 py-3 font-medium">Numero</th>
-                            <th class="px-6 py-3 font-medium">Referencia</th>
-                            <th class="px-6 py-3 font-medium">Vencimento</th>
-                            <th class="px-6 py-3 font-medium">Valor</th>
-                            <th class="px-6 py-3 font-medium">Status</th>
-                            @if($client->invoices->firstWhere('link_boleto'))
-                            <th class="px-6 py-3 font-medium">Boleto</th>
-                            @endif
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($client->invoices as $inv)
-                        <tr class="border-b border-gray-100 hover:bg-gray-50">
-                            <td class="px-6 py-3 font-mono text-gray-900">{{ $inv->invoice_number }}</td>
-                            <td class="px-6 py-3 text-gray-600">{{ str_pad($inv->mes ?? 0, 2, '0', STR_PAD_LEFT) }}/{{ $inv->ano ?? '-' }}</td>
-                            <td class="px-6 py-3 text-gray-600">{{ $inv->due_date->format('d/m/Y') }}</td>
-                            <td class="px-6 py-3 text-gray-900 font-medium">R$ {{ number_format($inv->total ?? $inv->amount, 2, ',', '.') }}</td>
-                            <td class="px-6 py-3">@include('crm::clients._status_badge', ['status' => $inv->status])</td>
-                            @if($loop->first && $inv->link_boleto)
-                            <td class="px-6 py-3">
-                                <a href="{{ $inv->link_boleto }}" target="_blank" class="text-blue-600 hover:underline text-xs">Baixar</a>
-                            </td>
-                            @endif
-                        </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        @endif
-
-        @if($client->serviceOrders->isNotEmpty())
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-            <div class="p-6 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-gray-800">Ordens de Servico</h3>
-            </div>
-            <div class="divide-y divide-gray-100">
-                @foreach($client->serviceOrders as $os)
-                <div class="p-6 flex items-center justify-between">
-                    <div>
-                        <p class="font-medium text-gray-900">{{ $os->codigo }} - {{ $os->servico ?? $os->tipo_servico }}</p>
-                        <p class="text-sm text-gray-500">{{ $os->emissao?->format('d/m/Y') ?? '-' }}</p>
-                    </div>
-                    <span class="px-2 py-0.5 rounded text-xs font-medium
-                        @if($os->status == 'closed') bg-green-100 text-green-700
-                        @elseif($os->status == 'canceled') bg-red-100 text-red-700
-                        @else bg-blue-100 text-blue-700 @endif">
-                        {{ ucfirst($os->status) }}
-                    </span>
-                </div>
-                @endforeach
-            </div>
-        </div>
-        @endif
     </div>
-</body>
-</html>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-500">Contratos</p>
+                <p class="text-3xl font-bold text-gray-900 mt-1">{{ $stats['total_contracts'] }}</p>
+                <p class="text-xs text-gray-400 mt-1">{{ $stats['active_contracts'] }} ativos</p>
+            </div>
+            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-500">Faturas Pendentes</p>
+                <p class="text-3xl font-bold text-yellow-600 mt-1">{{ $stats['pending_invoices'] }}</p>
+                <p class="text-xs text-gray-400 mt-1">R$ {{ number_format($stats['pending_amount'], 2, ',', '.') }}</p>
+            </div>
+            <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-500">Faturas Pagas</p>
+                <p class="text-3xl font-bold text-green-600 mt-1">{{ $stats['paid_invoices'] }}</p>
+            </div>
+            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-500">Ordens de Servico</p>
+                <p class="text-3xl font-bold text-gray-900 mt-1">{{ $client->serviceOrders->count() }}</p>
+                <p class="text-xs text-gray-400 mt-1">{{ $stats['open_os'] }} abertas</p>
+            </div>
+            <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-500">Chamados Abertos</p>
+                <p class="text-3xl font-bold text-orange-600 mt-1">{{ $stats['open_tickets'] }}</p>
+            </div>
+            <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    @if($stats['last_invoice'] && $stats['last_invoice']->status !== 'paid')
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-3">Ultima Fatura</h3>
+        @php $inv = $stats['last_invoice']; @endphp
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-500">{{ $inv->invoice_number }}</p>
+                <p class="text-lg font-bold text-gray-900">R$ {{ number_format($inv->total, 2, ',', '.') }}</p>
+                <p class="text-sm text-gray-500">Vencimento: {{ $inv->due_date->format('d/m/Y') }}</p>
+            </div>
+            <div class="text-right">
+                @include('crm::clients._status_badge', ['status' => $inv->status])
+            </div>
+        </div>
+        <a href="{{ route('crm.portal.invoices') }}" class="mt-4 inline-block text-sm text-blue-600 hover:underline">Ver todas as faturas</a>
+    </div>
+    @endif
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-3">Atalhos</h3>
+        <div class="grid grid-cols-2 gap-3">
+            <a href="{{ route('crm.portal.invoices') }}" class="p-4 bg-blue-50 rounded-lg text-center hover:bg-blue-100 transition">
+                <p class="font-medium text-blue-700 text-sm">Minhas Faturas</p>
+            </a>
+            <a href="{{ route('crm.portal.contracts') }}" class="p-4 bg-purple-50 rounded-lg text-center hover:bg-purple-100 transition">
+                <p class="font-medium text-purple-700 text-sm">Meus Contratos</p>
+            </a>
+            <a href="{{ route('crm.portal.service-orders') }}" class="p-4 bg-orange-50 rounded-lg text-center hover:bg-orange-100 transition">
+                <p class="font-medium text-orange-700 text-sm">Ordens de Servico</p>
+            </a>
+            <a href="{{ route('crm.portal.tickets.create') }}" class="p-4 bg-red-50 rounded-lg text-center hover:bg-red-100 transition">
+                <p class="font-medium text-red-700 text-sm">Abrir Chamado</p>
+            </a>
+            <a href="{{ route('crm.portal.tickets') }}" class="p-4 bg-yellow-50 rounded-lg text-center hover:bg-yellow-100 transition">
+                <p class="font-medium text-yellow-700 text-sm">Meus Chamados</p>
+            </a>
+            <a href="{{ route('crm.portal.profile') }}" class="p-4 bg-green-50 rounded-lg text-center hover:bg-green-100 transition">
+                <p class="font-medium text-green-700 text-sm">Dados Pessoais</p>
+            </a>
+        </div>
+    </div>
+</div>
+
+@if($client->serviceOrders->whereNotIn('status', ['closed', 'canceled'])->isNotEmpty())
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+    <h3 class="text-lg font-semibold text-gray-800 mb-4">Ordens de Servico Abertas</h3>
+    @foreach($client->serviceOrders->whereNotIn('status', ['closed', 'canceled']) as $os)
+    <div class="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+        <div>
+            <p class="font-medium text-gray-900">{{ $os->codigo }} - {{ $os->servico ?? $os->tipo_servico }}</p>
+            <p class="text-sm text-gray-500">{{ $os->emissao?->format('d/m/Y') }}</p>
+        </div>
+        <span class="px-2.5 py-0.5 rounded-full text-xs font-medium {{ $os->status == 'open' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700' }}">{{ ucfirst($os->status) }}</span>
+    </div>
+    @endforeach
+</div>
+@endif
+@endsection

@@ -1,0 +1,34 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: myisp-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: myisp
+      POSTGRES_USER: myisp
+      POSTGRES_PASSWORD: myisp
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - myisp
+
+  redis:
+    image: redis:7-alpine
+    container_name: myisp-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - myisp
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  myisp:
+    driver: bridge

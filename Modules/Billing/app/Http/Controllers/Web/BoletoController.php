@@ -51,7 +51,48 @@ class BoletoController extends Controller
             'cnpj' => SystemSetting::get('company_document', ''),
         ];
 
-        return view('billing::boletos.print', compact('invoice', 'bankSettings'));
+        $mpAccount = null;
+        if ($invoice->gateway && $invoice->gateway->slug === 'mercado-pago') {
+            $mpAccount = $this->fetchMpAccountInfo($invoice->gateway);
+        }
+
+        return view('billing::boletos.print', compact('invoice', 'bankSettings', 'mpAccount'));
+    }
+
+    private function fetchMpAccountInfo($gateway): ?array
+    {
+        $token = $gateway->config['access_token'] ?? null;
+        if (!$token) return null;
+
+        $cacheKey = 'mp_account_' . md5($token);
+        if (cache()->has($cacheKey)) {
+            return cache()->get($cacheKey);
+        }
+
+        $ch = curl_init('https://api.mercadopago.com/users/me');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 10,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $token],
+        ]);
+        $response = json_decode(curl_exec($ch), true);
+        curl_close($ch);
+
+        if (!isset($response['id'])) return null;
+
+        $info = [
+            'name' => trim(($response['first_name'] ?? '') . ' ' . ($response['last_name'] ?? '')),
+            'document_number' => $response['identification']['number'] ?? null,
+            'document_type' => $response['identification']['type'] ?? null,
+            'email' => $response['email'] ?? null,
+            'phone' => $response['phone']['number'] ?? null,
+            'address' => trim(($response['address']['address'] ?? '') . ' - ' . ($response['address']['city'] ?? '') . '/' . ($response['address']['state'] ?? '')),
+            'zip_code' => $response['address']['zip_code'] ?? null,
+        ];
+
+        cache()->put($cacheKey, $info, 3600);
+        return $info;
     }
 
     public function generateBoleto(Request $request, $id)
@@ -79,7 +120,7 @@ class BoletoController extends Controller
             return back()->with('success', 'Boleto gerado com sucesso via ' . $gateway->name . '.');
         }
 
-        return back()->with('error', 'Erro ao gerar boleto: ' . ($result['error'] ?? 'Erro desconhecido'));
+        return back()->with('error', 'Erro ao gerar boleto: ' . ($result['error'] ?? json_encode($result) ?? 'Erro desconhecido'));
     }
 
     public function generatePix(Request $request, $id)
@@ -107,7 +148,7 @@ class BoletoController extends Controller
             return back()->with('success', 'PIX gerado com sucesso via ' . $gateway->name . '.');
         }
 
-        return back()->with('error', 'Erro ao gerar PIX: ' . ($result['error'] ?? 'Erro desconhecido'));
+        return back()->with('error', 'Erro ao gerar PIX: ' . ($result['error'] ?? json_encode($result) ?? 'Erro desconhecido'));
     }
 
     public function refreshStatus($id)

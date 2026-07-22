@@ -229,6 +229,7 @@ class AsaasGateway extends AbstractPaymentGateway
             CURLOPT_URL => $url,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 30,
+            CURLOPT_SSL_VERIFYPEER => $this->getConfig('ssl_verify', false),
             CURLOPT_HTTPHEADER => [
                 'Content-Type: application/json',
                 'access_token: ' . $apiKey,

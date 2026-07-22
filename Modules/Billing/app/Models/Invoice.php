@@ -17,6 +17,7 @@ class Invoice extends Model
         'transaction_id', 'link_boleto', 'chave_boleto', 'boleto_numero',
         'notes', 'motivo', 'mes_parcela', 'avulso', 'ref_os',
         'gateway_id', 'gateway_status', 'gateway_payment_url', 'gateway_qr_code', 'pix_copy_paste',
+        'barcode', 'digitable_line',
     ];
 
     protected function casts(): array

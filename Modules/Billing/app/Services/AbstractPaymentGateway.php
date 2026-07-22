@@ -43,6 +43,8 @@ abstract class AbstractPaymentGateway implements PaymentGatewayInterface
             'boleto_numero' => $data['boleto_numero'] ?? $invoice->boleto_numero,
             'link_boleto' => $data['link_boleto'] ?? $invoice->link_boleto,
             'chave_boleto' => $data['chave_boleto'] ?? $invoice->chave_boleto,
+            'barcode' => $data['barcode'] ?? $invoice->barcode,
+            'digitable_line' => $data['digitable_line'] ?? $invoice->digitable_line,
         ]);
     }
 }

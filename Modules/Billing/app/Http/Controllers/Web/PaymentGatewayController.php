@@ -107,25 +107,140 @@ class PaymentGatewayController extends Controller
     {
         $gateway = PaymentGateway::findOrFail($id);
 
-        $testResults = [
-            'name' => $gateway->name,
-            'slug' => $gateway->slug,
-            'status' => $gateway->status,
-            'config' => !empty($gateway->config) ? array_keys($gateway->config) : [],
-        ];
-
-        if ($gateway->config) {
-            $hasRequired = match ($gateway->slug) {
-                'mercado-pago' => isset($gateway->config['access_token']),
-                'asaas' => isset($gateway->config['api_key']),
-                'gerencianet' => isset($gateway->config['client_id']) && isset($gateway->config['client_secret']),
-                default => false,
-            };
-            $testResults['config_valid'] = $hasRequired;
-        } else {
-            $testResults['config_valid'] = false;
+        if (empty($gateway->config)) {
+            return response()->json(['success' => false, 'message' => 'Configuracao vazia. Salve o gateway primeiro.']);
         }
 
-        return response()->json($testResults);
+        try {
+            $result = match ($gateway->slug) {
+                'mercado-pago' => $this->testMercadoPago($gateway),
+                'asaas' => $this->testAsaas($gateway),
+                'gerencianet' => $this->testGerencianet($gateway),
+                default => ['success' => false, 'message' => 'Gateway desconhecido.'],
+            };
+        } catch (\Exception $e) {
+            $result = ['success' => false, 'message' => $e->getMessage()];
+        }
+
+        return response()->json($result);
+    }
+
+    private function testMercadoPago(PaymentGateway $gateway): array
+    {
+        $token = $gateway->config['access_token'] ?? '';
+        if (!$token) {
+            return ['success' => false, 'message' => 'access_token nao configurado.'];
+        }
+
+        $url = 'https://api.mercadopago.com/v1/payment_methods';
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 15,
+            CURLOPT_SSL_VERIFYPEER => $gateway->config['ssl_verify'] ?? false,
+            CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $token],
+        ]);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($error) {
+            return ['success' => false, 'message' => "Erro cURL: {$error}"];
+        }
+        if ($httpCode === 401) {
+            return ['success' => false, 'message' => 'Token invalido (401).'];
+        }
+        if ($httpCode >= 400) {
+            $body = json_decode($response, true);
+            return ['success' => false, 'message' => "Erro HTTP {$httpCode}: " . ($body['message'] ?? substr($response, 0, 200))];
+        }
+
+        return ['success' => true, 'message' => "Conexao OK (HTTP {$httpCode}). Token valido."];
+    }
+
+    private function testAsaas(PaymentGateway $gateway): array
+    {
+        $apiKey = $gateway->config['api_key'] ?? '';
+        if (!$apiKey) {
+            return ['success' => false, 'message' => 'api_key nao configurado.'];
+        }
+
+        $baseUrl = ($gateway->config['sandbox'] ?? true)
+            ? 'https://sandbox.asaas.com/api/v3/customers'
+            : 'https://api.asaas.com/v3/customers';
+
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $baseUrl . '?limit=1',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 15,
+            CURLOPT_SSL_VERIFYPEER => $gateway->config['ssl_verify'] ?? false,
+            CURLOPT_HTTPHEADER => ['access_token: ' . $apiKey],
+        ]);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($error) {
+            return ['success' => false, 'message' => "Erro cURL: {$error}"];
+        }
+        if ($httpCode === 401) {
+            return ['success' => false, 'message' => 'API key invalida (401).'];
+        }
+        if ($httpCode >= 400) {
+            return ['success' => false, 'message' => "Erro HTTP {$httpCode}."];
+        }
+
+        return ['success' => true, 'message' => "Conexao OK (HTTP {$httpCode}). API key valida."];
+    }
+
+    private function testGerencianet(PaymentGateway $gateway): array
+    {
+        $clientId = $gateway->config['client_id'] ?? '';
+        $clientSecret = $gateway->config['client_secret'] ?? '';
+        if (!$clientId || !$clientSecret) {
+            return ['success' => false, 'message' => 'client_id ou client_secret nao configurados.'];
+        }
+
+        $baseUrl = ($gateway->config['sandbox'] ?? true)
+            ? 'https://sandbox.gerencianet.com.br'
+            : 'https://api.gerencianet.com.br';
+
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $baseUrl . '/oauth/token',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 15,
+            CURLOPT_SSL_VERIFYPEER => $gateway->config['ssl_verify'] ?? false,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => http_build_query([
+                'grant_type' => 'client_credentials',
+            ]),
+            CURLOPT_USERPWD => $clientId . ':' . $clientSecret,
+        ]);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($error) {
+            return ['success' => false, 'message' => "Erro cURL: {$error}"];
+        }
+        if ($httpCode === 401) {
+            return ['success' => false, 'message' => 'Credenciais invalidas (401).'];
+        }
+        if ($httpCode >= 400) {
+            return ['success' => false, 'message' => "Erro HTTP {$httpCode}."];
+        }
+
+        $body = json_decode($response, true);
+        if (!empty($body['access_token'])) {
+            return ['success' => true, 'message' => "Conexao OK. OAuth token obtido com sucesso."];
+        }
+
+        return ['success' => false, 'message' => 'Resposta inesperada da API.'];
     }
 }

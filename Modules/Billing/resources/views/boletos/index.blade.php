@@ -125,7 +125,7 @@
 
             <div class="space-y-2 mb-6">
                 @forelse($gateways as $gw)
-                <label class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer gateway-option" data-gateway="{{ $gw->id }}" data-type="">
+                <label class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer gateway-option" data-gateway="{{ $gw->id }}" data-supports="{{ $gw->supports_boleto ? 'boleto ' : '' }}{{ $gw->supports_pix ? 'pix' : '' }}">
                     <input type="radio" name="gateway_select" value="{{ $gw->id }}" class="text-blue-600">
                     <div class="flex-1">
                         <p class="text-sm font-medium text-gray-900">{{ $gw->name }}</p>
@@ -158,24 +158,24 @@ function openGatewayModal(invoiceId, type) {
     const form = document.getElementById('gatewayForm');
     const title = document.getElementById('modalTitle');
 
-    form.action = '/faturas/' + invoiceId + '/' + (type === 'boleto' ? 'gerar-boleto' : 'gerar-pix');
+    form.action = '/boletos/' + invoiceId + '/' + (type === 'boleto' ? 'gerar-boleto' : 'gerar-pix');
     title.textContent = type === 'boleto' ? 'Gerar Boleto' : 'Gerar PIX';
 
     document.querySelectorAll('.gateway-option').forEach(el => {
         el.style.display = 'none';
-        const gw = JSON.parse(el.dataset.gateway);
         const radio = el.querySelector('input[type=radio]');
         radio.checked = false;
     });
 
-    @foreach($gateways as $gw)
-        @if($type === 'boleto' && $gw->supports_boleto)
-            document.querySelector('.gateway-option[data-gateway="{{ $gw->id }}"]').style.display = 'flex';
-        @endif
-        @if($type === 'pix' && $gw->supports_pix)
-            document.querySelector('.gateway-option[data-gateway="{{ $gw->id }}"]').style.display = 'flex';
-        @endif
-    @endforeach
+    document.querySelectorAll('.gateway-option').forEach(el => {
+        const supports = el.dataset.supports || '';
+        if (type === 'boleto' && supports.includes('boleto')) {
+            el.style.display = 'flex';
+        }
+        if (type === 'pix' && supports.includes('pix')) {
+            el.style.display = 'flex';
+        }
+    });
 
     modal.classList.remove('hidden');
 }

@@ -70,18 +70,19 @@ function testGateway(id) {
     const btn = document.getElementById('test-btn-' + id);
     const result = document.getElementById('test-result-' + id);
     btn.textContent = 'Testando...';
+    result.innerHTML = '';
     fetch('/billing/gateways/' + id + '/test')
         .then(r => r.json())
         .then(data => {
-            if (data.config_valid) {
-                result.innerHTML = '<span class="text-green-600">Config OK</span>';
+            if (data.success) {
+                result.innerHTML = '<span class="text-green-600 font-medium">' + data.message + '</span>';
             } else {
-                result.innerHTML = '<span class="text-red-600">Config incompleta</span>';
+                result.innerHTML = '<span class="text-red-600">' + data.message + '</span>';
             }
             btn.textContent = 'Testar';
         })
         .catch(() => {
-            result.innerHTML = '<span class="text-red-600">Erro</span>';
+            result.innerHTML = '<span class="text-red-600">Erro de conexao</span>';
             btn.textContent = 'Testar';
         });
 }

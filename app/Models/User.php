@@ -11,7 +11,9 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\HasMany as HasManyRelation;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Modules\Core\Models\UserPermission;
 
 #[Fillable(['name', 'email', 'password', 'phone', 'role', 'is_active'])]
 #[Hidden(['password', 'remember_token'])]
@@ -41,5 +43,10 @@ class User extends Authenticatable
     public function addresses(): MorphMany
     {
         return $this->morphMany(Address::class, 'addressable');
+    }
+
+    public function permissions(): HasMany
+    {
+        return $this->hasMany(UserPermission::class);
     }
 }

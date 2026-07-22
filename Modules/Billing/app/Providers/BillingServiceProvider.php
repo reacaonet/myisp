@@ -3,7 +3,9 @@
 namespace Modules\Billing\Providers;
 
 use Nwidart\Modules\Support\ModuleServiceProvider;
-use Illuminate\Console\Scheduling\Schedule;
+use Modules\Billing\Console\Commands\GenerateInvoices;
+use Modules\Billing\Console\Commands\CheckOverdueAndBlock;
+use Modules\Billing\Console\Commands\UnblockPaid;
 
 class BillingServiceProvider extends ModuleServiceProvider
 {
@@ -14,4 +16,15 @@ class BillingServiceProvider extends ModuleServiceProvider
         EventServiceProvider::class,
         RouteServiceProvider::class,
     ];
+
+    public function boot(): void
+    {
+        parent::boot();
+
+        $this->commands([
+            GenerateInvoices::class,
+            CheckOverdueAndBlock::class,
+            UnblockPaid::class,
+        ]);
+    }
 }

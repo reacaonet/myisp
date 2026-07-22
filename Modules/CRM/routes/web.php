@@ -12,6 +12,15 @@ use Modules\CRM\Http\Controllers\Web\TicketController;
 use Modules\CRM\Http\Controllers\Web\TechnicianPortalController;
 use Modules\CRM\Http\Controllers\Web\EquipmentController;
 use Modules\CRM\Http\Controllers\Web\ManufacturerController;
+use Modules\CRM\Http\Controllers\Web\MikrotikServerController;
+use Modules\CRM\Http\Controllers\Web\ProvisionController;
+use Modules\CRM\Http\Controllers\Web\NetworkMonitorController;
+use Modules\CRM\Http\Controllers\Web\SupplierController;
+use Modules\CRM\Http\Controllers\Web\UptimeController;
+use Modules\CRM\Http\Controllers\Web\HotspotCouponController;
+use Modules\CRM\Http\Controllers\Web\MikrotikBackupController;
+use Modules\CRM\Http\Controllers\Web\SiteBlockingController;
+use Modules\CRM\Http\Controllers\Web\NewsletterController;
 
 Route::prefix('crm')->middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('crm.dashboard');
@@ -49,12 +58,70 @@ Route::prefix('crm')->middleware('auth')->group(function () {
         ->names('crm.manufacturers')
         ->except('show');
 
+    Route::resource('suppliers', SupplierController::class)
+        ->names('crm.suppliers');
+
+    Route::prefix('uptime')->name('crm.uptime.')->group(function () {
+        Route::get('/', [UptimeController::class, 'index'])->name('index');
+        Route::get('/create', [UptimeController::class, 'create'])->name('create');
+        Route::post('/', [UptimeController::class, 'store'])->name('store');
+        Route::get('/{monitor}', [UptimeController::class, 'show'])->name('show');
+        Route::get('/{monitor}/edit', [UptimeController::class, 'edit'])->name('edit');
+        Route::put('/{monitor}', [UptimeController::class, 'update'])->name('update');
+        Route::delete('/{monitor}', [UptimeController::class, 'destroy'])->name('destroy');
+        Route::post('/{monitor}/check', [UptimeController::class, 'check'])->name('check');
+        Route::post('/check-all', [UptimeController::class, 'checkAll'])->name('check-all');
+    });
+
+    Route::resource('hotspot-coupons', HotspotCouponController::class)
+        ->names('crm.hotspot-coupons');
+    Route::post('hotspot-coupons/generate-batch', [HotspotCouponController::class, 'generateBatch'])
+        ->name('crm.hotspot-coupons.generate-batch');
+
+    Route::resource('mikrotik-servers', MikrotikServerController::class)
+        ->names('crm.mikrotik-servers');
+    Route::post('mikrotik-servers/{mikrotik_server}/test', [MikrotikServerController::class, 'testConnection'])
+        ->name('crm.mikrotik-servers.test');
+
+    Route::prefix('provisioning')->name('crm.provisioning.')->group(function () {
+        Route::get('/', [ProvisionController::class, 'index'])->name('index');
+        Route::get('/create', [ProvisionController::class, 'create'])->name('create');
+        Route::post('/', [ProvisionController::class, 'store'])->name('store');
+        Route::delete('/{id}', [ProvisionController::class, 'destroy'])->name('destroy');
+        Route::post('/{id}/block', [ProvisionController::class, 'block'])->name('block');
+        Route::get('/profiles/{server_id}', [ProvisionController::class, 'profiles'])->name('profiles');
+        Route::get('/active-users/{server_id}', [ProvisionController::class, 'activeUsers'])->name('active-users');
+    });
+
+    Route::prefix('network-monitor')->name('crm.network-monitor.')->group(function () {
+        Route::get('/', [NetworkMonitorController::class, 'index'])->name('index');
+        Route::get('/{id}', [NetworkMonitorController::class, 'show'])->name('show');
+        Route::get('/{id}/active-users', [NetworkMonitorController::class, 'activeUsers'])->name('active-users');
+        Route::get('/{id}/refresh', [NetworkMonitorController::class, 'refreshStats'])->name('refresh');
+    });
+
     Route::prefix('tickets')->name('crm.tickets.')->group(function () {
         Route::get('/', [TicketController::class, 'index'])->name('index');
         Route::get('/{ticket}', [TicketController::class, 'show'])->name('show');
         Route::post('/{ticket}/status', [TicketController::class, 'updateStatus'])->name('status');
         Route::post('/{ticket}/reply', [TicketController::class, 'reply'])->name('reply');
         Route::delete('/{ticket}', [TicketController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::resource('mikrotik-backups', MikrotikBackupController::class)
+        ->names('crm.mikrotik-backups');
+    Route::get('mikrotik-backups/{backup}/download', [MikrotikBackupController::class, 'download'])
+        ->name('crm.mikrotik-backups.download');
+
+    Route::prefix('site-blocking')->name('crm.site-blocking.')->group(function () {
+        Route::get('/', [SiteBlockingController::class, 'index'])->name('index');
+        Route::post('/block', [SiteBlockingController::class, 'block'])->name('block');
+        Route::post('/unblock', [SiteBlockingController::class, 'unblock'])->name('unblock');
+    });
+
+    Route::prefix('newsletter')->name('crm.newsletter.')->group(function () {
+        Route::get('/', [NewsletterController::class, 'index'])->name('index');
+        Route::post('/send', [NewsletterController::class, 'send'])->name('send');
     });
 });
 

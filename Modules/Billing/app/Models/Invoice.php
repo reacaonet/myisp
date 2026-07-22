@@ -12,7 +12,8 @@ class Invoice extends Model
         'client_id', 'contract_id', 'invoice_number',
         'amount', 'discount', 'acrescimo', 'total',
         'due_date', 'dia', 'mes', 'ano',
-        'paid_date', 'status', 'payment_method',
+        'paid_date', 'blocked_at', 'auto_blocked',
+        'status', 'payment_method',
         'transaction_id', 'link_boleto', 'chave_boleto', 'boleto_numero',
         'notes', 'motivo', 'mes_parcela', 'avulso', 'ref_os',
     ];
@@ -22,7 +23,9 @@ class Invoice extends Model
         return [
             'due_date' => 'date',
             'paid_date' => 'date',
+            'blocked_at' => 'datetime',
             'avulso' => 'boolean',
+            'auto_blocked' => 'boolean',
         ];
     }
 

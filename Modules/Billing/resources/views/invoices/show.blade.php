@@ -16,6 +16,18 @@
                 @if($invoice->status === 'paid')
                 <a href="{{ route('billing.invoices.receipt', $invoice) }}" target="_blank" class="px-4 py-2 text-sm font-medium text-green-600 border border-green-200 rounded-lg hover:bg-green-50">Imprimir Recibo</a>
                 @endif
+                @if(!in_array($invoice->status, ['paid', 'canceled']))
+                <form method="POST" action="{{ route('billing.invoices.block', $invoice) }}" onsubmit="return confirm('Bloquear este cliente no MikroTik?')">
+                    @csrf
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50">Bloquear</button>
+                </form>
+                @endif
+                @if($invoice->auto_blocked)
+                <form method="POST" action="{{ route('billing.invoices.unblock', $invoice) }}" onsubmit="return confirm('Desbloquear este cliente?')">
+                    @csrf
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-yellow-600 border border-yellow-200 rounded-lg hover:bg-yellow-50">Desbloquear</button>
+                </form>
+                @endif
             </div>
         </div>
 
@@ -46,6 +58,12 @@
                     <div class="flex justify-between">
                         <dt class="text-gray-500">Desconto</dt>
                         <dd class="text-green-600">- R$ {{ number_format($invoice->discount, 2, ',', '.') }}</dd>
+                    </div>
+                    @endif
+                    @if($invoice->acrescimo > 0)
+                    <div class="flex justify-between">
+                        <dt class="text-gray-500">Acrescimo</dt>
+                        <dd class="text-red-600">+ R$ {{ number_format($invoice->acrescimo, 2, ',', '.') }}</dd>
                     </div>
                     @endif
                     <div class="flex justify-between border-t pt-1">
@@ -113,6 +131,13 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+        @endif
+
+        @if($invoice->auto_blocked)
+        <div class="border-t border-gray-200 p-6 bg-red-50">
+            <h3 class="text-sm font-semibold text-red-700 uppercase mb-2">Bloqueio Automatico</h3>
+            <p class="text-sm text-red-600">Cliente bloqueado em {{ $invoice->blocked_at?->format('d/m/Y H:i') }} - {{ $invoice->motivo }}</p>
         </div>
         @endif
 

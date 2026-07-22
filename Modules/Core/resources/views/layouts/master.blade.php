@@ -47,9 +47,49 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
                     Fabricantes
                 </a>
+                <a href="{{ route('crm.suppliers.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('crm.suppliers.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                    Fornecedores
+                </a>
+                <a href="{{ route('crm.hotspot-coupons.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('crm.hotspot-coupons.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"/></svg>
+                    Cupons Hotspot
+                </a>
+
+                <p class="text-xs font-semibold uppercase text-gray-500 px-3 mt-6 mb-2">MikroTik</p>
+                <a href="{{ route('crm.mikrotik-servers.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('crm.mikrotik-servers.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/></svg>
+                    Servidores
+                </a>
+                <a href="{{ route('crm.provisioning.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('crm.provisioning.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Provisionamento
+                </a>
+                <a href="{{ route('crm.uptime.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('crm.uptime.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    Uptime
+                </a>
+                <a href="{{ route('crm.mikrotik-backups.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('crm.mikrotik-backups.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    Backups
+                </a>
+                <a href="{{ route('crm.site-blocking.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('crm.site-blocking.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                    Bloqueio Sites
+                </a>
+
+                <p class="text-xs font-semibold uppercase text-gray-500 px-3 mt-6 mb-2">Suporte</p>
                 <a href="{{ route('technician.portal.dashboard') }}" target="_blank" class="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-800">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                     Portal Tecnico
+                </a>
+                <a href="{{ route('crm.tickets.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('crm.tickets.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    Chamados
+                </a>
+                <a href="{{ route('crm.newsletter.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('crm.newsletter.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    Newsletter
                 </a>
 
                 <p class="text-xs font-semibold uppercase text-gray-500 px-3 mt-6 mb-2">Financeiro</p>
@@ -57,18 +97,33 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     Faturas
                 </a>
+                <a href="{{ route('billing.cash-book.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('billing.cash-book.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    Livro Caixa
+                </a>
+                <a href="{{ route('billing.reports.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('billing.reports.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    Relatorios
+                </a>
+                <a href="{{ route('billing.boleto.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('billing.boleto.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/></svg>
+                    Boletos
+                </a>
 
-                <p class="text-xs font-semibold uppercase text-gray-500 px-3 mt-6 mb-2">Suporte</p>
-                <a href="{{ route('crm.tickets.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('crm.tickets.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-                    Chamados
+                <p class="text-xs font-semibold uppercase text-gray-500 px-3 mt-6 mb-2">Sistema</p>
+                <a href="{{ route('core.permissions.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('core.permissions.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    Permissoes
+                </a>
+                <a href="{{ route('core.settings.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('core.settings.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    Configuracoes
                 </a>
 
                 <p class="text-xs font-semibold uppercase text-gray-500 px-3 mt-6 mb-2">Infraestrutura</p>
-                <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-500 cursor-not-allowed">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.858 15.355-5.858 21.213 0"/></svg>
-                    Servidores
-                    <span class="ml-auto text-xs bg-gray-700 px-1.5 py-0.5 rounded">Em breve</span>
+                <a href="{{ route('crm.network-monitor.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('crm.network-monitor.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    Servidores de Rede
                 </a>
             </nav>
             <div class="p-4 border-t border-gray-700">

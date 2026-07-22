@@ -5,6 +5,7 @@ use Modules\Billing\Http\Controllers\Web\InvoiceController;
 use Modules\Billing\Http\Controllers\Web\CashBookController;
 use Modules\Billing\Http\Controllers\Web\ReportController;
 use Modules\Billing\Http\Controllers\Web\BoletoController;
+use Modules\Billing\Http\Controllers\Web\PaymentGatewayController;
 
 Route::prefix('faturas')->name('billing.invoices.')->middleware('auth')->group(function () {
     Route::get('/', [InvoiceController::class, 'index'])->name('index');
@@ -43,4 +44,18 @@ Route::prefix('relatorios')->name('billing.reports.')->middleware('auth')->group
 Route::prefix('boletos')->name('billing.boleto.')->middleware('auth')->group(function () {
     Route::get('/', [BoletoController::class, 'index'])->name('index');
     Route::get('/{invoice}/imprimir', [BoletoController::class, 'print'])->name('print');
+    Route::post('/{invoice}/gerar-boleto', [BoletoController::class, 'generateBoleto'])->name('generate-boleto');
+    Route::post('/{invoice}/gerar-pix', [BoletoController::class, 'generatePix'])->name('generate-pix');
+    Route::get('/{invoice}/sincronizar-status', [BoletoController::class, 'refreshStatus'])->name('refresh-status');
+    Route::post('/{invoice}/cancelar-pagamento', [BoletoController::class, 'cancelPayment'])->name('cancel-payment');
+});
+
+Route::prefix('gateways')->name('billing.gateways.')->middleware('auth')->group(function () {
+    Route::get('/', [PaymentGatewayController::class, 'index'])->name('index');
+    Route::get('/criar', [PaymentGatewayController::class, 'create'])->name('create');
+    Route::post('/', [PaymentGatewayController::class, 'store'])->name('store');
+    Route::get('/{gateway}/editar', [PaymentGatewayController::class, 'edit'])->name('edit');
+    Route::put('/{gateway}', [PaymentGatewayController::class, 'update'])->name('update');
+    Route::delete('/{gateway}', [PaymentGatewayController::class, 'destroy'])->name('destroy');
+    Route::get('/{gateway}/test', [PaymentGatewayController::class, 'test'])->name('test');
 });

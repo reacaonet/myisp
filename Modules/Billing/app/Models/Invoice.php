@@ -16,6 +16,7 @@ class Invoice extends Model
         'status', 'payment_method',
         'transaction_id', 'link_boleto', 'chave_boleto', 'boleto_numero',
         'notes', 'motivo', 'mes_parcela', 'avulso', 'ref_os',
+        'gateway_id', 'gateway_status', 'gateway_payment_url', 'gateway_qr_code', 'pix_copy_paste',
     ];
 
     protected function casts(): array
@@ -42,5 +43,10 @@ class Invoice extends Model
     public function payments()
     {
         return $this->hasMany(Payment::class);
+    }
+
+    public function gateway()
+    {
+        return $this->belongsTo(PaymentGateway::class, 'gateway_id');
     }
 }

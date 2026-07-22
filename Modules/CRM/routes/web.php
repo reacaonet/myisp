@@ -10,6 +10,8 @@ use Modules\CRM\Http\Controllers\Web\TechnicianController;
 use Modules\CRM\Http\Controllers\Web\PortalController;
 use Modules\CRM\Http\Controllers\Web\TicketController;
 use Modules\CRM\Http\Controllers\Web\TechnicianPortalController;
+use Modules\CRM\Http\Controllers\Web\EquipmentController;
+use Modules\CRM\Http\Controllers\Web\ManufacturerController;
 
 Route::prefix('crm')->middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('crm.dashboard');
@@ -39,6 +41,13 @@ Route::prefix('crm')->middleware('auth')->group(function () {
 
     Route::resource('technicians', TechnicianController::class)
         ->names('crm.technicians');
+
+    Route::resource('equipment', EquipmentController::class)
+        ->names('crm.equipment');
+
+    Route::resource('manufacturers', ManufacturerController::class)
+        ->names('crm.manufacturers')
+        ->except('show');
 
     Route::prefix('tickets')->name('crm.tickets.')->group(function () {
         Route::get('/', [TicketController::class, 'index'])->name('index');

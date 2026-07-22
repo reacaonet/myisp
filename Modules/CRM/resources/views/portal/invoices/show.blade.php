@@ -14,6 +14,8 @@
                 @include('crm::clients._status_badge', ['status' => $invoice->status])
                 @if($invoice->status === 'paid')
                 <a href="{{ route('crm.portal.invoices.receipt', $invoice) }}" target="_blank" class="px-4 py-2 text-sm font-medium text-green-600 border border-green-200 rounded-lg hover:bg-green-50">Imprimir Recibo</a>
+                @elseif(in_array($invoice->status, ['pending', 'overdue']))
+                <a href="{{ route('crm.portal.invoices.pay', $invoice) }}" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">Pagar</a>
                 @endif
             </div>
         </div>

@@ -11,6 +11,8 @@ use Modules\CRM\Models\Ticket;
 use Modules\CRM\Models\TicketMessage;
 use Modules\CRM\Models\Contract;
 use Modules\Billing\Models\Invoice;
+use Modules\Billing\Models\PaymentGateway;
+use Modules\Billing\Services\PaymentService;
 
 class PortalController extends Controller
 {
@@ -245,5 +247,74 @@ class PortalController extends Controller
 
         return redirect()->route('crm.portal.tickets.show', $ticket)
             ->with('success', 'Mensagem enviada.');
+    }
+
+    public function invoicePaymentForm($id)
+    {
+        $client = Auth::guard('client')->user();
+        $invoice = Invoice::with(['payments', 'contract.plan'])
+            ->where('client_id', $client->id)
+            ->findOrFail($id);
+
+        if ($invoice->status === 'paid') {
+            return redirect()->route('crm.portal.invoices.show', $invoice)
+                ->with('error', 'Esta fatura ja foi paga.');
+        }
+
+        $gateways = PaymentGateway::where('status', 'active')
+            ->where(function ($q) {
+                $q->where('supports_pix', true)->orWhere('supports_boleto', true);
+            })
+            ->get();
+
+        return view('crm::portal.invoices.pay', compact('invoice', 'gateways'));
+    }
+
+    public function invoicePay(Request $request, $id)
+    {
+        $client = Auth::guard('client')->user();
+        $invoice = Invoice::with('client')
+            ->where('client_id', $client->id)
+            ->findOrFail($id);
+
+        if ($invoice->status === 'paid') {
+            return back()->with('error', 'Esta fatura ja foi paga.');
+        }
+
+        $validated = $request->validate([
+            'gateway_id' => 'required|exists:payment_gateways,id',
+            'payment_method' => 'required|in:pix,boleto',
+        ]);
+
+        $gateway = PaymentGateway::findOrFail($validated['gateway_id']);
+
+        if ($validated['payment_method'] === 'pix' && !$gateway->supports_pix) {
+            return back()->with('error', 'Este gateway nao suporta PIX.');
+        }
+
+        if ($validated['payment_method'] === 'boleto' && !$gateway->supports_boleto) {
+            return back()->with('error', 'Este gateway nao suporta Boleto.');
+        }
+
+        $service = PaymentService::getGateway($gateway->slug);
+        if (!$service) {
+            return back()->with('error', 'Gateway de pagamento indisponivel.');
+        }
+
+        $invoice->update(['gateway_id' => $gateway->id]);
+
+        if ($validated['payment_method'] === 'pix') {
+            $result = $service->generatePix($invoice);
+        } else {
+            $result = $service->generateBoleto($invoice);
+        }
+
+        if (!isset($result['success']) || !$result['success']) {
+            return back()->with('error', $result['error'] ?? 'Erro ao gerar pagamento.');
+        }
+
+        $invoice->refresh();
+
+        return view('crm::portal.invoices.pay-result', compact('invoice', 'result', 'validated'));
     }
 }

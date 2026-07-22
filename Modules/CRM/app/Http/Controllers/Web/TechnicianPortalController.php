@@ -143,4 +143,39 @@ class TechnicianPortalController extends Controller
         return redirect()->route('technician.portal.profile')
             ->with('success', 'Senha alterada com sucesso.');
     }
+
+    public function startServiceOrder($id)
+    {
+        $technician = Auth::guard('technician')->user();
+        $order = $technician->serviceOrders()->findOrFail($id);
+
+        $order->update([
+            'situacao' => 'A',
+            'status' => 'active',
+            'saida' => now()->toDateString(),
+        ]);
+
+        return redirect()->route('technician.portal.service-orders.show', $order)
+            ->with('success', 'OS iniciada com sucesso.');
+    }
+
+    public function completeServiceOrder(Request $request, $id)
+    {
+        $technician = Auth::guard('technician')->user();
+        $order = $technician->serviceOrders()->findOrFail($id);
+
+        $validated = $request->validate([
+            'diagnostico' => 'nullable|string',
+            'solucao' => 'nullable|string',
+        ]);
+
+        $order->update(array_merge([
+            'situacao' => 'F',
+            'status' => 'closed',
+            'encerrado' => true,
+        ], $validated));
+
+        return redirect()->route('technician.portal.service-orders.show', $order)
+            ->with('success', 'OS concluida com sucesso.');
+    }
 }

@@ -47,6 +47,9 @@ Route::prefix('crm')->middleware('auth')->group(function () {
         ->except('show');
 
     Route::get('service-orders/{service_order}', [ServiceOrderController::class, 'show'])->name('crm.service-orders.show');
+    Route::post('service-orders/{service_order}/iniciar', [ServiceOrderController::class, 'start'])->name('crm.service-orders.start');
+    Route::post('service-orders/{service_order}/concluir', [ServiceOrderController::class, 'complete'])->name('crm.service-orders.complete');
+    Route::post('service-orders/{service_order}/atribuir', [ServiceOrderController::class, 'assign'])->name('crm.service-orders.assign');
 
     Route::resource('technicians', TechnicianController::class)
         ->names('crm.technicians');
@@ -135,6 +138,8 @@ Route::prefix('crm/portal')->name('crm.portal.')->group(function () {
         Route::get('faturas', [PortalController::class, 'invoices'])->name('invoices');
         Route::get('faturas/{invoice}', [PortalController::class, 'invoiceShow'])->name('invoices.show');
         Route::get('faturas/{invoice}/recibo', [PortalController::class, 'invoiceReceipt'])->name('invoices.receipt');
+        Route::get('faturas/{invoice}/pagar', [PortalController::class, 'invoicePaymentForm'])->name('invoices.pay');
+        Route::post('faturas/{invoice}/pagar', [PortalController::class, 'invoicePay'])->name('invoices.pay.store');
         Route::get('contratos', [PortalController::class, 'contracts'])->name('contracts');
         Route::get('contratos/{contract}', [PortalController::class, 'contractShow'])->name('contracts.show');
         Route::get('ordens-servico', [PortalController::class, 'serviceOrders'])->name('service-orders');
@@ -159,6 +164,8 @@ Route::prefix('tecnico')->name('technician.portal.')->group(function () {
         Route::get('ordens-servico', [TechnicianPortalController::class, 'serviceOrders'])->name('service-orders');
         Route::get('ordens-servico/{service_order}', [TechnicianPortalController::class, 'serviceOrderShow'])->name('service-orders.show');
         Route::put('ordens-servico/{service_order}', [TechnicianPortalController::class, 'updateServiceOrder'])->name('service-orders.update');
+        Route::post('ordens-servico/{service_order}/iniciar', [TechnicianPortalController::class, 'startServiceOrder'])->name('service-orders.start');
+        Route::post('ordens-servico/{service_order}/concluir', [TechnicianPortalController::class, 'completeServiceOrder'])->name('service-orders.complete');
         Route::get('perfil', [TechnicianPortalController::class, 'profile'])->name('profile');
         Route::post('perfil', [TechnicianPortalController::class, 'updateProfile'])->name('profile.update');
         Route::post('perfil/senha', [TechnicianPortalController::class, 'changePassword'])->name('profile.password');

@@ -6,9 +6,13 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Modules\Billing\Models\Invoice;
 use Modules\Billing\Models\Payment;
+use Modules\Billing\Models\CashBookEntry;
 use Modules\CRM\Models\Client;
 use Modules\CRM\Models\Contract;
 use Modules\CRM\Services\MikrotikService;
+use Modules\Billing\Mail\PaymentConfirmed;
+use Modules\Billing\Mail\InvoiceGenerated;
+use Illuminate\Support\Facades\Mail;
 
 class InvoiceController extends Controller
 {
@@ -70,6 +74,13 @@ class InvoiceController extends Controller
         }
 
         $invoice = Invoice::create($validated);
+
+        if ($invoice->client && $invoice->client->email) {
+            try {
+                Mail::to($invoice->client->email)->send(new InvoiceGenerated($invoice));
+            } catch (\Exception $e) {
+            }
+        }
 
         return redirect()->route('billing.invoices.show', $invoice)
             ->with('success', 'Fatura criada com sucesso.');
@@ -146,6 +157,18 @@ class InvoiceController extends Controller
 
         $payment = $invoice->payments()->create($validated);
 
+        CashBookEntry::create([
+            'type' => 'entrada',
+            'amount' => $validated['amount'],
+            'description' => "Pagamento fatura {$invoice->invoice_number}",
+            'category' => 'pagamento',
+            'entry_date' => $validated['payment_date'],
+            'reference' => $validated['transaction_id'] ?? null,
+            'payment_method' => $validated['payment_method'],
+            'notes' => $validated['notes'] ?? null,
+            'invoice_id' => $invoice->id,
+        ]);
+
         $totalPaid = $invoice->payments()->sum('amount');
         if ($totalPaid >= $invoice->total) {
             $invoice->update([
@@ -157,6 +180,13 @@ class InvoiceController extends Controller
             ]);
 
             $this->tryUnblockContract($invoice);
+        }
+
+        if ($invoice->client && $invoice->client->email) {
+            try {
+                Mail::to($invoice->client->email)->send(new PaymentConfirmed($invoice));
+            } catch (\Exception $e) {
+            }
         }
 
         return redirect()->route('billing.invoices.show', $invoice)

@@ -6,6 +6,7 @@ use Modules\Billing\Http\Controllers\Web\CashBookController;
 use Modules\Billing\Http\Controllers\Web\ReportController;
 use Modules\Billing\Http\Controllers\Web\BoletoController;
 use Modules\Billing\Http\Controllers\Web\PaymentGatewayController;
+use Modules\Billing\Http\Controllers\Web\WebhookController;
 
 Route::prefix('faturas')->name('billing.invoices.')->middleware('auth')->group(function () {
     Route::get('/', [InvoiceController::class, 'index'])->name('index');
@@ -59,3 +60,5 @@ Route::prefix('gateways')->name('billing.gateways.')->middleware('auth')->group(
     Route::delete('/{gateway}', [PaymentGatewayController::class, 'destroy'])->name('destroy');
     Route::get('/{gateway}/test', [PaymentGatewayController::class, 'test'])->name('test');
 });
+
+Route::post('/webhooks/mercadopago', [WebhookController::class, 'mercadoPago'])->name('billing.webhooks.mercadopago');

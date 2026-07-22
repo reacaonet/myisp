@@ -133,4 +133,44 @@ class ServiceOrderController extends Controller
         return redirect()->route('crm.service-orders.index')
             ->with('success', 'Ordem de servico removida.');
     }
+
+    public function start($id)
+    {
+        $order = ServiceOrder::findOrFail($id);
+        $order->update([
+            'situacao' => 'A',
+            'status' => 'active',
+            'saida' => now()->toDateString(),
+        ]);
+
+        return redirect()->route('crm.service-orders.show', $order)
+            ->with('success', 'OS iniciada com sucesso.');
+    }
+
+    public function complete($id)
+    {
+        $order = ServiceOrder::findOrFail($id);
+        $order->update([
+            'situacao' => 'F',
+            'status' => 'closed',
+            'encerrado' => true,
+        ]);
+
+        return redirect()->route('crm.service-orders.show', $order)
+            ->with('success', 'OS concluida com sucesso.');
+    }
+
+    public function assign(Request $request, $id)
+    {
+        $order = ServiceOrder::findOrFail($id);
+
+        $validated = $request->validate([
+            'technician_id' => 'required|exists:technicians,id',
+        ]);
+
+        $order->update($validated);
+
+        return redirect()->route('crm.service-orders.show', $order)
+            ->with('success', 'Tecnico atribuido com sucesso.');
+    }
 }

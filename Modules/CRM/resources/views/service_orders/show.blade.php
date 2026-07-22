@@ -10,7 +10,23 @@
                 <h2 class="text-xl font-bold text-gray-900">OS {{ $order->codigo }}</h2>
                 <p class="text-sm text-gray-500">Aberta em {{ $order->emissao?->format('d/m/Y') ?? '-' }}</p>
             </div>
-            <a href="{{ route('crm.service-orders.edit', $order) }}" class="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50">Editar</a>
+            <div class="flex items-center gap-2">
+                @if($order->situacao === 'O')
+                <form method="POST" action="{{ route('crm.service-orders.start', $order) }}" class="inline">
+                    @csrf
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">Iniciar OS</button>
+                </form>
+                @endif
+
+                @if($order->situacao === 'A')
+                <form method="POST" action="{{ route('crm.service-orders.complete', $order) }}" class="inline">
+                    @csrf
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">Concluir OS</button>
+                </form>
+                @endif
+
+                <a href="{{ route('crm.service-orders.edit', $order) }}" class="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50">Editar</a>
+            </div>
         </div>
 
         <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -60,6 +76,28 @@
         <div class="border-t border-gray-200 p-6">
             <h3 class="text-sm font-semibold text-gray-500 uppercase mb-2">Solucao</h3>
             <p class="text-sm text-gray-700 bg-gray-50 rounded-lg p-4">{{ $order->solucao }}</p>
+        </div>
+        @endif
+
+        @if(!$order->technician_id)
+        <div class="border-t border-gray-200 p-6">
+            <h3 class="text-sm font-semibold text-gray-500 uppercase mb-3">Atribuir Tecnico</h3>
+            <form method="POST" action="{{ route('crm.service-orders.assign', $order) }}" class="flex items-end gap-3">
+                @csrf
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Selecione o Tecnico</label>
+                    <select name="technician_id" class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        <option value="">Selecione...</option>
+                        @php
+                        $technicians = \Modules\CRM\Models\Technician::where('is_active', true)->orderBy('name')->get();
+                        @endphp
+                        @foreach($technicians as $tech)
+                        <option value="{{ $tech->id }}">{{ $tech->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">Atribuir</button>
+            </form>
         </div>
         @endif
     </div>

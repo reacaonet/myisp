@@ -5,6 +5,7 @@ namespace Modules\Billing\Providers;
 use Nwidart\Modules\Support\ModuleServiceProvider;
 use Modules\Billing\Console\Commands\GenerateInvoices;
 use Modules\Billing\Console\Commands\CheckOverdueAndBlock;
+use Modules\Billing\Console\Commands\CheckOverdueCommand;
 use Modules\Billing\Console\Commands\UnblockPaid;
 
 class BillingServiceProvider extends ModuleServiceProvider
@@ -24,6 +25,7 @@ class BillingServiceProvider extends ModuleServiceProvider
         $this->commands([
             GenerateInvoices::class,
             CheckOverdueAndBlock::class,
+            CheckOverdueCommand::class,
             UnblockPaid::class,
         ]);
     }

@@ -37,6 +37,7 @@ class MercadoPagoGateway extends AbstractPaymentGateway
             'description' => "Fatura {$invoice->invoice_number}",
             'payment_method_id' => 'bolbradesco',
             'date_of_expiration' => $this->getExpirationDate($invoice),
+            'notification_url' => url('/webhooks/mercadopago'),
             'payer' => $this->buildPayer($invoice, $payerEmail),
         ];
 
@@ -81,6 +82,7 @@ class MercadoPagoGateway extends AbstractPaymentGateway
             'description' => "Fatura {$invoice->invoice_number}",
             'payment_method_id' => 'pix',
             'date_of_expiration' => $this->getExpirationDate($invoice),
+            'notification_url' => url('/webhooks/mercadopago'),
             'payer' => $this->buildPayer($invoice, $payerEmail),
         ];
 

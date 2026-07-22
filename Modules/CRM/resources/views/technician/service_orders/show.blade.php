@@ -16,6 +16,12 @@
             <span class="px-3 py-1 rounded-full text-sm font-medium {{ $serviceOrder->status === 'active' ? 'bg-blue-100 text-blue-700' : ($serviceOrder->status === 'closed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700') }}">
                 {{ ucfirst($serviceOrder->status) }}
             </span>
+            @if($serviceOrder->situacao === 'O')
+            <form method="POST" action="{{ route('technician.portal.service-orders.start', $serviceOrder) }}" class="inline">
+                @csrf
+                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">Iniciar</button>
+            </form>
+            @endif
         </div>
     </div>
 
@@ -82,6 +88,29 @@
         </div>
     </div>
 </div>
+
+@if($serviceOrder->situacao === 'A')
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+    <h3 class="text-lg font-semibold text-gray-800 mb-4">Concluir Ordem de Servico</h3>
+    <form method="POST" action="{{ route('technician.portal.service-orders.complete', $serviceOrder) }}" class="space-y-4">
+        @csrf
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Diagnostico</label>
+            <textarea name="diagnostico" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Descreva o diagnostico...">{{ $serviceOrder->diagnostico }}</textarea>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Solucao</label>
+            <textarea name="solucao" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Descreva a solucao aplicada...">{{ $serviceOrder->solucao }}</textarea>
+        </div>
+
+        <div class="flex justify-end">
+            <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">Concluir OS</button>
+        </div>
+    </form>
+</div>
+@endif
 
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
     <h3 class="text-lg font-semibold text-gray-800 mb-4">Atualizar Ordem de Servico</h3>

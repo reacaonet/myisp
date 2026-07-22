@@ -39,6 +39,10 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                     Tecnicos
                 </a>
+                <a href="{{ route('technician.portal.dashboard') }}" target="_blank" class="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-800">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                    Portal Tecnico
+                </a>
 
                 <p class="text-xs font-semibold uppercase text-gray-500 px-3 mt-6 mb-2">Financeiro</p>
                 <a href="{{ route('billing.invoices.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('billing.invoices.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">

@@ -47,6 +47,11 @@ return [
             'driver' => 'session',
             'provider' => 'clients',
         ],
+
+        'technician' => [
+            'driver' => 'session',
+            'provider' => 'technicians',
+        ],
     ],
 
     /*
@@ -75,6 +80,11 @@ return [
         'clients' => [
             'driver' => 'eloquent',
             'model' => Modules\CRM\Models\Client::class,
+        ],
+
+        'technicians' => [
+            'driver' => 'eloquent',
+            'model' => Modules\CRM\Models\Technician::class,
         ],
 
         // 'users' => [

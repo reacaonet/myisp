@@ -23,6 +23,8 @@ class TechnicianController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'login' => 'nullable|string|max:255|unique:technicians,login',
+            'senha' => 'nullable|string|min:6',
             'cargo' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:20',
             'cellphone' => 'nullable|string|max:20',
@@ -50,6 +52,8 @@ class TechnicianController extends Controller
 
         $validated = $request->validate([
             'name' => 'string|max:255',
+            'login' => 'nullable|string|max:255|unique:technicians,login,' . $technician->id,
+            'senha' => 'nullable|string|min:6',
             'cargo' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:20',
             'cellphone' => 'nullable|string|max:20',

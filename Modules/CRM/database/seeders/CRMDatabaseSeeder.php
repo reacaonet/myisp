@@ -35,11 +35,11 @@ class CRMDatabaseSeeder extends Seeder
         }
 
         $technicians = [
-            ['name' => 'Carlos Alberto', 'cargo' => 'Técnico Senior', 'phone' => '(11) 9999-8888', 'cellphone' => '(11) 98888-7777', 'email' => 'carlos@myisp.com', 'city' => 'Sao Paulo', 'state' => 'SP', 'is_active' => true],
-            ['name' => 'Fernanda Lima', 'cargo' => 'Técnica Pleno', 'phone' => '(11) 97777-6666', 'cellphone' => '(11) 97777-5555', 'email' => 'fernanda@myisp.com', 'city' => 'Sao Paulo', 'state' => 'SP', 'is_active' => true],
-            ['name' => 'Roberto Santos', 'cargo' => 'Técnico Junior', 'phone' => '(11) 96666-5555', 'cellphone' => '(11) 96666-4444', 'email' => 'roberto@myisp.com', 'city' => 'Guarulhos', 'state' => 'SP', 'is_active' => true],
-            ['name' => 'Juliana Costa', 'cargo' => 'Técnica Nível 1', 'phone' => '(11) 95555-4444', 'cellphone' => '(11) 95555-3333', 'email' => 'juliana@myisp.com', 'city' => 'Osasco', 'state' => 'SP', 'is_active' => true],
-            ['name' => 'Marcos Oliveira', 'cargo' => 'Técnico', 'phone' => '(11) 94444-3333', 'cellphone' => '(11) 94444-2222', 'email' => 'marcos@myisp.com', 'city' => 'Sao Paulo', 'state' => 'SP', 'is_active' => false],
+            ['name' => 'Carlos Alberto', 'login' => 'carlos', 'senha' => 'tecnico123', 'cargo' => 'Técnico Senior', 'phone' => '(11) 9999-8888', 'cellphone' => '(11) 98888-7777', 'email' => 'carlos@myisp.com', 'city' => 'Sao Paulo', 'state' => 'SP', 'is_active' => true],
+            ['name' => 'Fernanda Lima', 'login' => 'fernanda', 'senha' => 'tecnico123', 'cargo' => 'Técnica Pleno', 'phone' => '(11) 97777-6666', 'cellphone' => '(11) 97777-5555', 'email' => 'fernanda@myisp.com', 'city' => 'Sao Paulo', 'state' => 'SP', 'is_active' => true],
+            ['name' => 'Roberto Santos', 'login' => 'roberto', 'senha' => 'tecnico123', 'cargo' => 'Técnico Junior', 'phone' => '(11) 96666-5555', 'cellphone' => '(11) 96666-4444', 'email' => 'roberto@myisp.com', 'city' => 'Guarulhos', 'state' => 'SP', 'is_active' => true],
+            ['name' => 'Juliana Costa', 'login' => 'juliana', 'senha' => 'tecnico123', 'cargo' => 'Técnica Nível 1', 'phone' => '(11) 95555-4444', 'cellphone' => '(11) 95555-3333', 'email' => 'juliana@myisp.com', 'city' => 'Osasco', 'state' => 'SP', 'is_active' => true],
+            ['name' => 'Marcos Oliveira', 'login' => 'marcos', 'senha' => 'tecnico123', 'cargo' => 'Técnico', 'phone' => '(11) 94444-3333', 'cellphone' => '(11) 94444-2222', 'email' => 'marcos@myisp.com', 'city' => 'Sao Paulo', 'state' => 'SP', 'is_active' => false],
         ];
 
         foreach ($technicians as $data) {

@@ -9,6 +9,7 @@ use Modules\CRM\Http\Controllers\Web\ServiceOrderController;
 use Modules\CRM\Http\Controllers\Web\TechnicianController;
 use Modules\CRM\Http\Controllers\Web\PortalController;
 use Modules\CRM\Http\Controllers\Web\TicketController;
+use Modules\CRM\Http\Controllers\Web\TechnicianPortalController;
 
 Route::prefix('crm')->middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('crm.dashboard');
@@ -69,5 +70,21 @@ Route::prefix('crm/portal')->name('crm.portal.')->group(function () {
         Route::post('chamados', [PortalController::class, 'ticketStore'])->name('tickets.store');
         Route::get('chamados/{ticket}', [PortalController::class, 'ticketShow'])->name('tickets.show');
         Route::post('chamados/{ticket}/responder', [PortalController::class, 'ticketReply'])->name('tickets.reply');
+    });
+});
+
+Route::prefix('tecnico')->name('technician.portal.')->group(function () {
+    Route::get('login', [TechnicianPortalController::class, 'loginForm'])->name('login');
+    Route::post('login', [TechnicianPortalController::class, 'login']);
+    Route::post('logout', [TechnicianPortalController::class, 'logout'])->name('logout');
+
+    Route::middleware('auth:technician')->group(function () {
+        Route::get('dashboard', [TechnicianPortalController::class, 'dashboard'])->name('dashboard');
+        Route::get('ordens-servico', [TechnicianPortalController::class, 'serviceOrders'])->name('service-orders');
+        Route::get('ordens-servico/{service_order}', [TechnicianPortalController::class, 'serviceOrderShow'])->name('service-orders.show');
+        Route::put('ordens-servico/{service_order}', [TechnicianPortalController::class, 'updateServiceOrder'])->name('service-orders.update');
+        Route::get('perfil', [TechnicianPortalController::class, 'profile'])->name('profile');
+        Route::post('perfil', [TechnicianPortalController::class, 'updateProfile'])->name('profile.update');
+        Route::post('perfil/senha', [TechnicianPortalController::class, 'changePassword'])->name('profile.password');
     });
 });

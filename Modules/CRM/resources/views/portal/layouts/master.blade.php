@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'Portal do Cliente') - MyISP</title>
+    <title>@yield('title', 'Area do Cliente') - MyISP</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-gray-100 font-sans antialiased">
@@ -11,7 +11,7 @@
         <aside class="w-64 bg-gray-900 text-white flex flex-col shrink-0">
             <div class="h-16 flex items-center px-6 border-b border-gray-700">
                 <a href="{{ route('crm.portal.dashboard') }}" class="text-xl font-bold tracking-tight">My<span class="text-blue-400">ISP</span></a>
-                <span class="ml-2 text-xs bg-blue-600 px-2 py-0.5 rounded">Cliente</span>
+                <span class="ml-2 text-xs bg-blue-600 px-2 py-0.5 rounded">Area do Cliente</span>
             </div>
             <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
                 <a href="{{ route('crm.portal.dashboard') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('crm.portal.dashboard') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">

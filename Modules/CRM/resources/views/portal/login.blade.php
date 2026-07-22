@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portal do Cliente - MyISP</title>
+    <title>Area do Cliente - MyISP</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-gray-100 font-sans antialiased min-h-screen flex items-center justify-center">
     <div class="max-w-md w-full bg-white rounded-xl shadow-sm border border-gray-200 p-8 mx-4">
         <div class="text-center mb-8">
-            <h2 class="text-2xl font-bold text-gray-900">Portal do Cliente</h2>
+            <h2 class="text-2xl font-bold text-gray-900">Area do Cliente</h2>
             <p class="text-sm text-gray-500 mt-1">Acesse com seu login e senha</p>
         </div>
 

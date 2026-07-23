@@ -5,7 +5,7 @@
 @push('styles')
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-    #map { height: calc(100vh - 220px); min-height: 500px; border-radius: 12px; z-index: 0; }
+    #map { height: 600px; border-radius: 12px; z-index: 0; }
     .leaflet-popup-content { font-size: 13px; line-height: 1.5; }
     .leaflet-popup-content b { color: #1f2937; }
     .marker-cto { background: #ef4444; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
@@ -122,6 +122,7 @@
 
     document.getElementById('cityFilter').addEventListener('change', loadMapData);
     loadMapData();
+    setTimeout(function() { map.invalidateSize(); }, 200);
 })();
 </script>
 @endpush

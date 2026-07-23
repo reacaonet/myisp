@@ -250,6 +250,105 @@ class FtthController extends Controller
         return view('ftth::generate-cities');
     }
 
+    public function exportKml()
+    {
+        $cities = Cto::whereNotNull('city')->distinct()->pluck('city')->sort()->values();
+        return view('ftth::export-kml', compact('cities'));
+    }
+
+    public function downloadKml(string $city)
+    {
+        $ctos = Cto::where('city', $city)->orderBy('code')->get();
+        $caixas = CaixaEmenda::where('city', $city)->with('ctos')->orderBy('code')->get();
+
+        if ($ctos->isEmpty() && $caixas->isEmpty()) {
+            return back()->withErrors(['city' => "Nenhuma CTO ou Caixa encontrada para {$city}."]);
+        }
+
+        $xml = $this->buildKml($city, $ctos, $caixas);
+
+        $filename = 'FTTH_' . preg_replace('/[^a-zA-Z0-9]/', '_', $city) . '_' . date('Ymd_His') . '.kml';
+
+        return response($xml, 200)
+            ->header('Content-Type', 'application/vnd.google-earth.kml+xml')
+            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+    }
+
+    private function buildKml(string $city, $ctos, $caixas): string
+    {
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+        $xml .= '<kml xmlns="http://www.opengis.net/kml/2.2">' . "\n";
+        $xml .= '<Document>' . "\n";
+        $xml .= '  <name>FTTH - ' . htmlspecialchars($city) . '</name>' . "\n";
+        $xml .= '  <description>Rede FTTH gerada automaticamente para ' . htmlspecialchars($city) . '</description>' . "\n";
+
+        $xml .= '  <Style id="cto-style">' . "\n";
+        $xml .= '    <IconStyle>' . "\n";
+        $xml .= '      <color>ff0000ff</color>' . "\n";
+        $xml .= '      <scale>0.8</scale>' . "\n";
+        $xml .= '      <Icon><href>http://maps.google.com/mapfiles/kml/shapes/target.png</href></Icon>' . "\n";
+        $xml .= '    </IconStyle>' . "\n";
+        $xml .= '    <LabelStyle><scale>0.7</scale></LabelStyle>' . "\n";
+        $xml .= '  </Style>' . "\n";
+
+        $xml .= '  <Style id="caixa-style">' . "\n";
+        $xml .= '    <IconStyle>' . "\n";
+        $xml .= '      <color>ff00ff00</color>' . "\n";
+        $xml .= '      <scale>1.0</scale>' . "\n";
+        $xml .= '      <Icon><href>http://maps.google.com/mapfiles/kml/shapes/square.png</href></Icon>' . "\n";
+        $xml .= '    </IconStyle>' . "\n";
+        $xml .= '    <LabelStyle><scale>0.8</scale></LabelStyle>' . "\n";
+        $xml .= '  </Style>' . "\n";
+
+        $xml .= '  <Folder>' . "\n";
+        $xml .= '    <name>Caixas de Emenda (' . $caixas->count() . ')</name>' . "\n";
+        foreach ($caixas as $caixa) {
+            $xml .= '    <Placemark>' . "\n";
+            $xml .= '      <name>' . htmlspecialchars($caixa->code) . ' - ' . htmlspecialchars($caixa->street ?? '') . '</name>' . "\n";
+            $xml .= '      <styleUrl>#caixa-style</styleUrl>' . "\n";
+            $xml .= '      <description><![CDATA[';
+            $xml .= '<b>Codigo:</b> ' . htmlspecialchars($caixa->code) . '<br/>';
+            $xml .= '<b>Nome:</b> ' . htmlspecialchars($caixa->name) . '<br/>';
+            $xml .= '<b>Rua:</b> ' . htmlspecialchars($caixa->street ?? '-') . '<br/>';
+            $xml .= '<b>Cidade:</b> ' . htmlspecialchars($caixa->city ?? '-') . '<br/>';
+            $xml .= '<b>Capacidade:</b> ' . $caixa->capacity . '<br/>';
+            $xml .= '<b>Portas usadas:</b> ' . $caixa->used_ports . '<br/>';
+            $xml .= '<b>CTOs:</b> ' . $caixa->ctos_count . '<br/>';
+            $xml .= ']]></description>' . "\n";
+            $xml .= '      <Point><coordinates>' . $caixa->longitude . ',' . $caixa->latitude . ',0</coordinates></Point>' . "\n";
+            $xml .= '    </Placemark>' . "\n";
+        }
+        $xml .= '  </Folder>' . "\n";
+
+        $xml .= '  <Folder>' . "\n";
+        $xml .= '    <name>CTOs (' . $ctos->count() . ')</name>' . "\n";
+        foreach ($ctos as $cto) {
+            $xml .= '    <Placemark>' . "\n";
+            $xml .= '      <name>' . htmlspecialchars($cto->code) . ' - ' . htmlspecialchars($cto->street ?? '') . '</name>' . "\n";
+            $xml .= '      <styleUrl>#cto-style</styleUrl>' . "\n";
+            $xml .= '      <description><![CDATA[';
+            $xml .= '<b>Codigo:</b> ' . htmlspecialchars($cto->code) . '<br/>';
+            $xml .= '<b>Nome:</b> ' . htmlspecialchars($cto->name) . '<br/>';
+            $xml .= '<b>Rua:</b> ' . htmlspecialchars($cto->street ?? '-') . '<br/>';
+            $xml .= '<b>Cidade:</b> ' . htmlspecialchars($cto->city ?? '-') . '<br/>';
+            $xml .= '<b>Capacidade:</b> ' . $cto->capacity . '<br/>';
+            $xml .= '<b>Portas usadas:</b> ' . $cto->used_ports . '<br/>';
+            if ($cto->caixaEmenda) {
+                $xml .= '<b>Caixa:</b> ' . htmlspecialchars($cto->caixaEmenda->code) . '<br/>';
+            }
+            $xml .= '<b>Distancia:</b> ' . number_format($cto->distance_from_start ?? 0, 0) . 'm do inicio<br/>';
+            $xml .= ']]></description>' . "\n";
+            $xml .= '      <Point><coordinates>' . $cto->longitude . ',' . $cto->latitude . ',0</coordinates></Point>' . "\n";
+            $xml .= '    </Placemark>' . "\n";
+        }
+        $xml .= '  </Folder>' . "\n";
+
+        $xml .= '</Document>' . "\n";
+        $xml .= '</kml>';
+
+        return $xml;
+    }
+
     public function runGenerateCity(Request $request)
     {
         $hasBounds = $request->filled('south') && $request->filled('west') && $request->filled('north') && $request->filled('east');

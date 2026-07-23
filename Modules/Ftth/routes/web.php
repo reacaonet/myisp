@@ -29,4 +29,7 @@ Route::middleware(['auth', 'verified'])->prefix('ftth')->name('ftth.')->group(fu
     Route::post('/gerar-cidade', [FtthController::class, 'runGenerateCity'])->name('generate.city.run');
 
     Route::get('/gerar-cidades', [FtthController::class, 'generateCities'])->name('generate.cities');
+
+    Route::get('/exportar-kml', [FtthController::class, 'exportKml'])->name('export.kml');
+    Route::get('/exportar-kml/{city}', [FtthController::class, 'downloadKml'])->name('export.kml.download');
 });

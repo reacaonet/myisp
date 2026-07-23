@@ -1,0 +1,11 @@
+{
+    "name": "Ftth",
+    "alias": "ftth",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Ftth\\Providers\\FtthServiceProvider"
+    ],
+    "files": []
+}

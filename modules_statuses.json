@@ -2,5 +2,6 @@
     "Core": true,
     "CRM": true,
     "Billing": true,
-    "Network": true
+    "Network": true,
+    "Ftth": true
 }

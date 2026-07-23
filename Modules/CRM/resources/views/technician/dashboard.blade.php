@@ -2,12 +2,21 @@
 
 @section('title', 'Dashboard')
 
+@php
+    $todayOrders = $serviceOrders->filter(fn($os) => $os->data_agendamento && $os->data_agendamento->isToday());
+    $inProgressOrders = $serviceOrders->filter(fn($os) => $os->situacao === 'A');
+@endphp
+
 @section('content')
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
     <div class="flex items-center justify-between">
         <div>
             <h2 class="text-xl font-bold text-gray-900">Bem-vindo, {{ $technician->name }}</h2>
             <p class="text-sm text-gray-500 mt-1">{{ $technician->cargo ?? 'Tecnico' }} &middot; {{ $technician->email ?? '-' }} &middot; {{ $technician->cellphone ?? $technician->phone ?? '-' }}</p>
+        </div>
+        <div class="text-right">
+            <p class="text-sm text-gray-500">{{ now()->format('d/m/Y') }}</p>
+            <p class="text-xs text-gray-400">{{ now()->translatedFormat('l') }}</p>
         </div>
     </div>
 </div>
@@ -62,6 +71,52 @@
     </div>
 </div>
 
+@if($inProgressOrders->isNotEmpty())
+<div class="bg-yellow-50 rounded-xl shadow-sm border border-yellow-200 p-6 mb-6">
+    <h3 class="text-lg font-semibold text-yellow-800 mb-4">Em Andamento Agora</h3>
+    <div class="space-y-3">
+        @foreach($inProgressOrders as $os)
+        <a href="{{ route('technician.portal.service-orders.show', $os) }}" class="flex items-center justify-between p-3 bg-white rounded-lg border border-yellow-200 hover:shadow-sm transition">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+                    <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <div>
+                    <p class="font-medium text-gray-900">{{ $os->codigo }}</p>
+                    <p class="text-sm text-gray-500">{{ $os->client->name }} - {{ $os->servico ?? $os->tipo_servico }}</p>
+                </div>
+            </div>
+            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </a>
+        @endforeach
+    </div>
+</div>
+@endif
+
+@if($todayOrders->isNotEmpty())
+<div class="bg-blue-50 rounded-xl shadow-sm border border-blue-200 p-6 mb-6">
+    <h3 class="text-lg font-semibold text-blue-800 mb-4">Agenda de Hoje</h3>
+    <div class="space-y-3">
+        @foreach($todayOrders as $os)
+        <a href="{{ route('technician.portal.service-orders.show', $os) }}" class="flex items-center justify-between p-3 bg-white rounded-lg border border-blue-200 hover:shadow-sm transition">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                </div>
+                <div>
+                    <p class="font-medium text-gray-900">{{ $os->codigo }} @if($os->hora_agendamento) <span class="text-sm text-gray-500">as {{ $os->hora_agendamento }}</span> @endif</p>
+                    <p class="text-sm text-gray-500">{{ $os->client->name }} - {{ $os->servico ?? $os->tipo_servico }}</p>
+                </div>
+            </div>
+            <span class="px-2 py-0.5 rounded-full text-xs font-medium {{ $os->situacao === 'O' ? 'bg-blue-100 text-blue-700' : ($os->situacao === 'A' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700') }}">
+                {{ $os->situacao === 'O' ? 'Aberta' : ($os->situacao === 'A' ? 'Em Andamento' : 'Finalizada') }}
+            </span>
+        </a>
+        @endforeach
+    </div>
+</div>
+@endif
+
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
     <h3 class="text-lg font-semibold text-gray-800 mb-4">Minhas Ordens de Servico</h3>
     @if($serviceOrders->isEmpty())
@@ -101,7 +156,7 @@
                             </span>
                         </td>
                         <td class="py-3 text-sm text-right">
-                            <a href="{{ route('technician.portal.service-orders.show', $os) }}" class="text-blue-600 hover:underline text-sm">Ver</a>
+                            <a href="{{ route('technician.portal.service-orders.show', $os) }}" title="Ver" class="p-1.5 rounded hover:bg-blue-50 text-blue-600 inline-flex"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></a>
                         </td>
                     </tr>
                     @endforeach

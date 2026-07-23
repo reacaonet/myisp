@@ -48,7 +48,7 @@
             </div>
             @if($contract->status === 'active')
             <div class="mt-3">
-                <a href="{{ route('crm.portal.contracts.show', $contract) }}" class="text-sm text-blue-600 hover:underline">Ver detalhes</a>
+                <a href="{{ route('crm.portal.contracts.show', $contract) }}" class="text-sm text-blue-600 hover:underline inline-flex items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Ver detalhes</a>
             </div>
             @endif
         </div>
@@ -57,7 +57,7 @@
     @endif
 
     <div class="p-6 border-t border-gray-200 text-center">
-        <a href="{{ route('crm.portal.dashboard') }}" class="text-sm text-blue-600 hover:underline">&larr; Voltar ao Dashboard</a>
+        <a href="{{ route('crm.portal.dashboard') }}" class="text-sm text-blue-600 hover:underline inline-flex items-center gap-1 justify-center"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg> Voltar ao Dashboard</a>
     </div>
 </div>
 @endsection

@@ -5,7 +5,15 @@
 @section('content')
 <div class="max-w-3xl mx-auto">
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-        <h3 class="text-lg font-semibold text-gray-800 mb-6">Informacoes Pessoais</h3>
+        <div class="flex items-center gap-4 mb-6">
+            <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
+                <span class="text-2xl font-bold text-blue-600">{{ substr($technician->name, 0, 1) }}</span>
+            </div>
+            <div>
+                <h3 class="text-lg font-semibold text-gray-800">{{ $technician->name }}</h3>
+                <p class="text-sm text-gray-500">{{ $technician->cargo ?? 'Tecnico' }}</p>
+            </div>
+        </div>
 
         @if(session('success'))
         <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">{{ session('success') }}</div>

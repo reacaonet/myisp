@@ -35,6 +35,16 @@
         @if($invoice->gateway_payment_url)
             <a href="{{ $invoice->gateway_payment_url }}" target="_blank" class="mp-link" style="margin-left: 10px;">Abrir no Mercado Pago</a>
         @endif
+        @if(in_array($invoice->status, ['pending', 'overdue']))
+        <form method="POST" action="{{ route('billing.boleto.cancel-payment', $invoice) }}" style="display:inline; margin-left: 10px;" onsubmit="return confirm('Cancelar este pagamento no gateway?')">
+            @csrf
+            <button type="submit" title="Cancelar Pagamento" style="padding: 10px 20px; background: #ea580c; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px;">&#10005; Cancelar</button>
+        </form>
+        <form method="POST" action="{{ route('billing.boleto.delete-payment', $invoice) }}" style="display:inline; margin-left: 10px;" onsubmit="return confirm('Remover os dados deste pagamento?')">
+            @csrf
+            <button type="submit" title="Excluir Dados" style="padding: 10px 20px; background: #dc2626; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px;">&#128465; Excluir</button>
+        </form>
+        @endif
     </div>
 
     {{-- PIX Section --}}

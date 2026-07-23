@@ -6,7 +6,7 @@
 <div class="space-y-6">
     <div class="flex items-center justify-between">
         <h2 class="text-lg font-semibold text-gray-800">Servidores de Rede</h2>
-        <button onclick="location.reload()" class="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm font-medium hover:bg-gray-700">Atualizar</button>
+        <button onclick="location.reload()" title="Atualizar" class="p-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></button>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -95,10 +95,10 @@
                 </div>
                 @endif
 
-                <div class="p-4 border-t border-gray-100 flex items-center gap-2">
+                <div class="p-4 border-t border-gray-100 flex items-center gap-1">
                     @if($stats['online'])
-                        <a href="{{ route('crm.network-monitor.show', $server) }}" class="flex-1 text-center px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700">Detalhes</a>
-                        <a href="{{ route('crm.network-monitor.active-users', $server) }}" class="flex-1 text-center px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700">Usuarios Ativos</a>
+                        <a href="{{ route('crm.network-monitor.show', $server) }}" title="Detalhes" class="flex-1 text-center px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 flex items-center justify-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Detalhes</a>
+                        <a href="{{ route('crm.network-monitor.active-users', $server) }}" title="Usuarios Ativos" class="flex-1 text-center px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 flex items-center justify-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg> Usuarios</a>
                     @else
                         <span class="flex-1 text-center px-3 py-1.5 bg-gray-200 text-gray-400 rounded-lg text-xs font-medium cursor-not-allowed">Indisponivel</span>
                     @endif

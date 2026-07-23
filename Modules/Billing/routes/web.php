@@ -49,6 +49,7 @@ Route::prefix('boletos')->name('billing.boleto.')->middleware('auth')->group(fun
     Route::post('/{invoice}/gerar-pix', [BoletoController::class, 'generatePix'])->name('generate-pix');
     Route::get('/{invoice}/sincronizar-status', [BoletoController::class, 'refreshStatus'])->name('refresh-status');
     Route::post('/{invoice}/cancelar-pagamento', [BoletoController::class, 'cancelPayment'])->name('cancel-payment');
+    Route::post('/{invoice}/excluir-pagamento', [BoletoController::class, 'deletePayment'])->name('delete-payment');
 });
 
 Route::prefix('gateways')->name('billing.gateways.')->middleware('auth')->group(function () {

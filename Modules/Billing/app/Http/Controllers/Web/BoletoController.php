@@ -193,10 +193,42 @@ class BoletoController extends Controller
         $result = $service->cancelPayment($invoice);
 
         if ($result) {
-            $invoice->update(['status' => 'canceled', 'gateway_status' => 'cancelled']);
+            $invoice->update([
+                'status' => 'canceled',
+                'gateway_status' => 'cancelled',
+                'gateway_id' => null,
+                'boleto_numero' => null,
+                'link_boleto' => null,
+                'gateway_payment_url' => null,
+                'gateway_qr_code' => null,
+                'pix_copy_paste' => null,
+                'barcode' => null,
+                'digitable_line' => null,
+                'transaction_id' => null,
+            ]);
             return back()->with('success', 'Pagamento cancelado com sucesso.');
         }
 
         return back()->with('error', 'Erro ao cancelar pagamento.');
+    }
+
+    public function deletePayment($id)
+    {
+        $invoice = Invoice::findOrFail($id);
+
+        $invoice->update([
+            'gateway_id' => null,
+            'boleto_numero' => null,
+            'link_boleto' => null,
+            'gateway_payment_url' => null,
+            'gateway_qr_code' => null,
+            'pix_copy_paste' => null,
+            'barcode' => null,
+            'digitable_line' => null,
+            'transaction_id' => null,
+            'gateway_status' => null,
+        ]);
+
+        return back()->with('success', 'Dados do pagamento removidos da fatura.');
     }
 }

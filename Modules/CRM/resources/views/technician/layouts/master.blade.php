@@ -21,6 +21,16 @@
                 <a href="{{ route('technician.portal.service-orders') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('technician.portal.service-orders*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
                     Minhas OS
+                    @php
+                        $todayCount = Auth::guard('technician')->user()->serviceOrders()->whereDate('data_agendamento', today())->count();
+                    @endphp
+                    @if($todayCount > 0)
+                    <span class="ml-auto bg-yellow-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">{{ $todayCount }}</span>
+                    @endif
+                </a>
+                <a href="{{ route('technician.portal.profile') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('technician.portal.profile*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                    Meu Perfil
                 </a>
                 <hr class="border-gray-700 my-4">
             </nav>

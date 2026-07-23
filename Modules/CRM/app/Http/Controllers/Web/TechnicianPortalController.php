@@ -66,6 +66,10 @@ class TechnicianPortalController extends Controller
             $query->where('status', $status);
         }
 
+        if ($situacao = $request->input('situacao')) {
+            $query->where('situacao', $situacao);
+        }
+
         $serviceOrders = $query->latest('emissao')->paginate(20);
 
         return view('crm::technician.service_orders.index', compact('serviceOrders'));

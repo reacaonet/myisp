@@ -10,9 +10,9 @@
                 <h2 class="text-xl font-bold text-gray-900">{{ $client->name }}</h2>
                 <p class="text-sm text-gray-500">{{ $client->document }} &middot; {{ $client->email ?? '-' }} &middot; {{ $client->cellphone ?? $client->phone ?? '-' }}</p>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-1">
                 @include('crm::clients._status_badge', ['status' => $client->status])
-                <a href="{{ route('crm.clients.edit', $client) }}" class="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50">Editar</a>
+                <a href="{{ route('crm.clients.edit', $client) }}" title="Editar" class="p-2 rounded-lg text-blue-600 border border-blue-200 hover:bg-blue-50"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></a>
             </div>
         </div>
 
@@ -126,7 +126,7 @@
                                 </td>
                                 <td class="px-4 py-3">@include('crm::clients._status_badge', ['status' => $contract->status])</td>
                                 <td class="px-4 py-3 text-right">
-                                    <a href="{{ route('crm.contracts.show', $contract) }}" class="text-blue-600 hover:underline text-sm">Detalhes</a>
+                                    <a href="{{ route('crm.contracts.show', $contract) }}" title="Detalhes" class="p-1.5 rounded hover:bg-blue-50 text-blue-600 inline-flex"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></a>
                                 </td>
                             </tr>
                             @endforeach
@@ -137,7 +137,7 @@
                 <p class="text-sm text-gray-400 text-center py-8">Nenhum contrato encontrado.</p>
                 @endif
                 <div class="mt-4">
-                    <a href="{{ route('crm.contracts.create', ['client_id' => $client->id]) }}" class="text-sm text-blue-600 hover:underline">+ Novo Contrato</a>
+                    <a href="{{ route('crm.contracts.create', ['client_id' => $client->id]) }}" class="text-sm text-blue-600 hover:underline inline-flex items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg> Novo Contrato</a>
                 </div>
             </div>
 
@@ -168,7 +168,7 @@
                                 <td class="px-4 py-3 text-gray-600">{{ $inv->paid_date?->format('d/m/Y') ?? '-' }}</td>
                                 <td class="px-4 py-3 text-right">
                                     @if($inv->link_boleto)
-                                    <a href="{{ $inv->link_boleto }}" target="_blank" class="text-blue-600 hover:underline text-sm">Boleto</a>
+                                    <a href="{{ $inv->link_boleto }}" target="_blank" title="Ver Boleto" class="p-1.5 rounded hover:bg-blue-50 text-blue-600 inline-flex"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/></svg></a>
                                     @else
                                     <span class="text-gray-400">-</span>
                                     @endif
@@ -225,7 +225,7 @@
                                     </span>
                                 </td>
                                 <td class="px-4 py-3 text-right">
-                                    <a href="{{ route('crm.service-orders.show', $os) }}" class="text-blue-600 hover:underline text-sm">Detalhes</a>
+                                    <a href="{{ route('crm.service-orders.show', $os) }}" title="Detalhes" class="p-1.5 rounded hover:bg-blue-50 text-blue-600 inline-flex"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></a>
                                 </td>
                             </tr>
                             @endforeach

@@ -140,6 +140,11 @@ Route::prefix('crm/portal')->name('crm.portal.')->group(function () {
         Route::get('faturas/{invoice}/recibo', [PortalController::class, 'invoiceReceipt'])->name('invoices.receipt');
         Route::get('faturas/{invoice}/pagar', [PortalController::class, 'invoicePaymentForm'])->name('invoices.pay');
         Route::post('faturas/{invoice}/pagar', [PortalController::class, 'invoicePay'])->name('invoices.pay.store');
+        Route::get('faturas/{invoice}/boleto', [PortalController::class, 'invoiceBoleto'])->name('invoices.boleto');
+        Route::post('faturas/{invoice}/gerar-boleto', [PortalController::class, 'invoiceGenerateBoleto'])->name('invoices.generate-boleto');
+        Route::post('faturas/{invoice}/gerar-pix', [PortalController::class, 'invoiceGeneratePix'])->name('invoices.generate-pix');
+        Route::post('faturas/{invoice}/cancelar-pagamento', [PortalController::class, 'invoiceCancelBoleto'])->name('invoices.cancel-payment');
+        Route::post('faturas/{invoice}/excluir-pagamento', [PortalController::class, 'invoiceDeleteBoleto'])->name('invoices.delete-payment');
         Route::get('contratos', [PortalController::class, 'contracts'])->name('contracts');
         Route::get('contratos/{contract}', [PortalController::class, 'contractShow'])->name('contracts.show');
         Route::get('ordens-servico', [PortalController::class, 'serviceOrders'])->name('service-orders');

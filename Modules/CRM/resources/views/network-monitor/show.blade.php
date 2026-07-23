@@ -12,9 +12,9 @@
             <h2 class="text-lg font-semibold text-gray-800">{{ $server->name }}</h2>
             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Online</span>
         </div>
-        <div class="flex items-center gap-2">
-            <a href="{{ route('crm.network-monitor.active-users', $server) }}" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">Usuarios Ativos</a>
-            <button onclick="location.reload()" class="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm font-medium hover:bg-gray-700">Atualizar</button>
+        <div class="flex items-center gap-1">
+            <a href="{{ route('crm.network-monitor.active-users', $server) }}" title="Usuarios Ativos" class="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg></a>
+            <button onclick="location.reload()" title="Atualizar" class="p-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></button>
         </div>
     </div>
 

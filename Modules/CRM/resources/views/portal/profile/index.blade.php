@@ -5,8 +5,14 @@
 @section('content')
 <div class="max-w-3xl mx-auto space-y-6">
     <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div class="p-6 border-b border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-800">Dados do Cadastro</h3>
+        <div class="p-6 border-b border-gray-200 flex items-center gap-4">
+            <div class="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center">
+                <span class="text-xl font-bold text-blue-600">{{ substr($client->name, 0, 1) }}</span>
+            </div>
+            <div>
+                <h3 class="text-lg font-semibold text-gray-800">{{ $client->name }}</h3>
+                <p class="text-sm text-gray-500">{{ $client->type == 'individual' ? 'Pessoa Fisica' : 'Pessoa Juridica' }} &middot; {{ $client->document }}</p>
+            </div>
         </div>
         <div class="p-6">
             <dl class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">

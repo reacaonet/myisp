@@ -13,6 +13,7 @@ use Modules\CRM\Models\Contract;
 use Modules\Billing\Models\Invoice;
 use Modules\Billing\Models\PaymentGateway;
 use Modules\Billing\Services\PaymentService;
+use Modules\Core\Models\SystemSetting;
 
 class PortalController extends Controller
 {
@@ -316,5 +317,206 @@ class PortalController extends Controller
         $invoice->refresh();
 
         return view('crm::portal.invoices.pay-result', compact('invoice', 'result', 'validated'));
+    }
+
+    public function invoiceBoleto($id)
+    {
+        $client = Auth::guard('client')->user();
+        $invoice = Invoice::with(['client', 'gateway', 'contract.plan'])
+            ->where('client_id', $client->id)
+            ->findOrFail($id);
+
+        $bankSettings = [
+            'bank' => SystemSetting::get('bank_name', 'Banco do Brasil'),
+            'agency' => SystemSetting::get('bank_agency', ''),
+            'account' => SystemSetting::get('bank_account', ''),
+            'company' => SystemSetting::get('company_name', 'Minha ISP'),
+            'cnpj' => SystemSetting::get('company_document', ''),
+        ];
+
+        $mpAccount = null;
+        if ($invoice->gateway && $invoice->gateway->slug === 'mercado-pago') {
+            $mpAccount = $this->fetchMpAccountInfo($invoice->gateway);
+        }
+
+        return view('crm::portal.invoices.boleto', compact('invoice', 'bankSettings', 'mpAccount'));
+    }
+
+    public function invoiceGenerateBoleto(Request $request, $id)
+    {
+        $client = Auth::guard('client')->user();
+        $invoice = Invoice::with('client')
+            ->where('client_id', $client->id)
+            ->findOrFail($id);
+
+        if ($invoice->status === 'paid') {
+            return back()->with('error', 'Esta fatura ja foi paga.');
+        }
+
+        $validated = $request->validate([
+            'gateway_id' => 'required|exists:payment_gateways,id',
+        ]);
+
+        $gateway = PaymentGateway::findOrFail($validated['gateway_id']);
+
+        if (!$gateway->supports_boleto) {
+            return back()->with('error', 'Este gateway nao suporta boleto.');
+        }
+
+        $service = PaymentService::getGateway($gateway->slug);
+        if (!$service) {
+            return back()->with('error', 'Gateway de pagamento indisponivel.');
+        }
+
+        $invoice->update(['gateway_id' => $gateway->id]);
+        $result = $service->generateBoleto($invoice);
+
+        if (!isset($result['success']) || !$result['success']) {
+            return back()->with('error', $result['error'] ?? 'Erro ao gerar boleto.');
+        }
+
+        return redirect()->route('crm.portal.invoices.boleto', $invoice)
+            ->with('success', 'Boleto gerado com sucesso.');
+    }
+
+    public function invoiceGeneratePix(Request $request, $id)
+    {
+        $client = Auth::guard('client')->user();
+        $invoice = Invoice::with('client')
+            ->where('client_id', $client->id)
+            ->findOrFail($id);
+
+        if ($invoice->status === 'paid') {
+            return back()->with('error', 'Esta fatura ja foi paga.');
+        }
+
+        $validated = $request->validate([
+            'gateway_id' => 'required|exists:payment_gateways,id',
+        ]);
+
+        $gateway = PaymentGateway::findOrFail($validated['gateway_id']);
+
+        if (!$gateway->supports_pix) {
+            return back()->with('error', 'Este gateway nao suporta PIX.');
+        }
+
+        $service = PaymentService::getGateway($gateway->slug);
+        if (!$service) {
+            return back()->with('error', 'Gateway de pagamento indisponivel.');
+        }
+
+        $invoice->update(['gateway_id' => $gateway->id]);
+        $result = $service->generatePix($invoice);
+
+        if (!isset($result['success']) || !$result['success']) {
+            return back()->with('error', $result['error'] ?? 'Erro ao gerar PIX.');
+        }
+
+        $invoice->refresh();
+
+        return view('crm::portal.invoices.pay-result', compact('invoice', 'result', 'validated'));
+    }
+
+    public function invoiceCancelBoleto($id)
+    {
+        $client = Auth::guard('client')->user();
+        $invoice = Invoice::with(['client', 'gateway'])
+            ->where('client_id', $client->id)
+            ->findOrFail($id);
+
+        if ($invoice->status === 'paid') {
+            return back()->with('error', 'Nao e possivel cancelar uma fatura ja paga.');
+        }
+
+        if (!$invoice->gateway_id || !$invoice->boleto_numero) {
+            return back()->with('error', 'Nenhum pagamento ativo para cancelar.');
+        }
+
+        $service = PaymentService::forInvoice($invoice);
+        if ($service) {
+            $result = $service->cancelPayment($invoice);
+            if (!$result) {
+                return back()->with('error', 'Erro ao cancelar pagamento no gateway.');
+            }
+        }
+
+        $invoice->update([
+            'status' => 'canceled',
+            'gateway_status' => 'cancelled',
+            'gateway_id' => null,
+            'boleto_numero' => null,
+            'link_boleto' => null,
+            'gateway_payment_url' => null,
+            'gateway_qr_code' => null,
+            'pix_copy_paste' => null,
+            'barcode' => null,
+            'digitable_line' => null,
+            'transaction_id' => null,
+        ]);
+
+        return back()->with('success', 'Pagamento cancelado com sucesso.');
+    }
+
+    public function invoiceDeleteBoleto($id)
+    {
+        $client = Auth::guard('client')->user();
+        $invoice = Invoice::with('client')
+            ->where('client_id', $client->id)
+            ->findOrFail($id);
+
+        if ($invoice->status === 'paid') {
+            return back()->with('error', 'Nao e possivel excluir o boleto de uma fatura ja paga.');
+        }
+
+        $invoice->update([
+            'gateway_id' => null,
+            'boleto_numero' => null,
+            'link_boleto' => null,
+            'gateway_payment_url' => null,
+            'gateway_qr_code' => null,
+            'pix_copy_paste' => null,
+            'barcode' => null,
+            'digitable_line' => null,
+            'transaction_id' => null,
+            'gateway_status' => null,
+        ]);
+
+        return back()->with('success', 'Dados do pagamento removidos. Gere um novo boleto ou PIX quando desejar.');
+    }
+
+    private function fetchMpAccountInfo($gateway): ?array
+    {
+        $token = $gateway->config['access_token'] ?? null;
+        if (!$token) return null;
+
+        $cacheKey = 'mp_account_' . md5($token);
+        if (cache()->has($cacheKey)) {
+            return cache()->get($cacheKey);
+        }
+
+        $ch = curl_init('https://api.mercadopago.com/users/me');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 10,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $token],
+        ]);
+        $response = json_decode(curl_exec($ch), true);
+        curl_close($ch);
+
+        if (!isset($response['id'])) return null;
+
+        $info = [
+            'name' => trim(($response['first_name'] ?? '') . ' ' . ($response['last_name'] ?? '')),
+            'document_number' => $response['identification']['number'] ?? null,
+            'document_type' => $response['identification']['type'] ?? null,
+            'email' => $response['email'] ?? null,
+            'phone' => $response['phone']['number'] ?? null,
+            'address' => trim(($response['address']['address'] ?? '') . ' - ' . ($response['address']['city'] ?? '') . '/' . ($response['address']['state'] ?? '')),
+            'zip_code' => $response['address']['zip_code'] ?? null,
+        ];
+
+        cache()->put($cacheKey, $info, 3600);
+        return $info;
     }
 }

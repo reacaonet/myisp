@@ -19,7 +19,7 @@
             @if($serviceOrder->situacao === 'O')
             <form method="POST" action="{{ route('technician.portal.service-orders.start', $serviceOrder) }}" class="inline">
                 @csrf
-                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">Iniciar</button>
+                <button type="submit" title="Iniciar" class="p-2 rounded-lg bg-green-600 text-white hover:bg-green-700"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></button>
             </form>
             @endif
         </div>
@@ -37,6 +37,40 @@
         <div>
             <p class="font-medium text-gray-500">Tecnico</p>
             <p class="text-gray-900">{{ $serviceOrder->technician->name ?? 'Nao atribuido' }}</p>
+        </div>
+    </div>
+
+    {{-- Timeline --}}
+    <div class="mt-6 pt-4 border-t border-gray-200">
+        <h3 class="text-sm font-semibold text-gray-500 uppercase mb-4">Progresso</h3>
+        <div class="flex items-center justify-between">
+            <div class="flex flex-col items-center flex-1">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center {{ $serviceOrder->emissao ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-400' }}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                </div>
+                <p class="text-xs font-medium text-gray-600 mt-2">Abertura</p>
+                <p class="text-xs text-gray-400">{{ $serviceOrder->emissao?->format('d/m') ?? '-' }}</p>
+            </div>
+            <div class="flex-1 h-0.5 {{ $serviceOrder->situacao !== 'O' ? 'bg-blue-500' : 'bg-gray-200' }}"></div>
+            <div class="flex flex-col items-center flex-1">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center {{ in_array($serviceOrder->situacao, ['A', 'F']) ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-400' }}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <p class="text-xs font-medium text-gray-600 mt-2">Em Andamento</p>
+                @if($serviceOrder->saida)
+                <p class="text-xs text-gray-400">{{ $serviceOrder->saida->format('d/m') }}</p>
+                @endif
+            </div>
+            <div class="flex-1 h-0.5 {{ $serviceOrder->situacao === 'F' ? 'bg-green-500' : 'bg-gray-200' }}"></div>
+            <div class="flex flex-col items-center flex-1">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center {{ $serviceOrder->situacao === 'F' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-400' }}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <p class="text-xs font-medium text-gray-600 mt-2">Finalizada</p>
+                @if($serviceOrder->situacao === 'F')
+                <p class="text-xs text-gray-400">{{ $serviceOrder->updated_at->format('d/m') }}</p>
+                @endif
+            </div>
         </div>
     </div>
 </div>
@@ -106,7 +140,7 @@
         </div>
 
         <div class="flex justify-end">
-            <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">Concluir OS</button>
+            <button type="submit" title="Concluir OS" class="p-2 rounded-lg bg-green-600 text-white hover:bg-green-700"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></button>
         </div>
     </form>
 </div>
@@ -161,9 +195,9 @@
             <input type="number" step="0.01" name="preco" value="{{ $serviceOrder->preco }}" class="w-full max-w-xs px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
 
-        <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
-            <a href="{{ route('technician.portal.dashboard') }}" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Voltar</a>
-            <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">Salvar Alteracoes</button>
+        <div class="flex justify-end gap-1 pt-4 border-t border-gray-200">
+            <a href="{{ route('technician.portal.dashboard') }}" title="Voltar" class="p-2 rounded-lg text-gray-600 border border-gray-300 hover:bg-gray-50"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg></a>
+            <button type="submit" title="Salvar Alteracoes" class="p-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></button>
         </div>
     </form>
 </div>

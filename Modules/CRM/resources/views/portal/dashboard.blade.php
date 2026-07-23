@@ -80,19 +80,28 @@
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
     @if($stats['last_invoice'] && $stats['last_invoice']->status !== 'paid')
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 class="text-lg font-semibold text-gray-800 mb-3">Ultima Fatura</h3>
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-lg font-semibold text-gray-800">Ultima Fatura</h3>
+            @if($stats['last_invoice']->status === 'overdue')
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 animate-pulse">ATRASADA</span>
+            @endif
+        </div>
         @php $inv = $stats['last_invoice']; @endphp
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm text-gray-500">{{ $inv->invoice_number }}</p>
-                <p class="text-lg font-bold text-gray-900">R$ {{ number_format($inv->total, 2, ',', '.') }}</p>
+                <p class="text-2xl font-bold text-gray-900">R$ {{ number_format($inv->total, 2, ',', '.') }}</p>
                 <p class="text-sm text-gray-500">Vencimento: {{ $inv->due_date->format('d/m/Y') }}</p>
             </div>
             <div class="text-right">
                 @include('crm::clients._status_badge', ['status' => $inv->status])
             </div>
         </div>
-        <a href="{{ route('crm.portal.invoices') }}" class="mt-4 inline-block text-sm text-blue-600 hover:underline">Ver todas as faturas</a>
+        <div class="flex gap-2 mt-4">
+            <a href="{{ route('crm.portal.invoices.pay', $inv) }}" class="flex-1 text-center px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition flex items-center justify-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg> Pagar</a>
+            <a href="{{ route('crm.portal.invoices.boleto', $inv) }}" class="flex-1 text-center px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition flex items-center justify-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/></svg> Boleto</a>
+        </div>
+        <a href="{{ route('crm.portal.invoices') }}" class="mt-3 block text-center text-sm text-blue-600 hover:underline flex items-center justify-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg> Ver todas as faturas</a>
     </div>
     @endif
 

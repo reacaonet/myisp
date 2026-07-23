@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Modules\CRM\Models\Client;
 use Modules\CRM\Models\Contract;
 use Modules\CRM\Models\Plan;
+use Modules\CRM\Models\MikrotikServer;
+use Modules\CRM\Services\MikrotikService;
 use Modules\Billing\Models\Invoice;
 
 class DashboardController extends Controller
@@ -41,6 +43,37 @@ class DashboardController extends Controller
             ->get()
             ->pluck('total', 'month')
             ->toArray();
+
+        $mikrotikServers = MikrotikServer::where('is_active', true)->get();
+        $mikrotikStatus = [];
+        foreach ($mikrotikServers as $mk) {
+            try {
+                $service = new MikrotikService();
+                $service->connect($mk);
+                $resources = $service->getSystemResources();
+                $active = $service->getActiveUsers();
+                $service->disconnect();
+
+                $res = $resources[0] ?? [];
+                $mikrotikStatus[] = [
+                    'server' => $mk,
+                    'online' => true,
+                    'cpu' => $res['cpu'] ?? 0,
+                    'uptime' => $res['uptime'] ?? 'N/A',
+                    'memory_free' => $res['free-memory'] ?? 0,
+                    'board' => $res['board-name'] ?? 'N/A',
+                    'pppoe_count' => count($active['pppoe'] ?? []),
+                    'hotspot_count' => count($active['hotspot'] ?? []),
+                ];
+            } catch (\Exception $e) {
+                $mikrotikStatus[] = [
+                    'server' => $mk,
+                    'online' => false,
+                    'error' => $e->getMessage(),
+                ];
+            }
+        }
+        $stats['mikrotik_status'] = $mikrotikStatus;
 
         return view('crm::dashboard.index', $stats);
     }

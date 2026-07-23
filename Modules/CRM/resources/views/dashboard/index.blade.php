@@ -181,6 +181,36 @@
         </table>
     </div>
 </div>
+
+@if(isset($mikrotik_status) && count($mikrotik_status) > 0)
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+    <h2 class="text-lg font-semibold text-gray-800 mb-4">Servidores MikroTik</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        @foreach($mikrotik_status as $mk)
+        <div class="border rounded-lg p-4 {{ $mk['online'] ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50' }}">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full {{ $mk['online'] ? 'bg-green-500' : 'bg-red-500' }}"></div>
+                    <span class="font-medium text-gray-900">{{ $mk['server']->name }}</span>
+                </div>
+                <span class="text-xs text-gray-500">{{ $mk['server']->ip }}</span>
+            </div>
+            @if($mk['online'])
+            <div class="grid grid-cols-2 gap-2 text-xs">
+                <div><span class="text-gray-500">CPU:</span> <span class="font-medium">{{ $mk['cpu'] }}%</span></div>
+                <div><span class="text-gray-500">RAM:</span> <span class="font-medium">{{ number_format(($mk['memory_free'] ?? 0) / 1048576, 0) }} MB</span></div>
+                <div><span class="text-gray-500">PPPoE:</span> <span class="font-medium text-blue-600">{{ $mk['pppoe_count'] }}</span></div>
+                <div><span class="text-gray-500">Hotspot:</span> <span class="font-medium text-purple-600">{{ $mk['hotspot_count'] }}</span></div>
+                <div class="col-span-2"><span class="text-gray-500">Uptime:</span> <span class="font-medium">{{ $mk['uptime'] }}</span></div>
+            </div>
+            @else
+            <p class="text-xs text-red-600">Offline - {{ $mk['error'] ?? 'Sem conexao' }}</p>
+            @endif
+        </div>
+        @endforeach
+    </div>
+</div>
+@endif
 @endsection
 
 @push('scripts')

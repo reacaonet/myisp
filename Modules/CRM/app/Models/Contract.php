@@ -10,7 +10,7 @@ class Contract extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'pedido', 'client_id', 'plan_id', 'server_id',
+        'pedido', 'client_id', 'plan_id', 'server_id', 'mikrotik_server_id',
         'activation_date', 'due_date', 'due_day',
         'status', 'situacao', 'billing_type',
         'pppoe_user', 'pppoe_password',
@@ -51,6 +51,11 @@ class Contract extends Model
     public function server()
     {
         return $this->belongsTo(\Modules\Core\Models\Server::class);
+    }
+
+    public function mikrotikServer()
+    {
+        return $this->belongsTo(MikrotikServer::class);
     }
 
     public function invoices()

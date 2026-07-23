@@ -384,10 +384,11 @@ class MikrotikService
 
     public function getFirewallAddressList(string $listName): array
     {
-        $this->sendCommand('/ip/firewall/address-list/getall', []);
+        $this->ensureConnected();
+        $all = $this->api->comm('/ip/firewall/address-list/print');
         $results = [];
-        while ($row = $this->readResponse()) {
-            if (isset($row['list']) && $row['list'] === $listName) {
+        foreach ($all as $row) {
+            if (isset($row['list']) && $row['list'] === $listName && $row[0] !== '!done') {
                 $results[] = $row;
             }
         }
@@ -396,41 +397,89 @@ class MikrotikService
 
     public function addFirewallAddressList(string $listName, string $address): void
     {
-        $this->sendCommand('/ip/firewall/address-list/add', [
+        $this->ensureConnected();
+        $this->api->comm('/ip/firewall/address-list/add', [
             'list' => $listName,
             'address' => $address,
         ]);
-        $this->readResponse();
     }
 
     public function removeFirewallAddressList(string $listName, string $address): void
     {
-        $this->sendCommand('/ip/firewall/address-list/remove', [
-            '=.id' => '*F' . md5($listName . $address),
+        $this->ensureConnected();
+        $entries = $this->api->comm('/ip/firewall/address-list/print', [
+            '?list' => $listName,
+            '?address' => $address,
         ]);
-        $this->readResponse();
+        if (!empty($entries) && isset($entries[0]['.id'])) {
+            $this->api->comm('/ip/firewall/address-list/remove', [
+                '.id' => $entries[0]['.id'],
+            ]);
+        }
     }
 
     public function getSystemResource(): array
     {
-        $this->sendCommand('/system/resource/getall', []);
-        $result = $this->readResponse();
-        return $result ?: [];
+        $this->ensureConnected();
+        return $this->getSystemResources();
     }
 
     public function getUptime(): string
     {
-        $resource = $this->getSystemResource();
-        return $resource['uptime'] ?? 'unknown';
+        $resource = $this->getSystemResources();
+        return $resource[0]['uptime'] ?? 'unknown';
     }
 
     public function getFirewallNat(): array
     {
-        $this->sendCommand('/ip/firewall/nat/getall', []);
-        $results = [];
-        while ($row = $this->readResponse()) {
-            $results[] = $row;
+        $this->ensureConnected();
+        $results = $this->api->comm('/ip/firewall/nat/print');
+        return array_filter($results, fn($row) => $row[0] !== '!done');
+    }
+
+    public function listWlanClients(): array
+    {
+        $this->ensureConnected();
+        $results = $this->api->comm('/interface/wireless/registration/print');
+        return array_filter($results, fn($row) => $row[0] !== '!done');
+    }
+
+    public function listIpPools(): array
+    {
+        $this->ensureConnected();
+        $results = $this->api->comm('/ip/pool/print');
+        return array_filter($results, fn($row) => $row[0] !== '!done');
+    }
+
+    public function addIpPool(string $name, string $addresses): bool
+    {
+        $this->ensureConnected();
+        $this->api->comm('/ip/pool/add', [
+            'name' => $name,
+            'ranges' => $addresses,
+        ]);
+        return true;
+    }
+
+    public function removeIpPool(string $name): bool
+    {
+        $this->ensureConnected();
+        $pools = $this->api->comm('/ip/pool/print', [
+            '?name' => $name,
+        ]);
+        if (empty($pools) || !isset($pools[0]['.id'])) {
+            return false;
         }
-        return $results;
+        $this->api->comm('/ip/pool/remove', [
+            '.id' => $pools[0]['.id'],
+        ]);
+        return true;
+    }
+
+    public function listArp(): array
+    {
+        $this->ensureConnected();
+        $results = $this->api->comm('/ip/arp/print');
+        return array_filter($results, fn($row) => $row[0] !== '!done');
     }
 }

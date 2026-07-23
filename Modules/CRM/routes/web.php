@@ -21,6 +21,13 @@ use Modules\CRM\Http\Controllers\Web\HotspotCouponController;
 use Modules\CRM\Http\Controllers\Web\MikrotikBackupController;
 use Modules\CRM\Http\Controllers\Web\SiteBlockingController;
 use Modules\CRM\Http\Controllers\Web\NewsletterController;
+use Modules\CRM\Http\Controllers\Web\MikrotikController;
+use Modules\CRM\Http\Controllers\Web\IpPoolController;
+use Modules\CRM\Http\Controllers\Web\FirewallController;
+use Modules\CRM\Http\Controllers\Web\LogsController;
+use Modules\CRM\Http\Controllers\Web\InterfaceController;
+use Modules\CRM\Http\Controllers\Web\ArpController;
+use Modules\CRM\Http\Controllers\Web\MikrotikScriptController;
 
 Route::prefix('crm')->middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('crm.dashboard');
@@ -120,6 +127,23 @@ Route::prefix('crm')->middleware('auth')->group(function () {
         Route::get('/', [SiteBlockingController::class, 'index'])->name('index');
         Route::post('/block', [SiteBlockingController::class, 'block'])->name('block');
         Route::post('/unblock', [SiteBlockingController::class, 'unblock'])->name('unblock');
+    });
+
+    Route::prefix('mikrotik')->name('crm.mikrotik.')->group(function () {
+        Route::get('/pppoe-ativos', [MikrotikController::class, 'pppoeActive'])->name('pppoe-active');
+        Route::post('/pppoe-ativos/{serverId}/kick', [MikrotikController::class, 'kickPppoe'])->name('kick-pppoe');
+        Route::get('/hotspot-ativos', [MikrotikController::class, 'hotspotActive'])->name('hotspot-active');
+        Route::post('/hotspot-ativos/{serverId}/kick', [MikrotikController::class, 'kickHotspot'])->name('kick-hotspot');
+        Route::get('/ip-pools', [IpPoolController::class, 'index'])->name('ip-pools');
+        Route::post('/ip-pools', [IpPoolController::class, 'store'])->name('ip-pools.store');
+        Route::delete('/ip-pools/{serverId}', [IpPoolController::class, 'destroy'])->name('ip-pools.destroy');
+        Route::get('/nat-rules', [FirewallController::class, 'natRules'])->name('nat-rules');
+        Route::get('/address-list', [FirewallController::class, 'addressList'])->name('address-list');
+        Route::get('/logs', [LogsController::class, 'index'])->name('logs');
+        Route::get('/interfaces', [InterfaceController::class, 'index'])->name('interfaces');
+        Route::get('/arp', [ArpController::class, 'index'])->name('arp');
+        Route::get('/scripts', [MikrotikScriptController::class, 'index'])->name('scripts');
+        Route::post('/scripts/gerar', [MikrotikScriptController::class, 'generate'])->name('scripts.generate');
     });
 
     Route::prefix('newsletter')->name('crm.newsletter.')->group(function () {

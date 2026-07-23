@@ -25,7 +25,7 @@ class CheckOverdueAndBlock extends Command
 
         $deadline = now()->subDays($settings->dias_bloqueio);
 
-        $overdueInvoices = Invoice::with(['contract.server', 'contract.client'])
+        $overdueInvoices = Invoice::with(['contract.mikrotikServer', 'contract.client'])
             ->where('status', 'pending')
             ->where('due_date', '<', $deadline)
             ->where('auto_blocked', false)
@@ -48,22 +48,30 @@ class CheckOverdueAndBlock extends Command
                 continue;
             }
 
-            if (!$contract->server) {
+            if (!$contract->mikrotikServer && !$contract->server) {
                 $skipped++;
                 continue;
             }
 
             try {
-                $service = new MikrotikService();
-                $service->connect($contract->server);
+                $mikrotikServer = $contract->mikrotikServer ?? $this->resolveMikrotikServer($contract);
 
-                if ($contract->tipo_conexao === 'pppoe' && $contract->pppoe_user) {
-                    $service->disconnectPppoeActive($contract->pppoe_user);
-                } elseif ($contract->tipo_conexao === 'hotspot' && $contract->pppoe_user) {
-                    $service->disconnectHotspotActive($contract->pppoe_user);
+                if ($mikrotikServer) {
+                    $service = new MikrotikService();
+                    $service->connect($mikrotikServer);
+
+                    if ($contract->tipo_conexao === 'pppoe' && $contract->pppoe_user) {
+                        $service->disconnectPppoeActive($contract->pppoe_user);
+                    } elseif ($contract->tipo_conexao === 'hotspot' && $contract->pppoe_user) {
+                        $service->disconnectHotspotActive($contract->pppoe_user);
+                    }
+
+                    if ($contract->ip_address) {
+                        $service->addFirewallAddressList('myisp-blocked', $contract->ip_address);
+                    }
+
+                    $service->disconnect();
                 }
-
-                $service->disconnect();
 
                 $invoice->update([
                     'status' => 'overdue',
@@ -85,5 +93,16 @@ class CheckOverdueAndBlock extends Command
 
         $this->info("Resumo: {$blocked} bloqueados, {$skipped} ignorados, {$errors} erros.");
         return self::SUCCESS;
+    }
+
+    private function resolveMikrotikServer(Contract $contract): ?MikrotikServer
+    {
+        if (!$contract->server) {
+            return null;
+        }
+
+        return MikrotikServer::where('ip', $contract->server->ip)
+            ->where('is_active', true)
+            ->first();
     }
 }

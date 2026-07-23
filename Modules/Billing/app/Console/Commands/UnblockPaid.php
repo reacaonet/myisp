@@ -5,6 +5,8 @@ namespace Modules\Billing\Console\Commands;
 use Illuminate\Console\Command;
 use Modules\Billing\Models\Invoice;
 use Modules\CRM\Models\Contract;
+use Modules\CRM\Models\MikrotikServer;
+use Modules\CRM\Services\MikrotikService;
 
 class UnblockPaid extends Command
 {
@@ -13,7 +15,7 @@ class UnblockPaid extends Command
 
     public function handle(): int
     {
-        $blockedContracts = Contract::with('client')
+        $blockedContracts = Contract::with('client', 'mikrotikServer', 'server')
             ->where('status', 'suspended')
             ->get();
 
@@ -25,18 +27,43 @@ class UnblockPaid extends Command
                 ->exists();
 
             if (!$hasPending) {
-                $contract->update(['status' => 'active']);
+                try {
+                    $mikrotikServer = $contract->mikrotikServer ?? $this->resolveMikrotikServer($contract);
 
-                Invoice::where('contract_id', $contract->id)
-                    ->where('auto_blocked', true)
-                    ->update(['auto_blocked' => false]);
+                    if ($mikrotikServer && $contract->ip_address) {
+                        $service = new MikrotikService();
+                        $service->connect($mikrotikServer);
+                        $service->removeFirewallAddressList('myisp-blocked', $contract->ip_address);
+                        $service->disconnect();
+                    }
 
-                $unblocked++;
-                $this->line("Reativado: {$contract->client?->name} (Contrato #{$contract->id})");
+                    $contract->update(['status' => 'active']);
+
+                    Invoice::where('contract_id', $contract->id)
+                        ->where('auto_blocked', true)
+                        ->update(['auto_blocked' => false]);
+
+                    $unblocked++;
+                    $this->line("Reativado: {$contract->client?->name} (Contrato #{$contract->id})");
+
+                } catch (\Exception $e) {
+                    $this->error("Erro ao reativar contrato #{$contract->id}: {$e->getMessage()}");
+                }
             }
         }
 
         $this->info("{$unblocked} contratos reativados.");
         return self::SUCCESS;
+    }
+
+    private function resolveMikrotikServer(Contract $contract): ?MikrotikServer
+    {
+        if (!$contract->server) {
+            return null;
+        }
+
+        return MikrotikServer::where('ip', $contract->server->ip)
+            ->where('is_active', true)
+            ->first();
     }
 }

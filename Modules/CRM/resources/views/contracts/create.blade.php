@@ -112,13 +112,17 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">IP Pool</label>
-                    <input type="text" name="ip_pool" value="{{ old('ip_pool') }}"
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Servidor MikroTik</label>
+                    <select name="mikrotik_server_id" class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm">
+                        <option value="">Nenhum</option>
+                        @foreach($mikrotikServers as $mk)
+                            <option value="{{ $mk->id }}" @selected(old('mikrotik_server_id') == $mk->id)>{{ $mk->name }} ({{ $mk->ip }})</option>
+                        @endforeach
+                    </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">IP</label>
-                    <input type="text" name="ip_address" value="{{ old('ip_address') }}"
+                    <label class="block text-sm font-medium text-gray-700 mb-1">IP Pool</label>
+                    <input type="text" name="ip_pool" value="{{ old('ip_pool') }}"
                            class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm">
                 </div>
             </div>
@@ -135,13 +139,18 @@
                            class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">MAC Address</label>
-                    <input type="text" name="mac_address" value="{{ old('mac_address') }}"
+                    <label class="block text-sm font-medium text-gray-700 mb-1">IP</label>
+                    <input type="text" name="ip_address" value="{{ old('ip_address') }}"
                            class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm">
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">MAC Address</label>
+                    <input type="text" name="mac_address" value="{{ old('mac_address') }}"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm">
+                </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">MAC Wireless</label>
                     <input type="text" name="mac_wireless" value="{{ old('mac_wireless') }}"

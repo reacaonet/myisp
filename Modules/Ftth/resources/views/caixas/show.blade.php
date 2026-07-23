@@ -75,6 +75,10 @@
             @endif
 
             <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+                <form method="POST" action="{{ route('ftth.caixas.destroy', $caixa) }}" onsubmit="return confirm('Excluir esta Caixa de Emenda? Esta acao nao pode ser desfeita.')" class="inline">
+                    @csrf @method('DELETE')
+                    <button type="submit" class="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600">Excluir</button>
+                </form>
                 <a href="{{ route('ftth.caixas.edit', $caixa) }}" class="px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm font-medium hover:bg-yellow-600">Editar</a>
                 <a href="{{ route('ftth.caixas.index') }}" class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-500">Voltar</a>
             </div>

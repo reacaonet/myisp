@@ -256,6 +256,54 @@ class FtthController extends Controller
         return view('ftth::export-kml', compact('cities'));
     }
 
+    public function map()
+    {
+        $cities = Cto::whereNotNull('city')->distinct()->pluck('city')->sort()->values();
+        return view('ftth::map', compact('cities'));
+    }
+
+    public function mapData(Request $request)
+    {
+        $queryCto = Cto::select('id', 'code', 'name', 'latitude', 'longitude', 'street', 'city', 'capacity', 'used_ports', 'status', 'caixa_emenda_id');
+        $queryCaixa = CaixaEmenda::select('id', 'code', 'name', 'latitude', 'longitude', 'street', 'city', 'capacity', 'used_ports', 'status');
+
+        if ($city = $request->get('city')) {
+            $queryCto->where('city', $city);
+            $queryCaixa->where('city', $city);
+        }
+
+        $ctos = $queryCto->orderBy('code')->get()->map(fn($c) => [
+            'type' => 'cto',
+            'id' => $c->id,
+            'code' => $c->code,
+            'name' => $c->name,
+            'lat' => (float) $c->latitude,
+            'lng' => (float) $c->longitude,
+            'street' => $c->street,
+            'city' => $c->city,
+            'capacity' => $c->capacity,
+            'used' => $c->used_ports,
+            'status' => $c->status,
+            'caixa_id' => $c->caixa_emenda_id,
+        ]);
+
+        $caixas = $queryCaixa->orderBy('code')->get()->map(fn($c) => [
+            'type' => 'caixa',
+            'id' => $c->id,
+            'code' => $c->code,
+            'name' => $c->name,
+            'lat' => (float) $c->latitude,
+            'lng' => (float) $c->longitude,
+            'street' => $c->street,
+            'city' => $c->city,
+            'capacity' => $c->capacity,
+            'used' => $c->used_ports,
+            'status' => $c->status,
+        ]);
+
+        return response()->json(['ctos' => $ctos, 'caixas' => $caixas]);
+    }
+
     public function downloadKml(string $city)
     {
         $ctos = Cto::where('city', $city)->orderBy('code')->get();

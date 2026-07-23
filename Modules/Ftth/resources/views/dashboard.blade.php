@@ -116,5 +116,13 @@
             Gerar Manual
         </a>
     </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-2">Mapa da Rede</h2>
+        <p class="text-sm text-gray-500 mb-4">Visualize todas as CTOs e Caixas de Emenda no mapa interativo.</p>
+        <a href="{{ route('ftth.map') }}" class="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+            Abrir Mapa
+        </a>
+    </div>
 </div>
 @endsection

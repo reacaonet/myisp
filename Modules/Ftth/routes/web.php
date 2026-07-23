@@ -32,4 +32,7 @@ Route::middleware(['auth', 'verified'])->prefix('ftth')->name('ftth.')->group(fu
 
     Route::get('/exportar-kml', [FtthController::class, 'exportKml'])->name('export.kml');
     Route::get('/exportar-kml/{city}', [FtthController::class, 'downloadKml'])->name('export.kml.download');
+
+    Route::get('/mapa', [FtthController::class, 'map'])->name('map');
+    Route::get('/api/map-data', [FtthController::class, 'mapData'])->name('api.map-data');
 });

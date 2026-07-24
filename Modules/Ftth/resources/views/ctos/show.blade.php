@@ -39,7 +39,7 @@
             <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
                 <div>
                     <p class="text-xs text-gray-500 uppercase font-medium">Caixa de Emenda</p>
-                    @if($cto->caixa_emenda_id)
+                    @if($cto->caixa_emenda_id && $cto->caixaEmenda)
                         <a href="{{ route('ftth.caixas.show', $cto->caixa_emenda_id) }}" class="text-purple-600 hover:underline font-medium text-sm">{{ $cto->caixaEmenda->code }}</a>
                     @else
                         <p class="text-gray-400 text-sm">Nenhuma</p>

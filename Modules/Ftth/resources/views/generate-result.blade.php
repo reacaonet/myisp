@@ -73,7 +73,7 @@
                                 <td class="px-3 py-2 font-mono text-gray-600">{{ $cto->longitude }}</td>
                                 <td class="px-3 py-2 text-gray-600">{{ number_format($cto->distance_from_start, 1, ',', '.') }} m</td>
                                 <td class="px-3 py-2">
-                                    @if($cto->caixa_emenda_id)
+                                    @if($cto->caixa_emenda_id && $cto->caixaEmenda)
                                         <a href="{{ route('ftth.caixas.show', $cto->caixa_emenda_id) }}" class="text-purple-600 hover:underline">{{ $cto->caixaEmenda->code }}</a>
                                     @else
                                         <span class="text-gray-400">-</span>

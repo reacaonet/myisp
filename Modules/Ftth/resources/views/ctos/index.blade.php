@@ -56,7 +56,7 @@
                 <td class="px-4 py-3 text-sm text-gray-500">{{ $cto->city ?: '-' }}</td>
                 <td class="px-4 py-3 text-sm text-gray-500">{{ $cto->street ?: '-' }}</td>
                 <td class="px-4 py-3 text-sm">
-                    @if($cto->caixa_emenda_id)
+                    @if($cto->caixa_emenda_id && $cto->caixaEmenda)
                         <a href="{{ route('ftth.caixas.show', $cto->caixa_emenda_id) }}" class="text-purple-600 hover:underline">{{ $cto->caixaEmenda->code }}</a>
                     @else
                         <span class="text-gray-400">-</span>

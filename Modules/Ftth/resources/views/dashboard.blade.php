@@ -49,7 +49,7 @@
                     <span class="text-xs text-gray-500 ml-2">{{ $cto->street }}</span>
                 </div>
                 <div class="flex items-center gap-2">
-                    @if($cto->caixa_emenda_id)
+                    @if($cto->caixa_emenda_id && $cto->caixaEmenda)
                         <span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">{{ $cto->caixaEmenda->code }}</span>
                     @endif
                     <div class="w-16 bg-gray-200 rounded-full h-1.5">

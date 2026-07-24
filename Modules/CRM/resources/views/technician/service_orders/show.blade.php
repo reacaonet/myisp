@@ -1,6 +1,8 @@
 @extends('crm::technician.layouts.master')
 
-@section('title', 'OS - {{ $serviceOrder->codigo }}')
+@section('title')
+OS - {{ $serviceOrder->codigo }}
+@endsection
 
 @section('content')
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">

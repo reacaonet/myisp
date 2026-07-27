@@ -13,6 +13,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->alias([
+            'group.permission' => \Modules\Core\Http\Middleware\CheckGroupPermission::class,
+        ]);
+
         $middleware->redirectGuestsTo(function (Request $request) {
             if ($request->expectsJson()) {
                 return response()->json(['message' => 'Unauthenticated.'], 401);

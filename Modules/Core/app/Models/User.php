@@ -16,6 +16,7 @@ class User extends Authenticatable
         'password',
         'phone',
         'role',
+        'user_group_id',
         'is_active',
     ];
 
@@ -36,5 +37,33 @@ class User extends Authenticatable
     public function addresses()
     {
         return $this->morphMany(Address::class, 'addressable');
+    }
+
+    public function group()
+    {
+        return $this->belongsTo(UserGroup::class, 'user_group_id');
+    }
+
+    public function hasPermission(string $key): bool
+    {
+        if (!$this->group) {
+            return false;
+        }
+
+        if ($this->group->slug === 'superadmin') {
+            return true;
+        }
+
+        return $this->group->hasPermission($key);
+    }
+
+    public function setGroupId($groupId)
+    {
+        $group = UserGroup::find($groupId);
+        if ($group) {
+            $this->user_group_id = $group->id;
+            $this->role = $group->slug;
+        }
+        return $this;
     }
 }

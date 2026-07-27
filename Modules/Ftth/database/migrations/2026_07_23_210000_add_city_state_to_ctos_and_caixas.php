@@ -9,7 +9,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('ctos', function (Blueprint $table) {
-            $table->dropIndexIfExists('ctos_code_unique');
+            if (Schema::hasIndex('ctos', 'ctos_code_unique')) {
+                $table->dropIndex('ctos_code_unique');
+            }
             if (!Schema::hasColumn('ctos', 'city')) {
                 $table->string('city', 100)->nullable()->after('name');
             }
@@ -20,7 +22,9 @@ return new class extends Migration
         });
 
         Schema::table('caixas_emenda', function (Blueprint $table) {
-            $table->dropIndexIfExists('caixas_emenda_code_unique');
+            if (Schema::hasIndex('caixas_emenda', 'caixas_emenda_code_unique')) {
+                $table->dropIndex('caixas_emenda_code_unique');
+            }
             if (!Schema::hasColumn('caixas_emenda', 'city')) {
                 $table->string('city', 100)->nullable()->after('name');
             }
@@ -34,13 +38,17 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('ctos', function (Blueprint $table) {
-            $table->dropIndexIfExists('ctos_code_city_idx');
+            if (Schema::hasIndex('ctos', 'ctos_code_city_idx')) {
+                $table->dropIndex('ctos_code_city_idx');
+            }
             $table->dropColumn(['city', 'state']);
             $table->unique('code');
         });
 
         Schema::table('caixas_emenda', function (Blueprint $table) {
-            $table->dropIndexIfExists('caixas_code_city_idx');
+            if (Schema::hasIndex('caixas_emenda', 'caixas_code_city_idx')) {
+                $table->dropIndex('caixas_code_city_idx');
+            }
             $table->dropColumn(['city', 'state']);
             $table->unique('code');
         });

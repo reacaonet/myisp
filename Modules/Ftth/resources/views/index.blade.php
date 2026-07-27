@@ -1,5 +1,0 @@
-<x-ftth::layouts.master>
-    <h1>Hello World</h1>
-
-    <p>Module: {!! config('ftth.name') !!}</p>
-</x-ftth::layouts.master>

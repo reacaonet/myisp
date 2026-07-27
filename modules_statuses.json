@@ -3,5 +3,6 @@
     "CRM": true,
     "Billing": true,
     "Network": true,
-    "Ftth": true
+    "Ftth": true,
+    "PortalInfra": true
 }

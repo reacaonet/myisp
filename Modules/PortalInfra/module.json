@@ -1,0 +1,11 @@
+{
+    "name": "PortalInfra",
+    "alias": "portal-infra",
+    "description": "Portal de Infraestrutura",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\PortalInfra\\Providers\\PortalInfraServiceProvider"
+    ],
+    "files": []
+}

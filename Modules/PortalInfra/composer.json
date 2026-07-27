@@ -1,0 +1,27 @@
+{
+    "name": "myisp/portal-infra",
+    "description": "Portal de Infraestrutura - MikroTik, FTTH, Equipamentos, Monitoramento",
+    "authors": [
+        {
+            "name": "MyISP"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {}
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\PortalInfra\\": "app/",
+            "Modules\\PortalInfra\\Database\\Factories\\": "database/factories/",
+            "Modules\\PortalInfra\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\PortalInfra\\Tests\\": "tests/"
+        }
+    }
+}

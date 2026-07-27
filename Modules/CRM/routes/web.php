@@ -10,24 +10,8 @@ use Modules\CRM\Http\Controllers\Web\TechnicianController;
 use Modules\CRM\Http\Controllers\Web\PortalController;
 use Modules\CRM\Http\Controllers\Web\TicketController;
 use Modules\CRM\Http\Controllers\Web\TechnicianPortalController;
-use Modules\CRM\Http\Controllers\Web\EquipmentController;
-use Modules\CRM\Http\Controllers\Web\ManufacturerController;
-use Modules\CRM\Http\Controllers\Web\MikrotikServerController;
-use Modules\CRM\Http\Controllers\Web\ProvisionController;
-use Modules\CRM\Http\Controllers\Web\NetworkMonitorController;
 use Modules\CRM\Http\Controllers\Web\SupplierController;
-use Modules\CRM\Http\Controllers\Web\UptimeController;
-use Modules\CRM\Http\Controllers\Web\HotspotCouponController;
-use Modules\CRM\Http\Controllers\Web\MikrotikBackupController;
-use Modules\CRM\Http\Controllers\Web\SiteBlockingController;
 use Modules\CRM\Http\Controllers\Web\NewsletterController;
-use Modules\CRM\Http\Controllers\Web\MikrotikController;
-use Modules\CRM\Http\Controllers\Web\IpPoolController;
-use Modules\CRM\Http\Controllers\Web\FirewallController;
-use Modules\CRM\Http\Controllers\Web\LogsController;
-use Modules\CRM\Http\Controllers\Web\InterfaceController;
-use Modules\CRM\Http\Controllers\Web\ArpController;
-use Modules\CRM\Http\Controllers\Web\MikrotikScriptController;
 
 Route::prefix('crm')->middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('crm.dashboard');
@@ -61,54 +45,8 @@ Route::prefix('crm')->middleware('auth')->group(function () {
     Route::resource('technicians', TechnicianController::class)
         ->names('crm.technicians');
 
-    Route::resource('equipment', EquipmentController::class)
-        ->names('crm.equipment');
-
-    Route::resource('manufacturers', ManufacturerController::class)
-        ->names('crm.manufacturers')
-        ->except('show');
-
     Route::resource('suppliers', SupplierController::class)
         ->names('crm.suppliers');
-
-    Route::prefix('uptime')->name('crm.uptime.')->group(function () {
-        Route::get('/', [UptimeController::class, 'index'])->name('index');
-        Route::get('/create', [UptimeController::class, 'create'])->name('create');
-        Route::post('/', [UptimeController::class, 'store'])->name('store');
-        Route::get('/{monitor}', [UptimeController::class, 'show'])->name('show');
-        Route::get('/{monitor}/edit', [UptimeController::class, 'edit'])->name('edit');
-        Route::put('/{monitor}', [UptimeController::class, 'update'])->name('update');
-        Route::delete('/{monitor}', [UptimeController::class, 'destroy'])->name('destroy');
-        Route::post('/{monitor}/check', [UptimeController::class, 'check'])->name('check');
-        Route::post('/check-all', [UptimeController::class, 'checkAll'])->name('check-all');
-    });
-
-    Route::resource('hotspot-coupons', HotspotCouponController::class)
-        ->names('crm.hotspot-coupons');
-    Route::post('hotspot-coupons/generate-batch', [HotspotCouponController::class, 'generateBatch'])
-        ->name('crm.hotspot-coupons.generate-batch');
-
-    Route::resource('mikrotik-servers', MikrotikServerController::class)
-        ->names('crm.mikrotik-servers');
-    Route::post('mikrotik-servers/{mikrotik_server}/test', [MikrotikServerController::class, 'testConnection'])
-        ->name('crm.mikrotik-servers.test');
-
-    Route::prefix('provisioning')->name('crm.provisioning.')->group(function () {
-        Route::get('/', [ProvisionController::class, 'index'])->name('index');
-        Route::get('/create', [ProvisionController::class, 'create'])->name('create');
-        Route::post('/', [ProvisionController::class, 'store'])->name('store');
-        Route::delete('/{id}', [ProvisionController::class, 'destroy'])->name('destroy');
-        Route::post('/{id}/block', [ProvisionController::class, 'block'])->name('block');
-        Route::get('/profiles/{server_id}', [ProvisionController::class, 'profiles'])->name('profiles');
-        Route::get('/active-users/{server_id}', [ProvisionController::class, 'activeUsers'])->name('active-users');
-    });
-
-    Route::prefix('network-monitor')->name('crm.network-monitor.')->group(function () {
-        Route::get('/', [NetworkMonitorController::class, 'index'])->name('index');
-        Route::get('/{id}', [NetworkMonitorController::class, 'show'])->name('show');
-        Route::get('/{id}/active-users', [NetworkMonitorController::class, 'activeUsers'])->name('active-users');
-        Route::get('/{id}/refresh', [NetworkMonitorController::class, 'refreshStats'])->name('refresh');
-    });
 
     Route::prefix('tickets')->name('crm.tickets.')->group(function () {
         Route::get('/', [TicketController::class, 'index'])->name('index');
@@ -116,34 +54,6 @@ Route::prefix('crm')->middleware('auth')->group(function () {
         Route::post('/{ticket}/status', [TicketController::class, 'updateStatus'])->name('status');
         Route::post('/{ticket}/reply', [TicketController::class, 'reply'])->name('reply');
         Route::delete('/{ticket}', [TicketController::class, 'destroy'])->name('destroy');
-    });
-
-    Route::resource('mikrotik-backups', MikrotikBackupController::class)
-        ->names('crm.mikrotik-backups');
-    Route::get('mikrotik-backups/{backup}/download', [MikrotikBackupController::class, 'download'])
-        ->name('crm.mikrotik-backups.download');
-
-    Route::prefix('site-blocking')->name('crm.site-blocking.')->group(function () {
-        Route::get('/', [SiteBlockingController::class, 'index'])->name('index');
-        Route::post('/block', [SiteBlockingController::class, 'block'])->name('block');
-        Route::post('/unblock', [SiteBlockingController::class, 'unblock'])->name('unblock');
-    });
-
-    Route::prefix('mikrotik')->name('crm.mikrotik.')->group(function () {
-        Route::get('/pppoe-ativos', [MikrotikController::class, 'pppoeActive'])->name('pppoe-active');
-        Route::post('/pppoe-ativos/{serverId}/kick', [MikrotikController::class, 'kickPppoe'])->name('kick-pppoe');
-        Route::get('/hotspot-ativos', [MikrotikController::class, 'hotspotActive'])->name('hotspot-active');
-        Route::post('/hotspot-ativos/{serverId}/kick', [MikrotikController::class, 'kickHotspot'])->name('kick-hotspot');
-        Route::get('/ip-pools', [IpPoolController::class, 'index'])->name('ip-pools');
-        Route::post('/ip-pools', [IpPoolController::class, 'store'])->name('ip-pools.store');
-        Route::delete('/ip-pools/{serverId}', [IpPoolController::class, 'destroy'])->name('ip-pools.destroy');
-        Route::get('/nat-rules', [FirewallController::class, 'natRules'])->name('nat-rules');
-        Route::get('/address-list', [FirewallController::class, 'addressList'])->name('address-list');
-        Route::get('/logs', [LogsController::class, 'index'])->name('logs');
-        Route::get('/interfaces', [InterfaceController::class, 'index'])->name('interfaces');
-        Route::get('/arp', [ArpController::class, 'index'])->name('arp');
-        Route::get('/scripts', [MikrotikScriptController::class, 'index'])->name('scripts');
-        Route::post('/scripts/gerar', [MikrotikScriptController::class, 'generate'])->name('scripts.generate');
     });
 
     Route::prefix('newsletter')->name('crm.newsletter.')->group(function () {

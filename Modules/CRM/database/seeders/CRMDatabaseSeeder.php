@@ -49,7 +49,7 @@ class CRMDatabaseSeeder extends Seeder
             User::create([
                 'name' => $data['name'],
                 'email' => $data['email'],
-                'password' => bcrypt($data['password']),
+                'password' => $data['password'],
                 'cargo' => $data['cargo'],
                 'phone' => $data['phone'],
                 'cellphone' => $data['cellphone'],
@@ -57,6 +57,7 @@ class CRMDatabaseSeeder extends Seeder
                 'state' => $data['state'],
                 'is_active' => $data['is_active'],
                 'user_group_id' => $tecnicoGroup->id,
+                'role' => 'tecnico',
             ]);
         }
 

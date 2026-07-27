@@ -32,7 +32,7 @@ class UserController extends Controller
             'is_active' => 'boolean',
         ]);
 
-        $validated['password'] = bcrypt($validated['password']);
+        $validated['password'] = $validated['password'];
         $validated['is_active'] = $request->boolean('is_active');
 
         $group = UserGroup::find($validated['user_group_id']);
@@ -68,8 +68,6 @@ class UserController extends Controller
 
         if (empty($validated['password'])) {
             unset($validated['password']);
-        } else {
-            $validated['password'] = bcrypt($validated['password']);
         }
 
         $group = UserGroup::find($validated['user_group_id']);

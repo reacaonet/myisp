@@ -19,7 +19,7 @@
             <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
 
                 {{-- CRM --}}
-                @if($user && ($user->hasPermission('dashboard') || $user->hasPermission('clients') || $user->hasPermission('plans') || $user->hasPermission('contracts') || $user->hasPermission('service_orders') || $user->hasPermission('technicians') || $user->hasPermission('equipment') || $user->hasPermission('manufacturers') || $user->hasPermission('suppliers') || $user->hasPermission('hotspot_coupons')))
+                @if($user && ($user->hasPermission('dashboard') || $user->hasPermission('clients') || $user->hasPermission('plans') || $user->hasPermission('contracts') || $user->hasPermission('service_orders') || $user->hasPermission('equipment') || $user->hasPermission('manufacturers') || $user->hasPermission('suppliers') || $user->hasPermission('hotspot_coupons')))
                 <p class="text-xs font-semibold uppercase text-gray-500 px-3 mb-2">CRM</p>
                 @if($user->hasPermission('dashboard'))
                 <a href="{{ route('crm.dashboard') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('crm.dashboard') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
@@ -51,12 +51,7 @@
                     Ordens de Servico
                 </a>
                 @endif
-                @if($user->hasPermission('technicians'))
-                <a href="{{ route('crm.technicians.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('crm.technicians.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                    Tecnicos
-                </a>
-                @endif
+
                 @if($user->hasPermission('equipment'))
                 <a href="{{ route('crm.equipment.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('crm.equipment.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/></svg>

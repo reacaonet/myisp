@@ -1,58 +1,103 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# MyISP
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Plataforma de gestao para provedores de internet (ISP) desenvolvida em Laravel.
 
-## About Laravel
+## Stack
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- **Laravel** 13.20
+- **PHP** 8.3
+- **PostgreSQL**
+- **Tailwind CSS**
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Modulos
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+| Modulo | Descricao |
+|--------|-----------|
+| **Core** | Usuarios, grupos, permissoes, configuracoes do sistema |
+| **CRM** | Clientes, contratos, planos, ordens de servico, tecnicos, tickets |
+| **Billing** | Faturas, pagamentos, boletos, livro-caixa, gateways de pagamento |
+| **Network** | Servidores Mikrotik, provisioning, monitoramento de uptime |
+| **FTTH** | CTOS, caixas de emenda, infraestrutura de fibra optica |
+| **FieldService** | Gestao de campo e visitas tecnicas |
+| **PortalCliente** | Portal do cliente (faturas, contratos, chamados, perfil) |
+| **PortalTecnico** | Portal do tecnico (ordens de servico, perfil) |
 
-## Learning Laravel
+## Autenticacao e Permissoes
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+O sistema utiliza **grupos de usuario** com permissoes por chave. Grupos padrao:
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+| Grupo | Descricao |
+|-------|-----------|
+| `superadmin` | Acesso total a todas as funcionalidades |
+| `admin` | Acesso administrativo geral |
+| `gerente` | Acesso gerencial com relatorios |
+| `tecnico` | Acesso ao Portal do Tecnico (OS atribuidas) |
+| `operador` | Acesso operacional ao CRM |
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+Cada grupo possui permissoes de menu (ex: `dashboard`, `clients`, `invoices`). A verificacao e feita via middleware `group.permission` e no Blade com `$user->hasPermission()`.
 
-## Agentic Development
+## Portais
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+- **Admin**: `/crm` — painel administrativo completo
+- **Portal do Cliente**: `/crm/portal/login` — faturas, contratos, chamados
+- **Portal do Tecnico**: `/tecnico/login` — ordens de servico atribuidas
+
+### Credenciais de teste
+
+| Usuario | Email | Senha | Grupo |
+|---------|-------|-------|-------|
+| Administrador | admin@myisp.com | admin | superadmin |
+| Operador | operador@myisp.com | 123456 | operador |
+| Carlos Alberto | carlos@myisp.com | tecnico123 | tecnico |
+| Fernanda Lima | fernanda@myisp.com | tecnico123 | tecnico |
+
+## Instalacao
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+git clone https://github.com/reacaonet/myisp.git
+cd myisp
+composer install
+cp .env.example .env
+php artisan key:generate
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Configurar o banco de dados no `.env`:
 
-## Contributing
+```
+DB_CONNECTION=pgsql
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_DATABASE=myisp
+DB_USERNAME=postgres
+DB_PASSWORD=senha
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Rodar migrations e seeders:
 
-## Code of Conduct
+```bash
+php artisan migrate:fresh --seed
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Iniciar o servidor:
 
-## Security Vulnerabilities
+```bash
+php artisan serve
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Estrutura de Pastas
 
-## License
+```
+Modules/
+  Core/          — Modelo User, UserGroup, GroupPermission, migrations, seeders
+  CRM/           — Client, Contract, Plan, ServiceOrder, Ticket, Technician portal
+  Billing/       — Invoice, Payment, BillingSetting, CashBookEntry
+  Network/       — Server, ProvisioningRecord, UptimeMonitor
+  Ftth/          — CTO, CaixaEmenda
+  FieldService/  — Gestao de campo
+  PortalCliente/ — Portal do cliente
+  PortalTecnico/ — Portal do tecnico
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Licenca
+
+MIT

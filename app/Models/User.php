@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Modules\Core\Models\UserGroup;
 
-#[Fillable(['name', 'email', 'password', 'phone', 'role', 'user_group_id', 'is_active'])]
+#[Fillable(['name', 'email', 'password', 'phone', 'cargo', 'cellphone', 'city', 'state', 'role', 'user_group_id', 'is_active'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -47,6 +47,11 @@ class User extends Authenticatable
     public function group(): BelongsTo
     {
         return $this->belongsTo(UserGroup::class, 'user_group_id');
+    }
+
+    public function serviceOrders(): HasMany
+    {
+        return $this->hasMany(\Modules\CRM\Models\ServiceOrder::class, 'technician_id');
     }
 
     public function hasPermission(string $key): bool

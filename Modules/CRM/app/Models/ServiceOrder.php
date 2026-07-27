@@ -49,6 +49,6 @@ class ServiceOrder extends Model
 
     public function technician()
     {
-        return $this->belongsTo(Technician::class);
+        return $this->belongsTo(\App\Models\User::class, 'technician_id');
     }
 }

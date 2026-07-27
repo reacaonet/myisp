@@ -75,18 +75,18 @@
                 @endif
 
                 <div class="form-group">
-                    <label for="login">Login</label>
+                    <label for="email">Email</label>
                     <div class="input-wrap">
-                        <input type="text" name="login" id="login" value="{{ old('login') }}" required autofocus placeholder="Seu login" @error('login') class="error" @enderror>
+                        <input type="email" name="email" id="email" value="{{ old('email') }}" required autofocus placeholder="seu@email.com" @error('email') class="error" @enderror>
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                     </div>
-                    @error('login') <p class="error-msg">{{ $message }}</p> @enderror
+                    @error('email') <p class="error-msg">{{ $message }}</p> @enderror
                 </div>
 
                 <div class="form-group">
-                    <label for="senha">Senha</label>
+                    <label for="password">Senha</label>
                     <div class="input-wrap">
-                        <input type="password" name="senha" id="senha" required placeholder="Sua senha">
+                        <input type="password" name="password" id="password" required placeholder="Sua senha">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                     </div>
                 </div>

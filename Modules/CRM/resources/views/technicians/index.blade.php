@@ -13,7 +13,7 @@
             <thead>
                 <tr class="text-left text-gray-500 bg-gray-50 border-b border-gray-200">
                     <th class="px-6 py-4 font-medium">Nome</th>
-                    <th class="px-6 py-4 font-medium">Login</th>
+                    <th class="px-6 py-4 font-medium">Email</th>
                     <th class="px-6 py-4 font-medium">Cargo</th>
                     <th class="px-6 py-4 font-medium">Celular</th>
                     <th class="px-6 py-4 font-medium">Ativo</th>
@@ -24,7 +24,7 @@
                 @forelse($technicians as $t)
                 <tr class="border-b border-gray-100 hover:bg-gray-50">
                     <td class="px-6 py-4 font-medium text-gray-900">{{ $t->name }}</td>
-                    <td class="px-6 py-4 text-gray-600 font-mono text-sm">{{ $t->login ?? '-' }}</td>
+                    <td class="px-6 py-4 text-gray-600 font-mono text-sm">{{ $t->email ?? '-' }}</td>
                     <td class="px-6 py-4 text-gray-600">{{ $t->cargo ?? '-' }}</td>
                     <td class="px-6 py-4 text-gray-600">{{ $t->cellphone ?? $t->phone ?? '-' }}</td>
                     <td class="px-6 py-4">
@@ -45,7 +45,7 @@
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="5" class="px-6 py-12 text-center text-gray-400">Nenhum tecnico cadastrado.</td></tr>
+                <tr><td colspan="6" class="px-6 py-12 text-center text-gray-400">Nenhum tecnico cadastrado.</td></tr>
                 @endforelse
             </tbody>
         </table>

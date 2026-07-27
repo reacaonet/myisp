@@ -18,19 +18,31 @@ class TechnicianPortalController extends Controller
     public function login(Request $request)
     {
         $credentials = $request->validate([
-            'login' => 'required|string',
-            'senha' => 'required|string',
+            'email' => 'required|email',
+            'password' => 'required|string',
         ]);
 
         if (Auth::guard('technician')->attempt([
-            'login' => $credentials['login'],
-            'password' => $credentials['senha'],
+            'email' => $credentials['email'],
+            'password' => $credentials['password'],
         ], $request->boolean('remember'))) {
+            $user = Auth::guard('technician')->user();
+
+            if (!$user->group || $user->group->slug !== 'tecnico') {
+                Auth::guard('technician')->logout();
+                return back()->withErrors(['email' => 'Acesso nao permitido. Apenas tecnicos podem acessar este portal.'])->onlyInput('email');
+            }
+
+            if (!$user->is_active) {
+                Auth::guard('technician')->logout();
+                return back()->withErrors(['email' => 'Usuario inativo.'])->onlyInput('email');
+            }
+
             $request->session()->regenerate();
             return redirect()->intended(route('technician.portal.dashboard'));
         }
 
-        return back()->withErrors(['login' => 'Credenciais invalidas.'])->onlyInput('login');
+        return back()->withErrors(['email' => 'Credenciais invalidas.'])->onlyInput('email');
     }
 
     public function logout(Request $request)
@@ -134,15 +146,15 @@ class TechnicianPortalController extends Controller
         $technician = Auth::guard('technician')->user();
 
         $validated = $request->validate([
-            'current_senha' => 'required|string',
-            'new_senha' => 'required|string|min:6|confirmed',
+            'current_password' => 'required|string',
+            'new_password' => 'required|string|min:6|confirmed',
         ]);
 
-        if (!Hash::check($validated['current_senha'], $technician->senha)) {
-            return back()->withErrors(['current_senha' => 'Senha atual incorreta.']);
+        if (!Hash::check($validated['current_password'], $technician->password)) {
+            return back()->withErrors(['current_password' => 'Senha atual incorreta.']);
         }
 
-        $technician->update(['senha' => $validated['new_senha']]);
+        $technician->update(['password' => bcrypt($validated['new_password'])]);
 
         return redirect()->route('technician.portal.profile')
             ->with('success', 'Senha alterada com sucesso.');

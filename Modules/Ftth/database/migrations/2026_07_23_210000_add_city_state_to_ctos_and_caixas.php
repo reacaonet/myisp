@@ -9,9 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('ctos', function (Blueprint $table) {
-            if (Schema::hasIndex('ctos', 'ctos_code_unique')) {
-                $table->dropIndex('ctos_code_unique');
-            }
+            $table->dropUnique(['code']);
             if (!Schema::hasColumn('ctos', 'city')) {
                 $table->string('city', 100)->nullable()->after('name');
             }
@@ -22,9 +20,7 @@ return new class extends Migration
         });
 
         Schema::table('caixas_emenda', function (Blueprint $table) {
-            if (Schema::hasIndex('caixas_emenda', 'caixas_emenda_code_unique')) {
-                $table->dropIndex('caixas_emenda_code_unique');
-            }
+            $table->dropUnique(['code']);
             if (!Schema::hasColumn('caixas_emenda', 'city')) {
                 $table->string('city', 100)->nullable()->after('name');
             }

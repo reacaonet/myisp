@@ -8,7 +8,8 @@ use Modules\CRM\Models\ServiceOrder;
 use Modules\CRM\Models\Client;
 use Modules\CRM\Models\Contract;
 use Modules\CRM\Models\Plan;
-use Modules\CRM\Models\Technician;
+use App\Models\User;
+use Modules\Core\Models\UserGroup;
 
 class ServiceOrderController extends Controller
 {
@@ -36,7 +37,7 @@ class ServiceOrderController extends Controller
     public function create()
     {
         $clients = Client::where('status', 'active')->orderBy('name')->get();
-        $technicians = Technician::where('is_active', true)->orderBy('name')->get();
+        $technicians = $this->getTechnicians();
         return view('crm::service_orders.create', compact('clients', 'technicians'));
     }
 
@@ -46,7 +47,7 @@ class ServiceOrderController extends Controller
             'client_id' => 'required|exists:clients,id',
             'contract_id' => 'nullable|exists:contracts,id',
             'plan_id' => 'nullable|exists:plans,id',
-            'technician_id' => 'nullable|exists:technicians,id',
+            'technician_id' => 'nullable|exists:users,id',
             'situacao' => 'required|in:O,I,NI,M,R,A,CS,C',
             'servico' => 'nullable|string',
             'tipo_servico' => 'nullable|in:instalacao,manutencao,cancelamento,recuperacao,orcamento,visita_tecnica,outro',
@@ -86,7 +87,7 @@ class ServiceOrderController extends Controller
     {
         $order = ServiceOrder::with('client', 'contract', 'plan', 'technician')->findOrFail($id);
         $clients = Client::where('status', 'active')->orderBy('name')->get();
-        $technicians = Technician::where('is_active', true)->orderBy('name')->get();
+        $technicians = $this->getTechnicians();
         return view('crm::service_orders.edit', compact('order', 'clients', 'technicians'));
     }
 
@@ -98,7 +99,7 @@ class ServiceOrderController extends Controller
             'client_id' => 'exists:clients,id',
             'contract_id' => 'nullable|exists:contracts,id',
             'plan_id' => 'nullable|exists:plans,id',
-            'technician_id' => 'nullable|exists:technicians,id',
+            'technician_id' => 'nullable|exists:users,id',
             'situacao' => 'in:O,I,NI,M,R,A,CS,C',
             'servico' => 'nullable|string',
             'tipo_servico' => 'nullable|in:instalacao,manutencao,cancelamento,recuperacao,orcamento,visita_tecnica,outro',
@@ -165,12 +166,18 @@ class ServiceOrderController extends Controller
         $order = ServiceOrder::findOrFail($id);
 
         $validated = $request->validate([
-            'technician_id' => 'required|exists:technicians,id',
+            'technician_id' => 'required|exists:users,id',
         ]);
 
         $order->update($validated);
 
         return redirect()->route('crm.service-orders.show', $order)
             ->with('success', 'Tecnico atribuido com sucesso.');
+    }
+
+    private function getTechnicians()
+    {
+        $tecnicoGroupId = UserGroup::where('slug', 'tecnico')->value('id');
+        return User::where('user_group_id', $tecnicoGroupId)->where('is_active', true)->orderBy('name')->get();
     }
 }

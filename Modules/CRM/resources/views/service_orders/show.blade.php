@@ -123,7 +123,8 @@
                     <select name="technician_id" class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                         <option value="">Selecione...</option>
                         @php
-                        $technicians = \Modules\CRM\Models\Technician::where('is_active', true)->orderBy('name')->get();
+                        $tecnicoGroupId = \Modules\Core\Models\UserGroup::where('slug', 'tecnico')->value('id');
+                        $technicians = \App\Models\User::where('user_group_id', $tecnicoGroupId)->where('is_active', true)->orderBy('name')->get();
                         @endphp
                         @foreach($technicians as $tech)
                         <option value="{{ $tech->id }}">{{ $tech->name }}</option>

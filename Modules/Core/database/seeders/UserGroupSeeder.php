@@ -15,7 +15,7 @@ class UserGroupSeeder extends Seeder
             'technicians', 'equipment', 'manufacturers', 'suppliers',
             'hotspot_coupons', 'mikrotik_servers', 'provisioning', 'uptime',
             'network_monitor', 'tickets', 'invoices', 'cash_book', 'reports',
-            'boleto', 'newsletter', 'backups', 'site_blocking', 'settings',
+            'boleto', 'newsletter', 'backups', 'site_blocking', 'settings', 'stock',
         ];
 
         $groupDefs = [
@@ -75,6 +75,7 @@ class UserGroupSeeder extends Seeder
                 'backups' => false,
                 'site_blocking' => false,
                 'settings' => false,
+                'stock' => true,
             ],
 
             'tecnico' => [
@@ -101,6 +102,7 @@ class UserGroupSeeder extends Seeder
                 'backups' => false,
                 'site_blocking' => false,
                 'settings' => false,
+                'stock' => false,
             ],
 
             'operador' => [
@@ -127,6 +129,7 @@ class UserGroupSeeder extends Seeder
                 'backups' => false,
                 'site_blocking' => false,
                 'settings' => false,
+                'stock' => false,
             ],
         ];
 

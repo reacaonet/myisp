@@ -44,6 +44,7 @@ class GroupPermission extends Model
             'backups' => 'Backups MikroTik',
             'site_blocking' => 'Bloqueio de Sites',
             'settings' => 'Configuracoes',
+            'stock' => 'Estoque',
         ];
     }
 }

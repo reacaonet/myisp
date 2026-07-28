@@ -12,6 +12,11 @@ use Modules\CRM\Http\Controllers\Web\TicketController;
 use Modules\CRM\Http\Controllers\Web\TechnicianPortalController;
 use Modules\CRM\Http\Controllers\Web\SupplierController;
 use Modules\CRM\Http\Controllers\Web\NewsletterController;
+use Modules\CRM\Http\Controllers\Web\StockController;
+use Modules\CRM\Http\Controllers\Web\StockCategoryController;
+use Modules\CRM\Http\Controllers\Web\StockItemController;
+use Modules\CRM\Http\Controllers\Web\StockLocationController;
+use Modules\CRM\Http\Controllers\Web\StockMovementController;
 
 Route::prefix('crm')->middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('crm.dashboard');
@@ -60,6 +65,12 @@ Route::prefix('crm')->middleware('auth')->group(function () {
         Route::get('/', [NewsletterController::class, 'index'])->name('index');
         Route::post('/send', [NewsletterController::class, 'send'])->name('send');
     });
+
+    Route::get('estoque', [StockController::class, 'dashboard'])->name('crm.stock.dashboard');
+    Route::resource('estoque/categorias', StockCategoryController::class)->names('crm.stock-categories')->except('show');
+    Route::resource('estoque/itens', StockItemController::class)->names('crm.stock-items');
+    Route::resource('estoque/locais', StockLocationController::class)->names('crm.stock-locations')->except('show');
+    Route::resource('estoque/movimentacoes', StockMovementController::class)->names('crm.stock-movements')->except(['edit', 'update']);
 });
 
 Route::prefix('crm/portal')->name('crm.portal.')->group(function () {

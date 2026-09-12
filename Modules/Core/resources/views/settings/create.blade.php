@@ -23,6 +23,7 @@
                     <option value="number">Numero</option>
                     <option value="boolean">Sim/Nao</option>
                     <option value="password">Senha</option>
+                    <option value="file">Arquivo</option>
                 </select>
             </div>
             <div>
@@ -32,6 +33,7 @@
                     <option value="general">
                     <option value="billing">
                     <option value="company">
+                    <option value="landing">
                     <option value="mikrotik">
                     <option value="notifications">
                 </datalist>

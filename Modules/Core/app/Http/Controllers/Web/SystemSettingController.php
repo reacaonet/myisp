@@ -24,6 +24,15 @@ class SystemSettingController extends Controller
             SystemSetting::where('key', $key)->update(['value' => $value]);
         }
 
+        $request->validate([
+            'logo' => 'nullable|image|mimes:jpeg,png,webp,gif,svg|max:2048',
+        ]);
+
+        if ($request->hasFile('logo')) {
+            $path = $request->file('logo')->store('landing', 'public');
+            SystemSetting::set('landing_logo', $path, 'file', 'landing');
+        }
+
         return back()->with('success', 'Configuracoes salvas com sucesso.');
     }
 
@@ -37,7 +46,7 @@ class SystemSettingController extends Controller
         $validated = $request->validate([
             'key' => 'required|string|max:100|unique:system_settings,key',
             'value' => 'nullable|string',
-            'type' => 'required|in:text,textarea,number,boolean,password',
+            'type' => 'required|in:text,textarea,number,boolean,password,file',
             'group' => 'required|string|max:50',
         ]);
 

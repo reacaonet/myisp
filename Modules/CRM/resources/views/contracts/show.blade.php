@@ -29,8 +29,8 @@
 
             <div>
                 <h3 class="text-sm font-semibold text-gray-500 uppercase mb-3">Plano</h3>
-                <p class="font-medium text-gray-900">{{ $contract->plan->name }}</p>
-                <p class="text-sm text-gray-500">{{ number_format($contract->plan->download_speed / 1024, 0) }} Mbps / {{ number_format($contract->plan->upload_speed / 1024, 0) }} Mbps</p>
+                <p class="font-medium text-gray-900">{{ $contract->plan?->name ?? '-' }}</p>
+                <p class="text-sm text-gray-500">{{ number_format(($contract->plan?->download_speed ?? 0) / 1024, 0) }} Mbps / {{ number_format(($contract->plan?->upload_speed ?? 0) / 1024, 0) }} Mbps</p>
             </div>
 
             <div>
@@ -47,7 +47,7 @@
             <div>
                 <h3 class="text-sm font-semibold text-gray-500 uppercase mb-3">Financeiro</h3>
                 <dl class="space-y-2 text-sm">
-                    <div class="flex justify-between"><dt class="text-gray-500">Valor Plano</dt><dd class="text-gray-900">R$ {{ number_format($contract->plan->price, 2, ',', '.') }}</dd></div>
+                    <div class="flex justify-between"><dt class="text-gray-500">Valor Plano</dt><dd class="text-gray-900">R$ {{ number_format($contract->plan?->price ?? 0, 2, ',', '.') }}</dd></div>
                     @if($contract->discount > 0)
                     <div class="flex justify-between"><dt class="text-gray-500">Desconto</dt><dd class="text-green-600">- R$ {{ number_format($contract->discount, 2, ',', '.') }}</dd></div>
                     @endif
@@ -56,7 +56,7 @@
                     @endif
                     <div class="flex justify-between border-t border-gray-100 pt-1">
                         <dt class="text-gray-700 font-medium">Valor Final</dt>
-                        <dd class="text-gray-900 font-bold">R$ {{ number_format($contract->plan->price - $contract->discount + $contract->acrescimo, 2, ',', '.') }}</dd>
+                        <dd class="text-gray-900 font-bold">R$ {{ number_format(($contract->plan?->price ?? 0) - $contract->discount + $contract->acrescimo, 2, ',', '.') }}</dd>
                     </div>
                     <div class="flex justify-between"><dt class="text-gray-500">Cobranca</dt><dd class="text-gray-900">{{ strtoupper($contract->billing_type) }}</dd></div>
                     <div class="flex justify-between"><dt class="text-gray-500">Isento</dt><dd class="text-gray-900">{{ $contract->insento ? 'Sim' : 'Nao' }}</dd></div>

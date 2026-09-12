@@ -79,8 +79,8 @@
                         <a href="{{ route('crm.contracts.show', $contract) }}" class="block bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition">
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <p class="font-medium text-gray-900">{{ $contract->plan->name }}</p>
-                                    <p class="text-sm text-gray-500">Ativado em {{ $contract->activation_date->format('d/m/Y') }} &middot; Dia {{ $contract->due_day }} &middot; R$ {{ number_format($contract->plan->price - $contract->discount, 2, ',', '.') }}</p>
+                                    <p class="font-medium text-gray-900">{{ $contract->plan?->name ?? '-' }}</p>
+                                    <p class="text-sm text-gray-500">Ativado em {{ $contract->activation_date->format('d/m/Y') }} &middot; Dia {{ $contract->due_day }} &middot; R$ {{ number_format(($contract->plan?->price ?? 0) - $contract->discount, 2, ',', '.') }}</p>
                                 </div>
                                 @include('crm::clients._status_badge', ['status' => $contract->status])
                             </div>

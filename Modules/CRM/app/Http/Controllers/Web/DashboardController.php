@@ -44,6 +44,32 @@ class DashboardController extends Controller
             ->pluck('total', 'month')
             ->toArray();
 
+        $invStatus = \Modules\Billing\Models\Invoice::selectRaw('status, count(*) as total')
+            ->whereIn('status', ['paid', 'pending', 'overdue'])
+            ->groupBy('status')->pluck('total', 'status');
+        $stats['invoice_status'] = [
+            'paid' => $invStatus['paid'] ?? 0,
+            'pending' => $invStatus['pending'] ?? 0,
+            'overdue' => $invStatus['overdue'] ?? 0,
+        ];
+
+        $cliStatus = \Modules\CRM\Models\Client::selectRaw('status, count(*) as total')
+            ->groupBy('status')->pluck('total', 'status');
+        $stats['client_status'] = [
+            'active' => $cliStatus['active'] ?? 0,
+            'suspended' => $cliStatus['suspended'] ?? 0,
+            'canceled' => $cliStatus['canceled'] ?? 0,
+            'inactive' => $cliStatus['inactive'] ?? 0,
+        ];
+
+        $conStatus = \Modules\CRM\Models\Contract::selectRaw('status, count(*) as total')
+            ->groupBy('status')->pluck('total', 'status');
+        $stats['contract_status'] = [
+            'active' => $conStatus['active'] ?? 0,
+            'suspended' => $conStatus['suspended'] ?? 0,
+            'canceled' => $conStatus['canceled'] ?? 0,
+        ];
+
         $mikrotikServers = MikrotikServer::where('is_active', true)->get();
         $mikrotikStatus = [];
         foreach ($mikrotikServers as $mk) {

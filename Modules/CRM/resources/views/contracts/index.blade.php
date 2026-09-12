@@ -38,10 +38,10 @@
                     <td class="px-6 py-4">
                         <a href="{{ route('crm.clients.show', $contract->client) }}" class="text-blue-600 hover:underline font-medium">{{ $contract->client->name }}</a>
                     </td>
-                    <td class="px-6 py-4 text-gray-600">{{ $contract->plan->name }}</td>
+                    <td class="px-6 py-4 text-gray-600">{{ $contract->plan?->name ?? '-' }}</td>
                     <td class="px-6 py-4 text-gray-600">{{ $contract->activation_date->format('d/m/Y') }}</td>
                     <td class="px-6 py-4 text-gray-600">Dia {{ $contract->due_day }}</td>
-                    <td class="px-6 py-4 text-gray-900 font-medium">R$ {{ number_format($contract->plan->price - $contract->discount + $contract->acrescimo, 2, ',', '.') }}</td>
+                    <td class="px-6 py-4 text-gray-900 font-medium">R$ {{ number_format(($contract->plan?->price ?? 0) - $contract->discount + $contract->acrescimo, 2, ',', '.') }}</td>
                     <td class="px-6 py-4 text-gray-600">{{ $contract->server?->name ?? '-' }}</td>
                     <td class="px-6 py-4">@include('crm::clients._status_badge', ['status' => $contract->status])</td>
                     <td class="px-6 py-4 text-right">

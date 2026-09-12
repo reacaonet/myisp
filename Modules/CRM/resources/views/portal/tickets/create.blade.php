@@ -52,7 +52,7 @@
                         <option value="">Nenhum</option>
                         @foreach($client->activeContracts as $contract)
                         <option value="{{ $contract->id }}" @selected(old('contract_id') == $contract->id)>
-                            {{ $contract->codigo ?? 'Contrato #' . $contract->id }} - {{ $contract->plan->name }}
+                            {{ $contract->codigo ?? 'Contrato #' . $contract->id }} - {{ $contract->plan?->name ?? '-' }}
                         </option>
                         @endforeach
                     </select>

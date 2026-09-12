@@ -16,11 +16,11 @@
         <div class="p-6 hover:bg-gray-50">
             <div class="flex items-center justify-between mb-3">
                 <div>
-                    <p class="font-medium text-gray-900">{{ $contract->plan->name }}</p>
+                    <p class="font-medium text-gray-900">{{ $contract->plan?->name ?? '-' }}</p>
                     <p class="text-sm text-gray-500">Ativado em {{ $contract->activation_date->format('d/m/Y') }}</p>
                 </div>
                 <div class="text-right">
-                    <p class="font-bold text-gray-900">R$ {{ number_format($contract->plan->price - $contract->discount, 2, ',', '.') }}</p>
+                    <p class="font-bold text-gray-900">R$ {{ number_format(($contract->plan?->price ?? 0) - $contract->discount, 2, ',', '.') }}</p>
                     @include('crm::clients._status_badge', ['status' => $contract->status])
                 </div>
             </div>

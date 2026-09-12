@@ -1,13 +1,13 @@
 @extends('crm::portal.layouts.master')
 
-@section('title', "Contrato - {$contract->plan->name}")
+@section('title', "Contrato - {{ $contract->plan?->name ?? '-' }}")
 
 @section('content')
 <div class="max-w-3xl mx-auto">
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div class="p-6 border-b border-gray-200 flex items-center justify-between">
             <div>
-                <h2 class="text-xl font-bold text-gray-900">{{ $contract->plan->name }}</h2>
+                <h2 class="text-xl font-bold text-gray-900">{{ $contract->plan?->name ?? '-' }}</h2>
                 <p class="text-sm text-gray-500">Ativado em {{ $contract->activation_date->format('d/m/Y') }}</p>
             </div>
             @include('crm::clients._status_badge', ['status' => $contract->status])
@@ -19,15 +19,15 @@
                 <dl class="grid grid-cols-2 gap-4 text-sm">
                     <div>
                         <dt class="text-gray-500">Velocidade</dt>
-                        <dd class="font-medium text-gray-900">{{ $contract->plan->download_speed }}Mbps</dd>
+                        <dd class="font-medium text-gray-900">{{ $contract->plan?->download_speed ?? 0 }}Mbps</dd>
                     </div>
                     <div>
                         <dt class="text-gray-500">Upload</dt>
-                        <dd class="font-medium text-gray-900">{{ $contract->plan->upload_speed }}Mbps</dd>
+                        <dd class="font-medium text-gray-900">{{ $contract->plan?->upload_speed ?? 0 }}Mbps</dd>
                     </div>
                     <div>
                         <dt class="text-gray-500">Valor</dt>
-                        <dd class="font-medium text-gray-900">R$ {{ number_format($contract->plan->price, 2, ',', '.') }}</dd>
+                        <dd class="font-medium text-gray-900">R$ {{ number_format($contract->plan?->price ?? 0, 2, ',', '.') }}</dd>
                     </div>
                     @if($contract->discount > 0)
                     <div>
@@ -37,7 +37,7 @@
                     @endif
                     <div>
                         <dt class="text-gray-500">Valor Final</dt>
-                        <dd class="font-bold text-lg text-gray-900">R$ {{ number_format($contract->plan->price - $contract->discount, 2, ',', '.') }}</dd>
+                        <dd class="font-bold text-lg text-gray-900">R$ {{ number_format(($contract->plan?->price ?? 0) - $contract->discount, 2, ',', '.') }}</dd>
                     </div>
                 </dl>
             </div>

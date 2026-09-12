@@ -63,7 +63,7 @@
                 @if($ticket->contract)
                 <div>
                     <dt class="text-gray-500">Contrato</dt>
-                    <dd class="font-medium text-gray-900">{{ $ticket->contract->plan->name }}</dd>
+                    <dd class="font-medium text-gray-900">{{ $ticket->contract->plan?->name ?? '-' }}</dd>
                 </div>
                 @endif
             </dl>

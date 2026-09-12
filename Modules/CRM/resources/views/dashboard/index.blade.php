@@ -107,44 +107,67 @@
     </div>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+    <h2 class="text-base font-semibold text-gray-800 mb-4">Receita Mensal (6 meses)</h2>
+    <div style="position:relative; height:280px;">
+        <canvas id="revenueChart"></canvas>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 class="text-lg font-semibold text-gray-800 mb-4">Receita Mensal (6 meses)</h2>
-        <canvas id="revenueChart" height="200"></canvas>
+        <h2 class="text-base font-semibold text-gray-800 mb-4">Faturas por Status</h2>
+        <div style="position:relative; height:200px;">
+            <canvas id="invoiceChart"></canvas>
+        </div>
     </div>
 
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 class="text-lg font-semibold text-gray-800 mb-4">Faturas Vencidas</h2>
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="text-left text-gray-500 border-b border-gray-200">
-                        <th class="pb-2 font-medium">Cliente</th>
-                        <th class="pb-2 font-medium">Fatura</th>
-                        <th class="pb-2 font-medium">Valor</th>
-                        <th class="pb-2 font-medium">Vencimento</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($recent_overdue as $inv)
-                    <tr class="border-b border-gray-100">
-                        <td class="py-2">
-                            <a href="{{ route('crm.clients.show', $inv->client) }}" class="text-blue-600 hover:underline">{{ $inv->client->name }}</a>
-                        </td>
-                        <td class="py-2">
-                            <a href="{{ route('billing.invoices.show', $inv) }}" class="text-blue-600 hover:underline">{{ $inv->invoice_number }}</a>
-                        </td>
-                        <td class="py-2 text-red-600 font-medium">R$ {{ number_format($inv->total, 2, ',', '.') }}</td>
-                        <td class="py-2 text-gray-600">{{ $inv->due_date->format('d/m/Y') }}</td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="4" class="py-8 text-center text-gray-400">Nenhuma fatura vencida.</td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
+        <h2 class="text-base font-semibold text-gray-800 mb-4">Clientes por Status</h2>
+        <div style="position:relative; height:200px;">
+            <canvas id="clientChart"></canvas>
         </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-base font-semibold text-gray-800 mb-4">Contratos por Status</h2>
+        <div style="position:relative; height:200px;">
+            <canvas id="contractChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+    <h2 class="text-base font-semibold text-gray-800 mb-4">Faturas Vencidas</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-left text-gray-500 border-b border-gray-200">
+                    <th class="pb-2 font-medium">Cliente</th>
+                    <th class="pb-2 font-medium">Fatura</th>
+                    <th class="pb-2 font-medium">Valor</th>
+                    <th class="pb-2 font-medium">Vencimento</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($recent_overdue as $inv)
+                <tr class="border-b border-gray-100">
+                    <td class="py-2">
+                        <a href="{{ route('crm.clients.show', $inv->client) }}" class="text-blue-600 hover:underline">{{ $inv->client->name }}</a>
+                    </td>
+                    <td class="py-2">
+                        <a href="{{ route('billing.invoices.show', $inv) }}" class="text-blue-600 hover:underline">{{ $inv->invoice_number }}</a>
+                    </td>
+                    <td class="py-2 text-red-600 font-medium">R$ {{ number_format($inv->total, 2, ',', '.') }}</td>
+                    <td class="py-2 text-gray-600">{{ $inv->due_date->format('d/m/Y') }}</td>
+                </tr>
+                @empty
+                <tr>
+                    <td colspan="4" class="py-8 text-center text-gray-400">Nenhuma fatura vencida.</td>
+                </tr>
+                @endforelse
+            </tbody>
+        </table>
     </div>
 </div>
 
@@ -216,8 +239,7 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-const ctx = document.getElementById('revenueChart').getContext('2d');
-new Chart(ctx, {
+const revenueChart = new Chart(document.getElementById('revenueChart'), {
     type: 'bar',
     data: {
         labels: {!! json_encode(array_keys($monthly_revenue)) !!},
@@ -230,10 +252,85 @@ new Chart(ctx, {
     },
     options: {
         responsive: true,
+        maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
             y: {
                 ticks: { callback: v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits: 2}) }
+            }
+        }
+    }
+});
+
+const invoiceChart = new Chart(document.getElementById('invoiceChart'), {
+    type: 'doughnut',
+    data: {
+        labels: ['Pagas', 'Pendentes', 'Vencidas'],
+        datasets: [{
+            data: [
+                {{ $invoice_status['paid'] }},
+                {{ $invoice_status['pending'] }},
+                {{ $invoice_status['overdue'] }}
+            ],
+            backgroundColor: ['#22c55e', '#eab308', '#ef4444'],
+            borderWidth: 2,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } }
+    }
+});
+
+const clientChart = new Chart(document.getElementById('clientChart'), {
+    type: 'doughnut',
+    data: {
+        labels: ['Ativos', 'Suspensos', 'Cancelados', 'Inativos'],
+        datasets: [{
+            data: [
+                {{ $client_status['active'] }},
+                {{ $client_status['suspended'] }},
+                {{ $client_status['canceled'] }},
+                {{ $client_status['inactive'] }}
+            ],
+            backgroundColor: ['#22c55e', '#eab308', '#ef4444', '#6b7280'],
+            borderWidth: 2,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } }
+    }
+});
+
+const contractChart = new Chart(document.getElementById('contractChart'), {
+    type: 'bar',
+    data: {
+        labels: ['Ativos', 'Suspensos', 'Cancelados'],
+        datasets: [{
+            label: 'Contratos',
+            data: [
+                {{ $contract_status['active'] }},
+                {{ $contract_status['suspended'] }},
+                {{ $contract_status['canceled'] }}
+            ],
+            backgroundColor: ['#22c55e', '#eab308', '#ef4444'],
+            borderRadius: 6,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            title: { display: false }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: { precision: 0 }
             }
         }
     }

@@ -84,9 +84,11 @@ document.getElementById('serverSelect').addEventListener('change', function() {
         return;
     }
 
-    fetch(`/crm/provisioning/profiles/${serverId}`)
-        .then(r => r.json())
-        .then(data => {
+    fetch(`{{ route('infra.provisioning.profiles', ['server_id' => '__SERVER_ID__']) }}`.replace('__SERVER_ID__', serverId))
+        .then(r => r.json().then(data => ({ ok: r.ok, data })))
+        .then(({ ok, data }) => {
+            if (!ok) throw new Error(data.error || 'Erro ao carregar perfis');
+
             profileSelect.innerHTML = '';
             const type = typeSelect.value;
             const profiles = type === 'pppoe' ? data.ppp_profiles : data.hotspot_profiles;
@@ -100,8 +102,8 @@ document.getElementById('serverSelect').addEventListener('change', function() {
                 profileSelect.innerHTML = '<option value="">Nenhum perfil encontrado</option>';
             }
         })
-        .catch(() => {
-            profileSelect.innerHTML = '<option value="">Erro ao carregar perfis</option>';
+        .catch(err => {
+            profileSelect.innerHTML = '<option value="">' + (err.message || 'Erro ao carregar perfis') + '</option>';
         });
 });
 

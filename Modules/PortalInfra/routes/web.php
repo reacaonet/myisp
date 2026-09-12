@@ -19,6 +19,7 @@ use Modules\PortalInfra\Http\Controllers\Web\ManufacturerController;
 use Modules\PortalInfra\Http\Controllers\Web\HotspotCouponController;
 use Modules\PortalInfra\Http\Controllers\Web\FtthController;
 use Modules\PortalInfra\Http\Controllers\Web\InfraLoginController;
+use Modules\PortalInfra\Http\Controllers\Web\DashboardController;
 
 Route::prefix('infra')->name('infra.')->group(function () {
 
@@ -32,9 +33,7 @@ Route::prefix('infra')->name('infra.')->group(function () {
     // Protected routes
     Route::middleware(['auth', 'verified'])->group(function () {
 
-    Route::get('/', function () {
-        return view('infra::dashboard');
-    })->name('dashboard');
+    Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
     // ==================== MikroTik ====================
 
@@ -119,7 +118,7 @@ Route::prefix('infra')->name('infra.')->group(function () {
     // ==================== FTTH ====================
 
     Route::prefix('ftth')->name('ftth.')->group(function () {
-        Route::get('/', [FtthController::class, 'dashboard'])->name('dashboard');
+        Route::redirect('/', '/infra')->name('dashboard');
 
         Route::get('/projetos', [FtthController::class, 'indexProjects'])->name('projects.index');
         Route::get('/projetos/criar', [FtthController::class, 'createProject'])->name('projects.create');

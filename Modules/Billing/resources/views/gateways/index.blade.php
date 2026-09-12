@@ -71,7 +71,7 @@ function testGateway(id) {
     const result = document.getElementById('test-result-' + id);
     btn.textContent = 'Testando...';
     result.innerHTML = '';
-    fetch('/billing/gateways/' + id + '/test')
+    fetch('/gateways/' + id + '/test')
         .then(r => r.json())
         .then(data => {
             if (data.success) {

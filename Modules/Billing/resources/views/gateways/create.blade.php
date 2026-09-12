@@ -19,7 +19,7 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Plataforma *</label>
-                    <select name="slug" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <select name="slug" id="slug-input" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         <option value="">Selecione...</option>
                         <option value="mercado-pago" {{ old('slug') === 'mercado-pago' ? 'selected' : '' }}>Mercado Pago</option>
                         <option value="asaas" {{ old('slug') === 'asaas' ? 'selected' : '' }}>Asaas</option>
@@ -58,20 +58,7 @@
                 </div>
             </div>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Configuracao (JSON)</label>
-                <textarea name="config" rows="7" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono" placeholder='{
-    "access_token": "TEST-xxx",
-    "sandbox": true,
-    "ssl_verify": false
-}'>{{ old('config') }}</textarea>
-                <p class="text-xs text-gray-400 mt-1">
-                    <strong>Mercado Pago:</strong> access_token, sandbox, ssl_verify<br>
-                    <strong>Asaas:</strong> api_key, sandbox, ssl_verify<br>
-                    <strong>Gerencianet:</strong> client_id, client_secret, sandbox, ssl_verify<br>
-                    <strong>ssl_verify:</strong> false para ambientes sem certificado SSL (ex: WAMP local)
-                </p>
-            </div>
+            @include('billing::gateways.partials._config')
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Observacoes</label>

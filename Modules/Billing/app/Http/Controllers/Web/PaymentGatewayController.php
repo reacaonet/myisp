@@ -29,7 +29,12 @@ class PaymentGatewayController extends Controller
             'supports_pix' => 'boolean',
             'supports_credit_card' => 'boolean',
             'supports_recurrence' => 'boolean',
-            'config' => 'nullable|string',
+            'config' => 'nullable',
+            'config.access_token' => 'nullable|string',
+            'config.public_key' => 'nullable|string',
+            'config.webhook_url' => 'nullable|string',
+            'config.sandbox' => 'nullable',
+            'config.ssl_verify' => 'nullable',
             'notes' => 'nullable|string',
         ]);
 
@@ -38,9 +43,7 @@ class PaymentGatewayController extends Controller
         $validated['supports_credit_card'] = $request->boolean('supports_credit_card');
         $validated['supports_recurrence'] = $request->boolean('supports_recurrence');
 
-        if (!empty($validated['config'])) {
-            $validated['config'] = json_decode($validated['config'], true);
-        }
+        $validated['config'] = $this->buildConfig($request, $validated['slug'] ?? '');
 
         PaymentGateway::create($validated);
 
@@ -65,7 +68,12 @@ class PaymentGatewayController extends Controller
             'supports_pix' => 'boolean',
             'supports_credit_card' => 'boolean',
             'supports_recurrence' => 'boolean',
-            'config' => 'nullable|string',
+            'config' => 'nullable',
+            'config.access_token' => 'nullable|string',
+            'config.public_key' => 'nullable|string',
+            'config.webhook_url' => 'nullable|string',
+            'config.sandbox' => 'nullable',
+            'config.ssl_verify' => 'nullable',
             'notes' => 'nullable|string',
         ]);
 
@@ -74,14 +82,7 @@ class PaymentGatewayController extends Controller
         $validated['supports_credit_card'] = $request->boolean('supports_credit_card');
         $validated['supports_recurrence'] = $request->boolean('supports_recurrence');
 
-        if (!empty($validated['config'])) {
-            $decoded = json_decode($validated['config'], true);
-            if ($decoded !== null) {
-                $validated['config'] = $decoded;
-            } else {
-                $validated->offsetUnset('config');
-            }
-        }
+        $validated['config'] = $this->buildConfig($request, $gateway->slug);
 
         $gateway->update($validated);
 
@@ -242,5 +243,38 @@ class PaymentGatewayController extends Controller
         }
 
         return ['success' => false, 'message' => 'Resposta inesperada da API.'];
+    }
+
+    private function buildConfig(Request $request, string $slug): array
+    {
+        $config = [];
+
+        if ($slug === 'mercado-pago') {
+            $config['access_token'] = trim($request->input('config.access_token', ''));
+            $config['public_key'] = trim($request->input('config.public_key', ''));
+            $config['webhook_url'] = trim($request->input('config.webhook_url', ''));
+
+            if ($request->filled('config.sandbox')) {
+                $config['sandbox'] = $request->boolean('config.sandbox');
+            }
+            if ($request->filled('config.ssl_verify')) {
+                $config['ssl_verify'] = $request->boolean('config.ssl_verify');
+            }
+
+            return array_filter($config, fn($value) => $value !== '' && $value !== null);
+        }
+
+        $rawConfig = $request->input('config');
+
+        if (is_string($rawConfig) && !empty($rawConfig)) {
+            $decoded = json_decode($rawConfig, true);
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        if (is_array($rawConfig)) {
+            return array_filter($rawConfig, fn($value) => $value !== '' && $value !== null);
+        }
+
+        return [];
     }
 }

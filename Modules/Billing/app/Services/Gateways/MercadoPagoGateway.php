@@ -37,9 +37,13 @@ class MercadoPagoGateway extends AbstractPaymentGateway
             'description' => "Fatura {$invoice->invoice_number}",
             'payment_method_id' => 'bolbradesco',
             'date_of_expiration' => $this->getExpirationDate($invoice),
-            'notification_url' => url('/webhooks/mercadopago'),
             'payer' => $this->buildPayer($invoice, $payerEmail),
         ];
+
+        $notificationUrl = $this->getConfig('webhook_url', '');
+        if (!empty($notificationUrl)) {
+            $payload['notification_url'] = $notificationUrl;
+        }
 
         $response = $this->apiCall('/v1/payments', $payload, $accessToken);
 
@@ -82,9 +86,13 @@ class MercadoPagoGateway extends AbstractPaymentGateway
             'description' => "Fatura {$invoice->invoice_number}",
             'payment_method_id' => 'pix',
             'date_of_expiration' => $this->getExpirationDate($invoice),
-            'notification_url' => url('/webhooks/mercadopago'),
             'payer' => $this->buildPayer($invoice, $payerEmail),
         ];
+
+        $notificationUrl = $this->getConfig('webhook_url', '');
+        if (!empty($notificationUrl)) {
+            $payload['notification_url'] = $notificationUrl;
+        }
 
         $response = $this->apiCall('/v1/payments', $payload, $accessToken);
 
@@ -257,6 +265,7 @@ class MercadoPagoGateway extends AbstractPaymentGateway
         if ($httpCode >= 400) {
             $result['error'] = true;
             $result['message'] = $result['message'] ?? "Erro HTTP {$httpCode}: " . substr($response, 0, 500);
+            $result['message'] = ($result['message'] ?? '') . ' [HTTP ' . $httpCode . ']';
         }
 
         return $result;

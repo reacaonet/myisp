@@ -14,6 +14,7 @@ class Cto extends Model
 
     protected $fillable = [
         'caixa_emenda_id',
+        'ftth_project_id',
         'name',
         'code',
         'latitude',
@@ -42,6 +43,11 @@ class Cto extends Model
     public function caixaEmenda(): BelongsTo
     {
         return $this->belongsTo(CaixaEmenda::class);
+    }
+
+    public function ftthProject(): BelongsTo
+    {
+        return $this->belongsTo(FtthProject::class);
     }
 
     public function getFullAddressAttribute(): string

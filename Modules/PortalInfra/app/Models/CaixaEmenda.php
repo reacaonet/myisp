@@ -5,6 +5,7 @@ namespace Modules\PortalInfra\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CaixaEmenda extends Model
 {
@@ -13,6 +14,7 @@ class CaixaEmenda extends Model
     protected $table = 'caixas_emenda';
 
     protected $fillable = [
+        'ftth_project_id',
         'name',
         'code',
         'latitude',
@@ -39,6 +41,11 @@ class CaixaEmenda extends Model
     public function ctos(): HasMany
     {
         return $this->hasMany(Cto::class);
+    }
+
+    public function ftthProject(): BelongsTo
+    {
+        return $this->belongsTo(FtthProject::class);
     }
 
     public function getFullAddressAttribute(): string

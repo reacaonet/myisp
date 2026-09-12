@@ -8,10 +8,17 @@
         <h1 class="text-2xl font-bold text-gray-900">CTOs</h1>
         <p class="text-gray-500 text-sm">Caixas de Terminal Optico</p>
     </div>
-    <a href="{{ route('infra.ftth.ctos.create') }}" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-        Nova CTO
-    </a>
+    <div class="flex items-center gap-2">
+        <button type="submit" form="bulk-ctos-form" onclick="return checkBulkSelection()"
+            style="background-color:#dc2626;color:#ffffff;font-weight:600;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;"
+            onmouseover="this.style.backgroundColor='#b91c1c'" onmouseout="this.style.backgroundColor='#dc2626'" id="btn-bulk-delete-ctos-top">
+            Excluir Selecionadas
+        </button>
+        <a href="{{ route('infra.ftth.ctos.create') }}" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            Nova CTO
+        </a>
+    </div>
 </div>
 
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
@@ -35,9 +42,15 @@
 </div>
 
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <form method="POST" action="{{ route('infra.ftth.ctos.bulk-destroy') }}" id="bulk-ctos-form">
+        @csrf
+    </form>
     <table class="w-full">
         <thead class="bg-gray-50 border-b border-gray-200">
             <tr>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase w-10">
+                    <input type="checkbox" id="select-all-ctos" class="rounded border-gray-300 text-blue-600">
+                </th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Codigo</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Nome</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Cidade</th>
@@ -51,6 +64,9 @@
         <tbody class="divide-y divide-gray-100">
             @forelse($ctos as $cto)
             <tr class="hover:bg-gray-50">
+                <td class="px-4 py-3">
+                    <input type="checkbox" name="ids[]" value="{{ $cto->id }}" form="bulk-ctos-form" class="cto-checkbox rounded border-gray-300 text-blue-600">
+                </td>
                 <td class="px-4 py-3 text-sm font-mono font-medium text-gray-900">{{ $cto->code }}</td>
                 <td class="px-4 py-3 text-sm text-gray-700">{{ $cto->name }}</td>
                 <td class="px-4 py-3 text-sm text-gray-500">{{ $cto->city ?: '-' }}</td>
@@ -98,13 +114,54 @@
             </tr>
             @empty
             <tr>
-                <td colspan="8" class="px-4 py-12 text-center text-gray-400">Nenhuma CTO encontrada.</td>
+                <td colspan="9" class="px-4 py-12 text-center text-gray-400">Nenhuma CTO encontrada.</td>
             </tr>
             @endforelse
         </tbody>
     </table>
-    <div class="px-4 py-3 border-t border-gray-200">
+    <div class="px-4 py-3 border-t border-gray-200 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <button type="submit" form="bulk-ctos-form" onclick="return checkBulkSelection()"
+                style="background-color:#dc2626;color:#ffffff;font-weight:600;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;"
+                onmouseover="this.style.backgroundColor='#b91c1c'" onmouseout="this.style.backgroundColor='#dc2626'" id="btn-bulk-delete-ctos">
+                Excluir Selecionadas
+            </button>
+            <span class="text-sm text-gray-400" id="ctos-selected-count"></span>
+        </div>
         {{ $ctos->withQueryString()->links() }}
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const selectAll = document.getElementById('select-all-ctos');
+    const checkboxes = document.querySelectorAll('.cto-checkbox');
+    const counter = document.getElementById('ctos-selected-count');
+
+    function update() {
+        const checked = document.querySelectorAll('.cto-checkbox:checked');
+        counter.textContent = checked.length > 0 ? checked.length + ' selecionada(s)' : 'Selecione CTOs para excluir em massa';
+    }
+
+    window.checkBulkSelection = function () {
+        const checked = document.querySelectorAll('.cto-checkbox:checked');
+        if (checked.length === 0) {
+            alert('Selecione ao menos uma CTO.');
+            return false;
+        }
+        return confirm('Excluir ' + checked.length + ' CTO(s)? Esta acao nao pode ser desfeita.');
+    };
+
+    if (selectAll) {
+        selectAll.addEventListener('change', function () {
+            checkboxes.forEach(cb => { cb.checked = selectAll.checked; });
+            update();
+        });
+    }
+
+    checkboxes.forEach(cb => cb.addEventListener('change', update));
+});
+</script>
+@endpush

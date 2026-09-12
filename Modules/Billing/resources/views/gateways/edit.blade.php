@@ -19,7 +19,7 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Plataforma</label>
-                    <input type="text" disabled class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50" value="{{ $gateway->slug }}">
+                    <input type="text" id="slug-input" disabled class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50" value="{{ old('slug', $gateway->slug) }}">
                 </div>
             </div>
 
@@ -53,16 +53,7 @@
                 </div>
             </div>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Configuracao (JSON)</label>
-                <textarea name="config" rows="6" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono">{{ old('config', json_encode($gateway->config, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) }}</textarea>
-                <p class="text-xs text-gray-400 mt-1">
-                    <strong>Mercado Pago:</strong> access_token, sandbox, ssl_verify<br>
-                    <strong>Asaas:</strong> api_key, sandbox, ssl_verify<br>
-                    <strong>Gerencianet:</strong> client_id, client_secret, sandbox, ssl_verify<br>
-                    <strong>ssl_verify:</strong> false para ambientes sem certificado SSL (ex: WAMP local)
-                </p>
-            </div>
+            @include('billing::gateways.partials._config')
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Observacoes</label>

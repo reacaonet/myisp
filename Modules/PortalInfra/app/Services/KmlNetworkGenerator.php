@@ -84,11 +84,25 @@ class KmlNetworkGenerator
     {
         $searchName = $state ? "{$cityName}, {$state}, Brazil" : "{$cityName}, Brazil";
 
-        // Primeiro usa Nominatim para pegar bounding box (mais rapido)
-        $bbox = $this->geocodeWithNominatim($searchName);
+        // Primeiro usa Nominatim para obter o poligono administrativo do municipio.
+        // Isso garante que apenas ruas dentro da cidade sejam retornadas
+        // (o bounding box puro inclui municipios vizinhos).
+        $geo = $this->geocodeWithNominatim($searchName);
 
-        if ($bbox) {
-            $streets = $this->fetchStreetsByBounds($bbox['south'], $bbox['west'], $bbox['north'], $bbox['east']);
+        if ($geo && !empty($geo['polygon'])) {
+            $streets = $this->fetchStreetsByPolygon($geo['polygon']);
+            $streets = $this->filterStreetsByPolygon($streets, $geo['polygon']);
+
+            if (!empty($streets)) {
+                return $streets;
+            }
+
+            $streets = $this->fetchStreetsByBounds($geo['south'], $geo['west'], $geo['north'], $geo['east']);
+            return $this->filterStreetsByPolygon($streets, $geo['polygon']);
+        }
+
+        if ($geo) {
+            $streets = $this->fetchStreetsByBounds($geo['south'], $geo['west'], $geo['north'], $geo['east']);
             if (!empty($streets)) {
                 return $streets;
             }
@@ -118,7 +132,7 @@ class KmlNetworkGenerator
 
     private function geocodeWithNominatim(string $query): ?array
     {
-        $url = 'https://nominatim.openstreetmap.org/search?q=' . urlencode($query) . '&format=json&limit=1';
+        $url = 'https://nominatim.openstreetmap.org/search?q=' . urlencode($query) . '&format=json&limit=1&polygon_geojson=1&polygon_threshold=0.01';
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
@@ -147,7 +161,90 @@ class KmlNetworkGenerator
             'north' => (float) $bb[1],
             'west' => (float) $bb[2],
             'east' => (float) $bb[3],
+            'polygon' => $this->extractPolygon($data[0]),
         ];
+    }
+
+    private function extractPolygon(array $result): ?array
+    {
+        $geojson = $result['geojson'] ?? null;
+
+        if (!$geojson || !isset($geojson['type'])) {
+            return null;
+        }
+
+        $ring = null;
+
+        if ($geojson['type'] === 'Polygon') {
+            $ring = $geojson['coordinates'][0] ?? null;
+        } elseif ($geojson['type'] === 'MultiPolygon') {
+            $largest = null;
+            $largestArea = 0;
+
+            foreach ($geojson['coordinates'] as $polygon) {
+                $candidate = $polygon[0] ?? [];
+
+                if (count($candidate) < 4) {
+                    continue;
+                }
+
+                $area = $this->polygonArea($candidate);
+
+                if ($area > $largestArea) {
+                    $largestArea = $area;
+                    $largest = $candidate;
+                }
+            }
+
+            $ring = $largest;
+        }
+
+        if (!$ring || count($ring) < 4) {
+            return null;
+        }
+
+        $points = [];
+
+        foreach ($ring as $coord) {
+            $points[] = [
+                'lat' => (float) $coord[1],
+                'lng' => (float) $coord[0],
+            ];
+        }
+
+        return $points;
+    }
+
+    private function polygonArea(array $ring): float
+    {
+        $area = 0.0;
+        $count = count($ring);
+
+        for ($i = 0; $i < $count; $i++) {
+            $j = ($i + 1) % $count;
+            $area += $ring[$i][0] * $ring[$j][1];
+            $area -= $ring[$j][0] * $ring[$i][1];
+        }
+
+        return abs($area / 2);
+    }
+
+    public function fetchStreetsByPolygon(array $polygon): array
+    {
+        $points = [];
+
+        foreach ($polygon as $point) {
+            $points[] = "{$point['lat']} {$point['lng']}";
+        }
+
+        $polyFilter = 'poly:"' . implode(' ', $points) . '"';
+
+        $query = '[out:json][timeout:120];';
+        $query .= '(way["highway"~"^(residential|primary|secondary|tertiary|unclassified|living_street)$"]["name"](' . $polyFilter . '););';
+        $query .= 'out body;>;out skel qt;';
+
+        $data = $this->overpassQuery($query);
+        return $this->parseOverpassResponse($data);
     }
 
     public function fetchStreetsByBounds(float $south, float $west, float $north, float $east): array
@@ -158,6 +255,64 @@ class KmlNetworkGenerator
 
         $data = $this->overpassQuery($query);
         return $this->parseOverpassResponse($data);
+    }
+
+    private function filterStreetsByPolygon(array $streets, array $polygon): array
+    {
+        if (empty($streets)) {
+            return [];
+        }
+
+        $filtered = [];
+
+        foreach ($streets as $street) {
+            $keptNodes = [];
+            $nodes = $street['nodes'] ?? [];
+
+            foreach ($nodes as $node) {
+                $lat = $node['lat'] ?? $node[0] ?? null;
+                $lng = $node['lng'] ?? $node[1] ?? null;
+
+                if ($lat === null || $lng === null) {
+                    continue;
+                }
+
+                if ($this->isPointInPolygon((float) $lat, (float) $lng, $polygon)) {
+                    $keptNodes[] = $node;
+                }
+            }
+
+            if (count($keptNodes) >= 2) {
+                $filtered[] = [
+                    'name' => $street['name'],
+                    'nodes' => $keptNodes,
+                ];
+            }
+        }
+
+        return $filtered;
+    }
+
+    private function isPointInPolygon(float $lat, float $lng, array $polygon): bool
+    {
+        $inside = false;
+        $count = count($polygon);
+
+        for ($i = 0, $j = $count - 1; $i < $count; $j = $i++) {
+            $latI = $polygon[$i]['lat'];
+            $lngI = $polygon[$i]['lng'];
+            $latJ = $polygon[$j]['lat'];
+            $lngJ = $polygon[$j]['lng'];
+
+            $intersects = (($lngI > $lng) !== ($lngJ > $lng))
+                && ($lat < ($latJ - $latI) * ($lng - $lngI) / ($lngJ - $lngI) + $latI);
+
+            if ($intersects) {
+                $inside = !$inside;
+            }
+        }
+
+        return $inside;
     }
 
     private function parseOverpassResponse(array $data): array

@@ -4,7 +4,7 @@ services:
     container_name: myisp-postgres
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_DB: myisp
       POSTGRES_USER: myisp
@@ -13,21 +13,56 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - myisp
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myisp -d myisp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7-alpine
     container_name: myisp-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redis_data:/data
+    networks:
+      - myisp
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    container_name: myisp-app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/var/www/html
+      - vendor_data:/var/www/html/vendor
+      - node_modules_data:/var/www/html/node_modules
+    environment:
+      COMPOSER_ALLOW_SUPERUSER: "1"
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
     networks:
       - myisp
 
 volumes:
   postgres_data:
   redis_data:
+  vendor_data:
+  node_modules_data:
 
 networks:
   myisp:

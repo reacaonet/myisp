@@ -24,6 +24,9 @@ return Application::configure(basePath: dirname(__DIR__))
             if (str_starts_with($request->path(), 'tecnico')) {
                 return route('technician.portal.login');
             }
+            if (str_starts_with($request->path(), 'infra')) {
+                return route('infra.login');
+            }
             if (str_starts_with($request->path(), 'crm/portal')) {
                 return route('crm.portal.login');
             }

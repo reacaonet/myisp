@@ -23,10 +23,8 @@ use Modules\PortalInfra\Http\Controllers\Web\InfraLoginController;
 Route::prefix('infra')->name('infra.')->group(function () {
 
     // Login (guest only)
-    Route::middleware('guest')->group(function () {
-        Route::get('/login', [InfraLoginController::class, 'showLoginForm'])->name('login');
-        Route::post('/login', [InfraLoginController::class, 'login']);
-    });
+    Route::get('/login', [InfraLoginController::class, 'showLoginForm'])->name('login');
+    Route::post('/login', [InfraLoginController::class, 'login']);
 
     // Logout
     Route::post('/logout', [InfraLoginController::class, 'logout'])->name('logout');
@@ -123,9 +121,18 @@ Route::prefix('infra')->name('infra.')->group(function () {
     Route::prefix('ftth')->name('ftth.')->group(function () {
         Route::get('/', [FtthController::class, 'dashboard'])->name('dashboard');
 
+        Route::get('/projetos', [FtthController::class, 'indexProjects'])->name('projects.index');
+        Route::get('/projetos/criar', [FtthController::class, 'createProject'])->name('projects.create');
+        Route::post('/projetos', [FtthController::class, 'storeProject'])->name('projects.store');
+        Route::get('/projetos/{id}', [FtthController::class, 'showProject'])->name('projects.show');
+        Route::get('/projetos/{id}/editar', [FtthController::class, 'editProject'])->name('projects.edit');
+        Route::put('/projetos/{id}', [FtthController::class, 'updateProject'])->name('projects.update');
+        Route::delete('/projetos/{id}', [FtthController::class, 'destroyProject'])->name('projects.destroy');
+
         Route::get('/ctos', [FtthController::class, 'indexCtos'])->name('ctos.index');
         Route::get('/ctos/criar', [FtthController::class, 'createCto'])->name('ctos.create');
         Route::post('/ctos', [FtthController::class, 'storeCto'])->name('ctos.store');
+        Route::post('/ctos/excluir-em-massa', [FtthController::class, 'bulkDestroyCtos'])->name('ctos.bulk-destroy');
         Route::get('/ctos/{id}', [FtthController::class, 'showCto'])->name('ctos.show');
         Route::get('/ctos/{id}/editar', [FtthController::class, 'editCto'])->name('ctos.edit');
         Route::put('/ctos/{id}', [FtthController::class, 'updateCto'])->name('ctos.update');
@@ -134,6 +141,7 @@ Route::prefix('infra')->name('infra.')->group(function () {
         Route::get('/caixas', [FtthController::class, 'indexCaixas'])->name('caixas.index');
         Route::get('/caixas/criar', [FtthController::class, 'createCaixa'])->name('caixas.create');
         Route::post('/caixas', [FtthController::class, 'storeCaixa'])->name('caixas.store');
+        Route::post('/caixas/excluir-em-massa', [FtthController::class, 'bulkDestroyCaixas'])->name('caixas.bulk-destroy');
         Route::get('/caixas/{id}', [FtthController::class, 'showCaixa'])->name('caixas.show');
         Route::get('/caixas/{id}/editar', [FtthController::class, 'editCaixa'])->name('caixas.edit');
         Route::put('/caixas/{id}', [FtthController::class, 'updateCaixa'])->name('caixas.update');

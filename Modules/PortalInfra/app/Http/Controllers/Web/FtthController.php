@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Modules\PortalInfra\Models\Cto;
 use Modules\PortalInfra\Models\CaixaEmenda;
+use Modules\PortalInfra\Models\FtthProject;
 use Modules\PortalInfra\Services\KmlNetworkGenerator;
 
 class FtthController extends Controller
@@ -235,6 +236,117 @@ class FtthController extends Controller
             ->with('success', 'Caixa de Emenda removida com sucesso.');
     }
 
+    public function indexProjects(Request $request)
+    {
+        $query = FtthProject::withCount('ctos', 'caixas');
+
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('city', 'like', "%{$search}%");
+            });
+        }
+
+        $projects = $query->orderByDesc('created_at')->paginate(20);
+
+        return view('infra::projects.index', compact('projects'));
+    }
+
+    public function createProject()
+    {
+        return view('infra::projects.create');
+    }
+
+    public function storeProject(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'city' => 'nullable|string|max:255',
+            'state' => 'nullable|string|size:2',
+            'prefix' => 'nullable|string|max:10',
+            'status' => 'required|in:active,inactive',
+            'notes' => 'nullable|string',
+        ]);
+
+        $project = FtthProject::create($validated);
+
+        return redirect()->route('infra.ftth.projects.show', $project)
+            ->with('success', 'Projeto criado com sucesso.');
+    }
+
+    public function showProject($id)
+    {
+        $project = FtthProject::withCount('ctos', 'caixas')->findOrFail($id);
+        $ctos = $project->ctos()->with('caixaEmenda')->orderBy('code')->get();
+        $caixas = $project->caixas()->withCount('ctos')->orderBy('code')->get();
+
+        return view('infra::projects.show', compact('project', 'ctos', 'caixas'));
+    }
+
+    public function editProject($id)
+    {
+        $project = FtthProject::findOrFail($id);
+        return view('infra::projects.edit', compact('project'));
+    }
+
+    public function updateProject(Request $request, $id)
+    {
+        $project = FtthProject::findOrFail($id);
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'city' => 'nullable|string|max:255',
+            'state' => 'nullable|string|size:2',
+            'prefix' => 'nullable|string|max:10',
+            'status' => 'required|in:active,inactive',
+            'notes' => 'nullable|string',
+        ]);
+
+        $project->update($validated);
+
+        return redirect()->route('infra.ftth.projects.show', $project)
+            ->with('success', 'Projeto atualizado com sucesso.');
+    }
+
+    public function destroyProject($id)
+    {
+        $project = FtthProject::findOrFail($id);
+        $project->ctos()->update(['ftth_project_id' => null]);
+        $project->caixas()->update(['ftth_project_id' => null]);
+        $project->delete();
+
+        return redirect()->route('infra.ftth.projects.index')
+            ->with('success', 'Projeto removido com sucesso.');
+    }
+
+    public function bulkDestroyCtos(Request $request)
+    {
+        $ids = $request->input('ids', []);
+
+        if (empty($ids)) {
+            return back()->with('error', 'Nenhuma CTO selecionada.');
+        }
+
+        Cto::whereIn('id', $ids)->delete();
+
+        return redirect()->route('infra.ftth.ctos.index')
+            ->with('success', count($ids) . ' CTO(s) excluida(s) com sucesso.');
+    }
+
+    public function bulkDestroyCaixas(Request $request)
+    {
+        $ids = $request->input('ids', []);
+
+        if (empty($ids)) {
+            return back()->with('error', 'Nenhuma caixa selecionada.');
+        }
+
+        CaixaEmenda::whereIn('id', $ids)->delete();
+
+        return redirect()->route('infra.ftth.caixas.index')
+            ->with('success', count($ids) . ' caixa(s) excluida(s) com sucesso.');
+    }
+
     public function generateNetwork()
     {
         return view('infra::generate');
@@ -444,6 +556,16 @@ class FtthController extends Controller
                 ? 'Regiao delimitada'
                 : $request->input('city_name') . ($state ? '/' . $state : '');
 
+            if (!$hasBounds) {
+                $project = $this->attachProject($cityName, $state, $prefix, $result, false);
+
+                return view('infra::generate-result', [
+                    'result' => $result,
+                    'street_name' => $cityLabel,
+                    'project' => $project,
+                ]);
+            }
+
             return view('infra::generate-result', [
                 'result' => $result,
                 'street_name' => $cityLabel,
@@ -475,10 +597,12 @@ class FtthController extends Controller
 
                 $cityPrefix = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $city), 0, 4));
                 $result = $generator->generateFromStreets($streets, $cityPrefix, $city, $state);
+                $project = $this->attachProject($city, $state, $cityPrefix, $result, false);
 
                 $allResults[] = [
                     'city' => $city,
                     'result' => $result,
+                    'project' => $project,
                 ];
 
                 $totalCtos += $result['stats']['total_ctos'];
@@ -505,6 +629,34 @@ class FtthController extends Controller
                 'total_distance_km' => $totalDistance,
             ],
         ]);
+    }
+
+    private function attachProject(string $city, string $state, string $prefix, array $result, bool $hasBounds): FtthProject
+    {
+        $project = FtthProject::create([
+            'name' => 'Projeto ' . $city,
+            'city' => $city,
+            'state' => $state,
+            'prefix' => $prefix,
+            'status' => 'active',
+            'total_streets' => $result['stats']['total_streets'] ?? 0,
+            'total_ctos' => $result['stats']['total_ctos'] ?? 0,
+            'total_caixas' => $result['stats']['total_caixas'] ?? 0,
+            'total_distance_km' => $result['stats']['total_distance_km'] ?? 0,
+            'has_bounds' => $hasBounds,
+        ]);
+
+        $ctoIds = collect($result['ctos'] ?? [])->pluck('id')->filter()->all();
+        if (!empty($ctoIds)) {
+            Cto::whereIn('id', $ctoIds)->update(['ftth_project_id' => $project->id]);
+        }
+
+        $caixaIds = collect($result['caixas'] ?? [])->pluck('id')->filter()->all();
+        if (!empty($caixaIds)) {
+            CaixaEmenda::whereIn('id', $caixaIds)->update(['ftth_project_id' => $project->id]);
+        }
+
+        return $project;
     }
 
     public function runGenerate(Request $request)

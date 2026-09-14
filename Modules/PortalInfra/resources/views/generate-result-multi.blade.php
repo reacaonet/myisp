@@ -34,8 +34,8 @@
             <p class="text-xs text-gray-500 mt-1">Distancia Total</p>
         </div>
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
-            <p class="text-2xl font-bold text-gray-600">{{ $stats['total_ctos'] * 4 }}</p>
-            <p class="text-xs text-gray-500 mt-1">Portas Potenciais</p>
+            <p class="text-2xl font-bold text-gray-600">{{ $stats['total_streets'] }}</p>
+            <p class="text-xs text-gray-500 mt-1">Ruas Mapeadas</p>
         </div>
     </div>
 
@@ -58,30 +58,40 @@
                 <p class="text-xs text-gray-500">{{ $cityData['result']['stats']['total_streets'] ?? 0 }} ruas | {{ number_format($cityData['result']['stats']['total_distance_km'], 1) }} km</p>
             </div>
             <div class="flex items-center gap-3 text-sm">
+                <a href="{{ route('infra.ftth.projects.show', $cityData['project']) }}" class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-medium hover:bg-blue-200">{{ $cityData['project']->name }}</a>
                 <span class="bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-medium">{{ $cityData['result']['stats']['total_ctos'] }} CTOs</span>
                 <span class="bg-green-100 text-green-700 px-2 py-0.5 rounded font-medium">{{ $cityData['result']['stats']['total_caixas'] }} Caixas</span>
             </div>
         </div>
+
+        @if(!empty($cityData['result']['caixas']))
+        <div class="p-4 border-b border-gray-100">
+            <h4 class="text-sm font-medium text-gray-700 mb-2">Caixas de Emenda Criadas</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                @foreach($cityData['result']['caixas'] as $caixa)
+                <a href="{{ route('infra.ftth.caixas.show', $caixa) }}" class="flex items-center justify-between bg-green-50 rounded-lg p-2 text-xs hover:bg-green-100 transition-colors border border-green-200">
+                    <span class="font-mono font-medium text-green-900">{{ $caixa->code }}</span>
+                    <span class="text-green-600">{{ $caixa->street }}</span>
+                </a>
+                @endforeach
+            </div>
+        </div>
+        @endif
 
         @if(!empty($cityData['result']['ctos']))
         <div class="p-4">
             <h4 class="text-sm font-medium text-gray-700 mb-2">CTOs Geradas</h4>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                 @foreach($cityData['result']['ctos'] as $cto)
-                <div class="flex items-center justify-between bg-gray-50 rounded-lg p-2 text-xs">
+                <a href="{{ route('infra.ftth.ctos.show', $cto) }}" class="flex items-center justify-between bg-gray-50 rounded-lg p-2 text-xs hover:bg-gray-100 transition-colors">
                     <div>
-                        <span class="font-mono font-medium text-gray-800">{{ $cto['code'] }}</span>
-                        @if(isset($cto['caixa']))
-                            <span class="text-gray-500"> &rarr; {{ $cto['caixa'] }}</span>
-                        @endif
+                        <span class="font-mono font-medium text-gray-800">{{ $cto->code }}</span>
+                        <span class="text-gray-500"> &rarr; {{ $cto->caixaEmenda->code ?? 'sem caixa' }}</span>
                     </div>
                     <div class="flex items-center gap-2 text-gray-500">
-                        <span>{{ number_format($cto['distance_km'], 2) }} km</span>
-                        @if(isset($cto['lat']))
-                        <span>{{ $cto['lat'] }}, {{ $cto['lng'] }}</span>
-                        @endif
+                        <span>{{ number_format($cto->distance_from_start ?? 0, 0) }} m</span>
                     </div>
-                </div>
+                </a>
                 @endforeach
             </div>
         </div>

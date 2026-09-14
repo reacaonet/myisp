@@ -7,12 +7,12 @@
     <div class="bg-white rounded-xl shadow-sm border border-gray-200">
         <div class="p-6 border-b border-gray-200">
             <h2 class="text-lg font-semibold text-gray-800">Gerar Rede Automaticamente</h2>
-            <p class="text-sm text-gray-500 mt-1">Insira coordenadas geograficas (lat, lng) para gerar CTOs a cada 250m e caixas de emenda automaticas.</p>
+            <p class="text-sm text-gray-500 mt-1">Insira coordenadas geograficas (lat, lng) para gerar CTOs e caixas de emenda automaticas.</p>
         </div>
         <form method="POST" action="{{ route('infra.ftth.generate.run') }}" class="p-6 space-y-4">
             @csrf
 
-<div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Prefixo (opcional)</label>
                     <input type="text" name="prefix" value="{{ old('prefix') }}"
@@ -23,12 +23,17 @@
                     <input type="number" name="cto_capacity" value="{{ old('cto_capacity', 8) }}" min="1" max="256"
                            class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm">
                 </div>
-            </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Prefixo (opcional)</label>
-                    <input type="text" name="prefix" value="{{ old('prefix') }}"
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm" placeholder="FLN">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Intervalo entre CTOs (m)</label>
+                    <input type="number" name="cto_interval" value="{{ old('cto_interval', 250) }}" min="50" max="1000" step="10"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm">
                 </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Nome da Rua</label>
+                <input type="text" name="street_name" value="{{ old('street_name', 'Rua Principal') }}"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Rua Principal">
             </div>
 
             <div>
@@ -57,7 +62,7 @@
                 <h3 class="text-sm font-semibold text-blue-800 mb-2">Como funciona?</h3>
                 <ul class="text-xs text-blue-700 space-y-1">
                     <li>1. O sistema percorre as coordenadas calculando distancia com Haversine</li>
-                    <li>2. A cada 250m, uma CTO e criada nessa posicao</li>
+                    <li>2. A cada N metros (configuravel), uma CTO e criada nessa posicao</li>
                     <li>3. A cada 4 CTOs, uma Caixa de Emenda e criada no centro geografico</li>
                     <li>4. As CTOs sao automaticamente vinculadas a caixa mais proxima</li>
                 </ul>

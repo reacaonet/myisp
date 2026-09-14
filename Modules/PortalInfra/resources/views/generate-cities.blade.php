@@ -76,6 +76,12 @@
                         <input type="number" name="cto_capacity" value="{{ old('cto_capacity', 8) }}" min="1" max="256"
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Intervalo CTOs (metros)</label>
+                        <input type="number" name="cto_interval" value="{{ old('cto_interval', 250) }}" min="50" max="1000" step="10"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
                 </div>
 
                 @if($errors->any())
@@ -93,7 +99,7 @@
                         <svg class="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
                         <div>
                             <p class="text-sm font-medium text-yellow-800">Atencao</p>
-                            <p class="text-xs text-yellow-700 mt-1">A busca usa o OpenStreetMap. A cidade deve ter ruas mapeadas. CTOs criadas a cada 250m, Caixas de Emenda a cada 4 CTOs.</p>
+                            <p class="text-xs text-yellow-700 mt-1">A busca usa o OpenStreetMap. A cidade deve ter ruas mapeadas. CTOs criadas a cada intervalo configurado (padrao 250m), Caixas de Emenda a cada 4 CTOs.</p>
                         </div>
                     </div>
                 </div>

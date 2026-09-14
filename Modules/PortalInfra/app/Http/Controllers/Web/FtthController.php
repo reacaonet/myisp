@@ -49,10 +49,15 @@ class FtthController extends Controller
             $query->where('status', $status);
         }
 
+        if ($projectId = $request->get('project')) {
+            $query->where('ftth_project_id', $projectId);
+        }
+
         $ctos = $query->orderBy('code')->paginate(20);
         $cities = Cto::whereNotNull('city')->distinct()->pluck('city')->sort()->values();
+        $projects = FtthProject::orderBy('name')->get();
 
-        return view('infra::ctos.index', compact('ctos', 'cities'));
+        return view('infra::ctos.index', compact('ctos', 'cities', 'projects'));
     }
 
     public function createCto()
@@ -163,10 +168,15 @@ class FtthController extends Controller
             $query->where('status', $status);
         }
 
+        if ($projectId = $request->get('project')) {
+            $query->where('ftth_project_id', $projectId);
+        }
+
         $caixas = $query->orderBy('code')->paginate(20);
         $cities = CaixaEmenda::whereNotNull('city')->distinct()->pluck('city')->sort()->values();
+        $projects = FtthProject::orderBy('name')->get();
 
-        return view('infra::caixas.index', compact('caixas', 'cities'));
+        return view('infra::caixas.index', compact('caixas', 'cities', 'projects'));
     }
 
     public function createCaixa()
@@ -508,6 +518,99 @@ class FtthController extends Controller
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
 
+    public function exportCsvCtos(Request $request)
+    {
+        $query = Cto::with(['caixaEmenda', 'ftthProject']);
+
+        if ($projectId = $request->get('project')) {
+            $query->where('ftth_project_id', $projectId);
+        }
+        if ($city = $request->get('city')) {
+            $query->where('city', $city);
+        }
+        if ($status = $request->get('status')) {
+            $query->where('status', $status);
+        }
+
+        $filename = 'CTOs_' . date('Ymd_His') . '.csv';
+
+        return response()->streamDownload(function () use ($query) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, ['Codigo', 'Nome', 'Cidade', 'UF', 'Rua', 'Bairro', 'Latitude', 'Longitude', 'Capacidade', 'Portas Usadas', 'Porta OLT', 'Splitter', 'Caixa de Emenda', 'Projeto', 'Status', 'Distancia (m)', 'Observacoes']);
+            $query->chunkById(500, function ($ctos) use ($out) {
+                foreach ($ctos as $cto) {
+                    fputcsv($out, [
+                        $cto->code,
+                        $cto->name,
+                        $cto->city,
+                        $cto->state,
+                        $cto->street,
+                        $cto->neighborhood,
+                        $cto->latitude,
+                        $cto->longitude,
+                        $cto->capacity,
+                        $cto->used_ports,
+                        $cto->olt_port,
+                        $cto->splitter_config,
+                        $cto->caixaEmenda->code ?? '',
+                        $cto->ftthProject->name ?? '',
+                        $cto->status,
+                        $cto->distance_from_start,
+                        $cto->project_notes,
+                    ]);
+                }
+            });
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv']);
+    }
+
+    public function exportCsvCaixas(Request $request)
+    {
+        $query = CaixaEmenda::with(['ftthProject'])->withCount('ctos');
+
+        if ($projectId = $request->get('project')) {
+            $query->where('ftth_project_id', $projectId);
+        }
+        if ($city = $request->get('city')) {
+            $query->where('city', $city);
+        }
+        if ($status = $request->get('status')) {
+            $query->where('status', $status);
+        }
+
+        $filename = 'Caixas_' . date('Ymd_His') . '.csv';
+
+        return response()->streamDownload(function () use ($query) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, ['Codigo', 'Nome', 'Cidade', 'UF', 'Rua', 'Bairro', 'Latitude', 'Longitude', 'Capacidade', 'Portas Usadas', 'Porta OLT', 'Splitter', 'CTOs Vinculadas', 'Projeto', 'Status', 'Observacoes']);
+            $query->chunkById(500, function ($caixas) use ($out) {
+                foreach ($caixas as $caixa) {
+                    fputcsv($out, [
+                        $caixa->code,
+                        $caixa->name,
+                        $caixa->city,
+                        $caixa->state,
+                        $caixa->street,
+                        $caixa->neighborhood,
+                        $caixa->latitude,
+                        $caixa->longitude,
+                        $caixa->capacity,
+                        $caixa->used_ports,
+                        $caixa->olt_port,
+                        $caixa->splitter_config,
+                        $caixa->ctos_count,
+                        $caixa->ftthProject->name ?? '',
+                        $caixa->status,
+                        $caixa->project_notes,
+                    ]);
+                }
+            });
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv']);
+    }
+
     private function buildKml(string $city, $ctos, $caixas): string
     {
         $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
@@ -597,9 +700,10 @@ class FtthController extends Controller
         $prefix = $request->input('prefix') ?? '';
         $state = $request->input('state') ?? 'MA';
         $ctoCapacity = $request->input('cto_capacity') ?? 8;
+        $ctoInterval = $request->input('cto_interval') ?? 250;
 
         if ($hasMultipleCities) {
-            return $this->runGenerateMultipleCities($request, $state, $prefix, $ctoCapacity);
+            return $this->runGenerateMultipleCities($request, $state, $prefix, $ctoCapacity, $ctoInterval);
         }
 
         try {
@@ -625,7 +729,7 @@ class FtthController extends Controller
 
             $cityName = $request->input('city_name');
             $prefix = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $cityName), 0, 4));
-            $result = $generator->generateFromStreets($streets, $prefix, $cityName, $state, $ctoCapacity);
+            $result = $generator->generateFromStreets($streets, $prefix, $cityName, $state, $ctoCapacity, $ctoInterval);
 
             $cityLabel = $hasBounds
                 ? 'Regiao delimitada'
@@ -650,7 +754,7 @@ class FtthController extends Controller
         }
     }
 
-    private function runGenerateMultipleCities(Request $request, string $state, string $prefix, $ctoCapacity = 8)
+    private function runGenerateMultipleCities(Request $request, string $state, string $prefix, $ctoCapacity = 8, $ctoInterval = 250)
     {
         $cities = $request->input('city_name');
         $allResults = [];
@@ -671,7 +775,7 @@ class FtthController extends Controller
                 }
 
                 $cityPrefix = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $city), 0, 4));
-                $result = $generator->generateFromStreets($streets, $cityPrefix, $city, $state, $ctoCapacity);
+                $result = $generator->generateFromStreets($streets, $cityPrefix, $city, $state, $ctoCapacity, $ctoInterval);
                 $project = $this->attachProject($city, $state, $cityPrefix, $result, false);
 
                 $allResults[] = [
@@ -741,6 +845,7 @@ class FtthController extends Controller
             'street_name' => 'required|string|max:255',
             'prefix' => 'nullable|string|max:10',
             'cto_capacity' => 'nullable|integer|min:1|max:256',
+            'cto_interval' => 'nullable|integer|min:50|max:1000',
         ]);
 
         $raw = $request->input('coordinates');
@@ -767,7 +872,8 @@ class FtthController extends Controller
             $coordinates,
             $request->input('street_name'),
             $request->input('prefix', ''),
-            $request->input('cto_capacity', 8)
+            $request->input('cto_capacity', 8),
+            $request->input('cto_interval', 250)
         );
 
         return view('infra::generate-result', [

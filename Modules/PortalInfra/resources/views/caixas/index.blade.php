@@ -9,6 +9,10 @@
         <p class="text-gray-500 text-sm">Caixas de emenda de fibra optica</p>
     </div>
     <div class="flex items-center gap-2">
+        <a href="{{ route('infra.ftth.export.csv.caixas', request()->query()) }}" class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Exportar CSV
+        </a>
         <button type="submit" form="bulk-caixas-form" onclick="return checkBulkSelection()"
             style="background-color:#dc2626;color:#ffffff;font-weight:600;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;"
             onmouseover="this.style.backgroundColor='#b91c1c'" onmouseout="this.style.backgroundColor='#dc2626'" id="btn-bulk-delete-caixas-top">
@@ -36,6 +40,12 @@
             <option value="active" @selected(request('status') == 'active')>Ativo</option>
             <option value="inactive" @selected(request('status') == 'inactive')>Inativo</option>
             <option value="maintenance" @selected(request('status') == 'maintenance')>Manutencao</option>
+        </select>
+        <select name="project" class="px-4 py-2 border border-gray-300 rounded-lg text-sm">
+            <option value="">Todos Projetos</option>
+            @foreach($projects as $project)
+                <option value="{{ $project->id }}" @selected(request('project') == $project->id)>{{ $project->name }}</option>
+            @endforeach
         </select>
         <button type="submit" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200">Filtrar</button>
     </form>

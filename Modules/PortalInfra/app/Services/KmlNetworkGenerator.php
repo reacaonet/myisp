@@ -8,7 +8,6 @@ use Modules\PortalInfra\Models\CaixaEmenda;
 class KmlNetworkGenerator
 {
     private const EARTH_RADIUS_KM = 6371.0;
-    private const CTO_INTERVAL_METERS = 250;
     private const CTOS_PER_CAIXA = 4;
     private const CTO_BASE_CODE = 'CTO';
     private const CAIXA_BASE_CODE = 'CE';
@@ -22,6 +21,7 @@ class KmlNetworkGenerator
     private int $totalCtos = 0;
     private int $totalCaixas = 0;
     private int $ctoCapacity = 8;
+    private int $ctoIntervalMeters = 250;
     private array $pendingCtoCoords = [];
     private array $generatedCtos = [];
     private array $generatedCaixas = [];
@@ -352,13 +352,14 @@ class KmlNetworkGenerator
         return $streets;
     }
 
-    public function generateFromStreets(array $streets, string $prefix = '', string $city = '', string $state = '', int $ctoCapacity = 8): array
+    public function generateFromStreets(array $streets, string $prefix = '', string $city = '', string $state = '', int $ctoCapacity = 8, int $ctoIntervalMeters = 250): array
     {
         $this->reset();
         $this->currentPrefix = $prefix;
         $this->currentCity = $city;
         $this->currentState = $state;
         $this->ctoCapacity = $ctoCapacity > 0 ? $ctoCapacity : 8;
+        $this->ctoIntervalMeters = $ctoIntervalMeters >= 50 && $ctoIntervalMeters <= 1000 ? $ctoIntervalMeters : 250;
 
         foreach ($streets as $streetIndex => $street) {
             $this->streetName = $street['name'] ?? "Rua {$streetIndex}";
@@ -385,7 +386,7 @@ class KmlNetworkGenerator
         ];
     }
 
-    public function generateFromCoordinates(array $coordinates, string $streetName = 'Rua Principal', string $prefix = '', int $ctoCapacity = 8): array
+    public function generateFromCoordinates(array $coordinates, string $streetName = 'Rua Principal', string $prefix = '', int $ctoCapacity = 8, int $ctoIntervalMeters = 250): array
     {
         $this->reset();
         $this->streetName = $streetName;
@@ -397,7 +398,7 @@ class KmlNetworkGenerator
             ],
         ];
 
-        return $this->generateFromStreets($streets, $prefix, '', '', $ctoCapacity);
+        return $this->generateFromStreets($streets, $prefix, '', '', $ctoCapacity, $ctoIntervalMeters);
     }
 
     private function processStreet(array $nodes, string $prefix): void
@@ -423,9 +424,9 @@ class KmlNetworkGenerator
                 );
                 $accumulatedDistance += $segmentDistance;
 
-                while (($accumulatedDistance - $lastCtoDistance) >= self::CTO_INTERVAL_METERS) {
+                while (($accumulatedDistance - $lastCtoDistance) >= $this->ctoIntervalMeters) {
                     $remainingInSegment = $accumulatedDistance - $lastCtoDistance;
-                    $overshoot = $remainingInSegment - self::CTO_INTERVAL_METERS;
+                    $overshoot = $remainingInSegment - $this->ctoIntervalMeters;
 
                     $fraction = $segmentDistance > 0
                         ? ($segmentDistance - $overshoot) / $segmentDistance
@@ -435,7 +436,7 @@ class KmlNetworkGenerator
                     $ctoLng = $lastPoint['lng'] + ($currentPoint['lng'] - $lastPoint['lng']) * $fraction;
 
                     $this->createCto($ctoLat, $ctoLng, $prefix, $accumulatedDistance);
-                    $lastCtoDistance += self::CTO_INTERVAL_METERS;
+                    $lastCtoDistance += $this->ctoIntervalMeters;
                 }
             }
 

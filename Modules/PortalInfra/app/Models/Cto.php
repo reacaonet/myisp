@@ -5,6 +5,7 @@ namespace Modules\PortalInfra\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Cto extends Model
 {
@@ -21,6 +22,9 @@ class Cto extends Model
         'longitude',
         'capacity',
         'used_ports',
+        'fiber_fusions',
+        'splitter_config',
+        'olt_port',
         'street',
         'number',
         'neighborhood',
@@ -30,6 +34,8 @@ class Cto extends Model
         'status',
         'distance_from_start',
         'notes',
+        'project_notes',
+        'technician_notes',
     ];
 
     protected $casts = [
@@ -37,6 +43,7 @@ class Cto extends Model
         'longitude' => 'decimal:7',
         'capacity' => 'integer',
         'used_ports' => 'integer',
+        'fiber_fusions' => 'integer',
         'distance_from_start' => 'decimal:2',
     ];
 
@@ -48,6 +55,11 @@ class Cto extends Model
     public function ftthProject(): BelongsTo
     {
         return $this->belongsTo(FtthProject::class);
+    }
+
+    public function fusions(): HasMany
+    {
+        return $this->hasMany(FtthFusion::class);
     }
 
     public function getFullAddressAttribute(): string

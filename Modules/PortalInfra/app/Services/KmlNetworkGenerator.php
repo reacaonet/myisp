@@ -21,6 +21,7 @@ class KmlNetworkGenerator
     private int $ctoCount = 0;
     private int $totalCtos = 0;
     private int $totalCaixas = 0;
+    private int $ctoCapacity = 8;
     private array $pendingCtoCoords = [];
     private array $generatedCtos = [];
     private array $generatedCaixas = [];
@@ -351,12 +352,13 @@ class KmlNetworkGenerator
         return $streets;
     }
 
-    public function generateFromStreets(array $streets, string $prefix = '', string $city = '', string $state = ''): array
+    public function generateFromStreets(array $streets, string $prefix = '', string $city = '', string $state = '', int $ctoCapacity = 8): array
     {
         $this->reset();
         $this->currentPrefix = $prefix;
         $this->currentCity = $city;
         $this->currentState = $state;
+        $this->ctoCapacity = $ctoCapacity > 0 ? $ctoCapacity : 8;
 
         foreach ($streets as $streetIndex => $street) {
             $this->streetName = $street['name'] ?? "Rua {$streetIndex}";
@@ -383,7 +385,7 @@ class KmlNetworkGenerator
         ];
     }
 
-    public function generateFromCoordinates(array $coordinates, string $streetName = 'Rua Principal', string $prefix = ''): array
+    public function generateFromCoordinates(array $coordinates, string $streetName = 'Rua Principal', string $prefix = '', int $ctoCapacity = 8): array
     {
         $this->reset();
         $this->streetName = $streetName;
@@ -395,7 +397,7 @@ class KmlNetworkGenerator
             ],
         ];
 
-        return $this->generateFromStreets($streets, $prefix);
+        return $this->generateFromStreets($streets, $prefix, '', '', $ctoCapacity);
     }
 
     private function processStreet(array $nodes, string $prefix): void
@@ -450,7 +452,7 @@ class KmlNetworkGenerator
             'code' => $code,
             'latitude' => $lat,
             'longitude' => $lng,
-            'capacity' => 8,
+            'capacity' => $this->ctoCapacity,
             'used_ports' => 0,
             'street' => $this->streetName,
             'city' => $this->currentCity,

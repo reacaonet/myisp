@@ -21,6 +21,9 @@ class CaixaEmenda extends Model
         'longitude',
         'capacity',
         'used_ports',
+        'fiber_fusions',
+        'splitter_config',
+        'olt_port',
         'street',
         'number',
         'neighborhood',
@@ -29,6 +32,8 @@ class CaixaEmenda extends Model
         'zipcode',
         'status',
         'notes',
+        'project_notes',
+        'technician_notes',
     ];
 
     protected $casts = [
@@ -36,6 +41,7 @@ class CaixaEmenda extends Model
         'longitude' => 'decimal:7',
         'capacity' => 'integer',
         'used_ports' => 'integer',
+        'fiber_fusions' => 'integer',
     ];
 
     public function ctos(): HasMany
@@ -46,6 +52,11 @@ class CaixaEmenda extends Model
     public function ftthProject(): BelongsTo
     {
         return $this->belongsTo(FtthProject::class);
+    }
+
+    public function fusions(): HasMany
+    {
+        return $this->hasMany(FtthFusion::class);
     }
 
     public function getFullAddressAttribute(): string

@@ -7,6 +7,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Modules\CRM\Models\ServiceOrder;
+use Modules\PortalInfra\Models\CaixaEmenda;
+use Modules\PortalInfra\Models\Cto;
+use Modules\PortalInfra\Models\FtthFusion;
+use Modules\PortalInfra\Models\FtthProject;
 
 class TechnicianPortalController extends Controller
 {
@@ -66,6 +70,125 @@ class TechnicianPortalController extends Controller
         ];
 
         return view('crm::technician.dashboard', compact('technician', 'serviceOrders', 'stats'));
+    }
+
+    public function ftthNetwork(Request $request)
+    {
+        $projectId = $request->input('project');
+
+        $ctoQuery = Cto::with('ftthProject')->withCount('fusions');
+        $caixaQuery = CaixaEmenda::with('ftthProject')->withCount(['ctos', 'fusions']);
+
+        if ($projectId) {
+            $ctoQuery->where('ftth_project_id', $projectId);
+            $caixaQuery->where('ftth_project_id', $projectId);
+        }
+
+        $ctos = $ctoQuery->latest('id')->limit(500)->get();
+        $caixas = $caixaQuery->latest('id')->limit(500)->get();
+        $projects = FtthProject::orderBy('name')->get();
+
+        $stats = [
+            'total_ctos' => $ctos->count(),
+            'active_ctos' => $ctos->where('status', 'active')->count(),
+            'total_caixas' => $caixas->count(),
+            'total_pending_fusions' => $ctos->sum('fusions_count') + $caixas->sum('fusions_count'),
+        ];
+
+        return view('crm::technician.ftth.index', compact('ctos', 'caixas', 'projects', 'projectId', 'stats'));
+    }
+
+    public function ftthCtoShow($id)
+    {
+        $cto = Cto::with(['caixaEmenda', 'ftthProject', 'fusions' => fn ($q) => $q->orderBy('fiber_number')])->findOrFail($id);
+        $pendingCount = $cto->fusions->where('status', 'pending')->count();
+        $doneCount = $cto->fusions->where('status', 'done')->count();
+
+        return view('crm::technician.ftth.cto', compact('cto', 'pendingCount', 'doneCount'));
+    }
+
+    public function ftthCaixaShow($id)
+    {
+        $caixa = CaixaEmenda::with(['ftthProject', 'fusions' => fn ($q) => $q->orderBy('fiber_number')])->withCount('ctos')->findOrFail($id);
+        $pendingCount = $caixa->fusions->where('status', 'pending')->count();
+        $doneCount = $caixa->fusions->where('status', 'done')->count();
+
+        return view('crm::technician.ftth.caixa', compact('caixa', 'pendingCount', 'doneCount'));
+    }
+
+    public function ftthFusionDone($id)
+    {
+        $fusion = FtthFusion::findOrFail($id);
+        $fusion->update(['status' => 'done']);
+
+        $redirect = $fusion->cto_id
+            ? route('technician.portal.ftth.ctos.show', $fusion->cto_id)
+            : route('technician.portal.ftth.caixas.show', $fusion->caixa_emenda_id);
+
+        return redirect($redirect)->with('success', 'Fusao marcada como executada.');
+    }
+
+    public function ftthFusionUpdate(Request $request, $id)
+    {
+        $fusion = FtthFusion::findOrFail($id);
+
+        $validated = $request->validate([
+            'fiber_number' => 'nullable|string|max:20',
+            'olt_port' => 'nullable|string|max:50',
+            'tube' => 'nullable|string|max:20',
+            'destination' => 'nullable|string|max:255',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        $fusion->update($validated);
+
+        $redirect = $fusion->cto_id
+            ? route('technician.portal.ftth.ctos.show', $fusion->cto_id)
+            : route('technician.portal.ftth.caixas.show', $fusion->caixa_emenda_id);
+
+        return redirect($redirect)->with('success', 'Dados da fusao atualizados.');
+    }
+
+    public function ftthCtoActivate($id)
+    {
+        $cto = Cto::findOrFail($id);
+        $cto->update(['status' => 'active']);
+
+        return redirect()->route('technician.portal.ftth.ctos.show', $cto)
+            ->with('success', 'CTO ativada. O escritorio ja pode ver a alteracao.');
+    }
+
+    public function ftthCaixaActivate($id)
+    {
+        $caixa = CaixaEmenda::findOrFail($id);
+        $caixa->update(['status' => 'active']);
+
+        return redirect()->route('technician.portal.ftth.caixas.show', $caixa)
+            ->with('success', 'Caixa de Emenda ativada. O escritorio ja pode ver a alteracao.');
+    }
+
+    public function ftthCtoUpdateNotes(Request $request, $id)
+    {
+        $cto = Cto::findOrFail($id);
+        $validated = $request->validate([
+            'technician_notes' => 'nullable|string|max:2000',
+        ]);
+        $cto->update($validated);
+
+        return redirect()->route('technician.portal.ftth.ctos.show', $cto)
+            ->with('success', 'Observacoes salvas.');
+    }
+
+    public function ftthCaixaUpdateNotes(Request $request, $id)
+    {
+        $caixa = CaixaEmenda::findOrFail($id);
+        $validated = $request->validate([
+            'technician_notes' => 'nullable|string|max:2000',
+        ]);
+        $caixa->update($validated);
+
+        return redirect()->route('technician.portal.ftth.caixas.show', $caixa)
+            ->with('success', 'Observacoes salvas.');
     }
 
     public function serviceOrders(Request $request)

@@ -75,6 +75,31 @@
                 </div>
             </div>
 
+            <div class="border-t border-gray-200 pt-4">
+                <h3 class="text-sm font-semibold text-gray-500 uppercase mb-3">Dados do Projeto (equipe FTTH)</h3>
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Fusoes de Fibra</label>
+                        <input type="number" name="fiber_fusions" value="{{ old('fiber_fusions') }}" min="0"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm" placeholder="12">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Splitter</label>
+                        <input type="text" name="splitter_config" value="{{ old('splitter_config') }}"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm" placeholder="1x8, 1x16...">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Porta da OLT</label>
+                        <input type="text" name="olt_port" value="{{ old('olt_port') }}"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Slot 1 / Porta 8">
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Observacoes do Projeto</label>
+                    <textarea name="project_notes" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Dados de fusao, splitters, cabos, etc.">{{ old('project_notes') }}</textarea>
+                </div>
+            </div>
+
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Observacoes</label>
                 <textarea name="notes" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm">{{ old('notes') }}</textarea>

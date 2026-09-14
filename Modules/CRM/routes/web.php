@@ -111,6 +111,15 @@ Route::prefix('tecnico')->name('technician.portal.')->group(function () {
 
     Route::middleware('auth:technician')->group(function () {
         Route::get('dashboard', [TechnicianPortalController::class, 'dashboard'])->name('dashboard');
+        Route::get('ftth', [TechnicianPortalController::class, 'ftthNetwork'])->name('ftth');
+        Route::get('ftth/ctos/{cto}', [TechnicianPortalController::class, 'ftthCtoShow'])->name('ftth.ctos.show');
+        Route::get('ftth/caixas/{caixa}', [TechnicianPortalController::class, 'ftthCaixaShow'])->name('ftth.caixas.show');
+        Route::post('ftth/fusoes/{fusion}/executar', [TechnicianPortalController::class, 'ftthFusionDone'])->name('ftth.fusions.done');
+        Route::put('ftth/fusoes/{fusion}', [TechnicianPortalController::class, 'ftthFusionUpdate'])->name('ftth.fusions.update');
+        Route::post('ftth/ctos/{cto}/ativar', [TechnicianPortalController::class, 'ftthCtoActivate'])->name('ftth.ctos.activate');
+        Route::post('ftth/caixas/{caixa}/ativar', [TechnicianPortalController::class, 'ftthCaixaActivate'])->name('ftth.caixas.activate');
+        Route::post('ftth/ctos/{cto}/notas', [TechnicianPortalController::class, 'ftthCtoUpdateNotes'])->name('ftth.ctos.notes');
+        Route::post('ftth/caixas/{caixa}/notas', [TechnicianPortalController::class, 'ftthCaixaUpdateNotes'])->name('ftth.caixas.notes');
         Route::get('ordens-servico', [TechnicianPortalController::class, 'serviceOrders'])->name('service-orders');
         Route::get('ordens-servico/{service_order}', [TechnicianPortalController::class, 'serviceOrderShow'])->name('service-orders.show');
         Route::put('ordens-servico/{service_order}', [TechnicianPortalController::class, 'updateServiceOrder'])->name('service-orders.update');

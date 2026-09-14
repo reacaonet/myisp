@@ -75,12 +75,122 @@
                 </div>
             </div>
 
+            @if($caixa->fiber_fusions || $caixa->splitter_config || $caixa->olt_port || $caixa->project_notes)
+            <div class="border-t border-gray-100 pt-4">
+                <h3 class="text-xs text-gray-500 uppercase font-medium mb-3">Dados do Projeto</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
+                    @if($caixa->fiber_fusions)
+                    <div>
+                        <p class="text-xs text-gray-400">Fusoes de Fibra</p>
+                        <p class="text-sm font-medium text-gray-900">{{ $caixa->fiber_fusions }}</p>
+                    </div>
+                    @endif
+                    @if($caixa->splitter_config)
+                    <div>
+                        <p class="text-xs text-gray-400">Splitter</p>
+                        <p class="text-sm font-medium text-gray-900">{{ $caixa->splitter_config }}</p>
+                    </div>
+                    @endif
+                    @if($caixa->olt_port)
+                    <div>
+                        <p class="text-xs text-gray-400">Porta da OLT</p>
+                        <p class="text-sm font-mono font-medium text-gray-900">{{ $caixa->olt_port }}</p>
+                    </div>
+                    @endif
+                </div>
+                @if($caixa->project_notes)
+                <div class="mt-3">
+                    <p class="text-xs text-gray-400">Observacoes do Projeto</p>
+                    <p class="text-sm text-gray-700">{{ $caixa->project_notes }}</p>
+                </div>
+                @endif
+            </div>
+            @endif
+
             @if($caixa->notes)
             <div class="border-t border-gray-100 pt-4">
                 <p class="text-xs text-gray-500 uppercase font-medium mb-1">Observacoes</p>
                 <p class="text-sm text-gray-700">{{ $caixa->notes }}</p>
             </div>
             @endif
+
+            <div class="border-t border-gray-100 pt-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-xs text-gray-500 uppercase font-medium">Plano de Fusao</h3>
+                    <a href="#nova-fusao" class="text-xs font-medium text-blue-600 hover:underline">+ Nova</a>
+                </div>
+                @if($caixa->fusions->isEmpty())
+                    <p class="text-sm text-gray-400">Nenhuma fusao registrada para esta caixa.</p>
+                @else
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="text-left text-xs text-gray-500 border-b border-gray-200">
+                                    <th class="pb-2 font-medium">Fibra</th>
+                                    <th class="pb-2 font-medium">Porta OLT</th>
+                                    <th class="pb-2 font-medium">Tubo</th>
+                                    <th class="pb-2 font-medium">Destino</th>
+                                    <th class="pb-2 font-medium">Status</th>
+                                    <th class="pb-2 font-medium text-right">Acoes</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach($caixa->fusions as $fusion)
+                                <tr>
+                                    <td class="py-2 font-medium text-gray-900">{{ $fusion->fiber_number ? 'F' . $fusion->fiber_number : '-' }}</td>
+                                    <td class="py-2 font-mono text-gray-600">{{ $fusion->olt_port ?: '-' }}</td>
+                                    <td class="py-2 text-gray-600">{{ $fusion->tube ?: '-' }}</td>
+                                    <td class="py-2 text-gray-600">{{ $fusion->destination ?: '-' }}</td>
+                                    <td class="py-2">
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-medium {{ $fusion->status === 'done' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600' }}">
+                                            {{ $fusion->status === 'done' ? 'Executada' : 'Pendente' }}
+                                        </span>
+                                    </td>
+                                    <td class="py-2 text-right whitespace-nowrap">
+                                        <form method="POST" action="{{ route('infra.ftth.fusions.update', $fusion) }}" class="inline">
+                                            @csrf @method('PUT')
+                                            <input type="hidden" name="status" value="{{ $fusion->status === 'done' ? 'pending' : 'done' }}">
+                                            <button type="submit" class="text-xs font-medium {{ $fusion->status === 'done' ? 'text-amber-600' : 'text-green-600' }} hover:underline">{{ $fusion->status === 'done' ? 'Desfazer' : 'Executar' }}</button>
+                                        </form>
+                                        <form method="POST" action="{{ route('infra.ftth.fusions.destroy', $fusion) }}" class="inline" onsubmit="return confirm('Remover esta fusao?');">
+                                            @csrf @method('DELETE')
+                                            <button type="submit" class="text-xs font-medium text-red-600 hover:underline ml-1">Remover</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+
+                <form method="POST" action="{{ route('infra.ftth.fusions.store') }}" id="nova-fusao" class="mt-4 bg-gray-50 rounded-lg p-4">
+                    @csrf
+                    <input type="hidden" name="caixa_emenda_id" value="{{ $caixa->id }}">
+                    <input type="hidden" name="ftth_project_id" value="{{ $caixa->ftth_project_id }}">
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Fibra</label>
+                            <input type="text" name="fiber_number" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="01">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Porta OLT</label>
+                            <input type="text" name="olt_port" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="Slot 1 / P8">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Tubo</label>
+                            <input type="text" name="tube" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="12">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Destino</label>
+                            <input type="text" name="destination" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" placeholder="Splitter 1 - Porta 4">
+                        </div>
+                        <div class="flex items-end">
+                            <button type="submit" class="w-full px-3 py-1.5 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700">Adicionar</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
 
             @if($caixa->ctos->count() > 0)
             <div class="border-t border-gray-100 pt-4">

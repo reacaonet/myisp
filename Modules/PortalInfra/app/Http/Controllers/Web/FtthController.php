@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Modules\PortalInfra\Models\Cto;
 use Modules\PortalInfra\Models\CaixaEmenda;
 use Modules\PortalInfra\Models\FtthProject;
+use Modules\PortalInfra\Models\FtthFusion;
 use Modules\PortalInfra\Services\KmlNetworkGenerator;
 
 class FtthController extends Controller
@@ -69,6 +70,9 @@ class FtthController extends Controller
             'latitude' => 'required|numeric|between:-90,90',
             'longitude' => 'required|numeric|between:-180,180',
             'capacity' => 'required|integer|min:1|max:256',
+            'fiber_fusions' => 'nullable|integer|min:0',
+            'splitter_config' => 'nullable|string|max:50',
+            'olt_port' => 'nullable|string|max:50',
             'street' => 'nullable|string|max:255',
             'number' => 'nullable|string|max:20',
             'neighborhood' => 'nullable|string|max:255',
@@ -76,6 +80,7 @@ class FtthController extends Controller
             'state' => 'nullable|string|size:2',
             'zipcode' => 'nullable|string|max:9',
             'notes' => 'nullable|string',
+            'project_notes' => 'nullable|string',
         ]);
 
         $validated['status'] = 'active';
@@ -87,7 +92,7 @@ class FtthController extends Controller
 
     public function showCto($id)
     {
-        $cto = Cto::with('caixaEmenda')->findOrFail($id);
+        $cto = Cto::with(['caixaEmenda', 'fusions' => fn ($q) => $q->orderBy('fiber_number')])->findOrFail($id);
         return view('infra::ctos.show', compact('cto'));
     }
 
@@ -110,6 +115,9 @@ class FtthController extends Controller
             'longitude' => 'required|numeric|between:-180,180',
             'capacity' => 'required|integer|min:1|max:256',
             'status' => 'required|in:active,inactive,maintenance',
+            'fiber_fusions' => 'nullable|integer|min:0',
+            'splitter_config' => 'nullable|string|max:50',
+            'olt_port' => 'nullable|string|max:50',
             'street' => 'nullable|string|max:255',
             'number' => 'nullable|string|max:20',
             'neighborhood' => 'nullable|string|max:255',
@@ -117,6 +125,7 @@ class FtthController extends Controller
             'state' => 'nullable|string|size:2',
             'zipcode' => 'nullable|string|max:9',
             'notes' => 'nullable|string',
+            'project_notes' => 'nullable|string',
         ]);
 
         $cto->update($validated);
@@ -180,6 +189,9 @@ class FtthController extends Controller
             'state' => 'nullable|string|size:2',
             'zipcode' => 'nullable|string|max:9',
             'notes' => 'nullable|string',
+            'fiber_fusions' => 'nullable|integer|min:0',
+            'splitter_config' => 'nullable|string|max:50',
+            'project_notes' => 'nullable|string',
         ]);
 
         $validated['status'] = 'active';
@@ -191,7 +203,7 @@ class FtthController extends Controller
 
     public function showCaixa($id)
     {
-        $caixa = CaixaEmenda::with('ctos')->withCount('ctos')->findOrFail($id);
+        $caixa = CaixaEmenda::with(['ctos', 'fusions' => fn ($q) => $q->orderBy('fiber_number')])->withCount('ctos')->findOrFail($id);
         return view('infra::caixas.show', compact('caixa'));
     }
 
@@ -219,6 +231,9 @@ class FtthController extends Controller
             'state' => 'nullable|string|size:2',
             'zipcode' => 'nullable|string|max:9',
             'notes' => 'nullable|string',
+            'fiber_fusions' => 'nullable|integer|min:0',
+            'splitter_config' => 'nullable|string|max:50',
+            'project_notes' => 'nullable|string',
         ]);
 
         $caixa->update($validated);
@@ -234,6 +249,65 @@ class FtthController extends Controller
 
         return redirect()->route('infra.ftth.caixas.index')
             ->with('success', 'Caixa de Emenda removida com sucesso.');
+    }
+
+    // ==================== Planos de Fusao ====================
+
+    public function storeFusion(Request $request)
+    {
+        $validated = $request->validate([
+            'cto_id' => 'nullable|exists:ctos,id',
+            'caixa_emenda_id' => 'nullable|exists:caixas_emenda,id',
+            'ftth_project_id' => 'nullable|exists:ftth_projects,id',
+            'fiber_number' => 'nullable|string|max:20',
+            'olt_port' => 'nullable|string|max:50',
+            'tube' => 'nullable|string|max:20',
+            'destination' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
+        ]);
+
+        if (empty($validated['cto_id'] ?? null) && empty($validated['caixa_emenda_id'] ?? null)) {
+            return back()->withErrors(['fiber_number' => 'Informe a CTO ou a Caixa de Emenda.']);
+        }
+
+        $validated['status'] = 'pending';
+        FtthFusion::create($validated);
+
+        return back()->with('success', 'Fusao adicionada ao plano.');
+    }
+
+    public function updateFusion(Request $request, $id)
+    {
+        $fusion = FtthFusion::findOrFail($id);
+
+        $validated = $request->validate([
+            'fiber_number' => 'nullable|string|max:20',
+            'olt_port' => 'nullable|string|max:50',
+            'tube' => 'nullable|string|max:20',
+            'destination' => 'nullable|string|max:255',
+            'status' => 'nullable|in:pending,done',
+            'notes' => 'nullable|string',
+        ]);
+
+        $fusion->update($validated);
+
+        if ($fusion->cto_id) {
+            return redirect()->route('infra.ftth.ctos.show', $fusion->cto_id)->with('success', 'Fusao atualizada.');
+        }
+
+        return redirect()->route('infra.ftth.caixas.show', $fusion->caixa_emenda_id)->with('success', 'Fusao atualizada.');
+    }
+
+    public function destroyFusion($id)
+    {
+        $fusion = FtthFusion::with('cto', 'caixaEmenda')->findOrFail($id);
+        $redirect = $fusion->cto_id
+            ? route('infra.ftth.ctos.show', $fusion->cto_id)
+            : route('infra.ftth.caixas.show', $fusion->caixa_emenda_id);
+
+        $fusion->delete();
+
+        return redirect($redirect)->with('success', 'Fusao removida do plano.');
     }
 
     public function indexProjects(Request $request)
@@ -522,9 +596,10 @@ class FtthController extends Controller
 
         $prefix = $request->input('prefix') ?? '';
         $state = $request->input('state') ?? 'MA';
+        $ctoCapacity = $request->input('cto_capacity') ?? 8;
 
         if ($hasMultipleCities) {
-            return $this->runGenerateMultipleCities($request, $state, $prefix);
+            return $this->runGenerateMultipleCities($request, $state, $prefix, $ctoCapacity);
         }
 
         try {
@@ -550,7 +625,7 @@ class FtthController extends Controller
 
             $cityName = $request->input('city_name');
             $prefix = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $cityName), 0, 4));
-            $result = $generator->generateFromStreets($streets, $prefix, $cityName, $state);
+            $result = $generator->generateFromStreets($streets, $prefix, $cityName, $state, $ctoCapacity);
 
             $cityLabel = $hasBounds
                 ? 'Regiao delimitada'
@@ -575,7 +650,7 @@ class FtthController extends Controller
         }
     }
 
-    private function runGenerateMultipleCities(Request $request, string $state, string $prefix)
+    private function runGenerateMultipleCities(Request $request, string $state, string $prefix, $ctoCapacity = 8)
     {
         $cities = $request->input('city_name');
         $allResults = [];
@@ -596,7 +671,7 @@ class FtthController extends Controller
                 }
 
                 $cityPrefix = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $city), 0, 4));
-                $result = $generator->generateFromStreets($streets, $cityPrefix, $city, $state);
+                $result = $generator->generateFromStreets($streets, $cityPrefix, $city, $state, $ctoCapacity);
                 $project = $this->attachProject($city, $state, $cityPrefix, $result, false);
 
                 $allResults[] = [
@@ -665,6 +740,7 @@ class FtthController extends Controller
             'coordinates' => 'required|string',
             'street_name' => 'required|string|max:255',
             'prefix' => 'nullable|string|max:10',
+            'cto_capacity' => 'nullable|integer|min:1|max:256',
         ]);
 
         $raw = $request->input('coordinates');
@@ -690,7 +766,8 @@ class FtthController extends Controller
         $result = $generator->generateFromCoordinates(
             $coordinates,
             $request->input('street_name'),
-            $request->input('prefix', '')
+            $request->input('prefix', ''),
+            $request->input('cto_capacity', 8)
         );
 
         return view('infra::generate-result', [

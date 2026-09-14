@@ -159,6 +159,10 @@ Route::prefix('infra')->name('infra.')->group(function () {
 
         Route::get('/mapa', [FtthController::class, 'map'])->name('map');
         Route::get('/api/map-data', [FtthController::class, 'mapData'])->name('api.map-data');
+
+        Route::post('/fusoes', [FtthController::class, 'storeFusion'])->name('fusions.store');
+        Route::put('/fusoes/{id}', [FtthController::class, 'updateFusion'])->name('fusions.update');
+        Route::delete('/fusoes/{id}', [FtthController::class, 'destroyFusion'])->name('fusions.destroy');
     });
     });
 });

@@ -12,12 +12,18 @@
         <form method="POST" action="{{ route('infra.ftth.generate.run') }}" class="p-6 space-y-4">
             @csrf
 
-            <div class="grid grid-cols-2 gap-4">
+<div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nome da Rua *</label>
-                    <input type="text" name="street_name" value="{{ old('street_name') }}" required
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Rua das Flores">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Prefixo (opcional)</label>
+                    <input type="text" name="prefix" value="{{ old('prefix') }}"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm" placeholder="FLN">
                 </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Portas por CTO</label>
+                    <input type="number" name="cto_capacity" value="{{ old('cto_capacity', 8) }}" min="1" max="256"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm">
+                </div>
+            </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Prefixo (opcional)</label>
                     <input type="text" name="prefix" value="{{ old('prefix') }}"

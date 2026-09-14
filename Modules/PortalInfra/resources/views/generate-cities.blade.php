@@ -70,6 +70,12 @@
                         </div>
                         <p class="text-xs text-gray-400 mt-1" id="cepResult"></p>
                     </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Portas por CTO</label>
+                        <input type="number" name="cto_capacity" value="{{ old('cto_capacity', 8) }}" min="1" max="256"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
                 </div>
 
                 @if($errors->any())

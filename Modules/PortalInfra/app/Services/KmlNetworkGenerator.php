@@ -9,6 +9,9 @@ class KmlNetworkGenerator
 {
     private const EARTH_RADIUS_KM = 6371.0;
     private const CTOS_PER_CAIXA = 4;
+    private const URBAN_CELL_SIZE_METERS = 400;
+    private const URBAN_MIN_CELL_DENSITY_RATIO = 0.2;
+    private const URBAN_MAX_CELL_DISTANCE = 1;
     private const CTO_BASE_CODE = 'CTO';
     private const CAIXA_BASE_CODE = 'CE';
     private const OVERPASS_URLS = [
@@ -29,6 +32,8 @@ class KmlNetworkGenerator
     private string $currentPrefix = '';
     private string $currentCity = '';
     private string $currentState = '';
+    private ?array $cityPolygon = null;
+    private int $skippedOutOfBound = 0;
 
     private function overpassQuery(string $query): array
     {
@@ -91,21 +96,32 @@ class KmlNetworkGenerator
         $geo = $this->geocodeWithNominatim($searchName);
 
         if ($geo && !empty($geo['polygon'])) {
+            $this->cityPolygon = $geo['polygon'];
+
             $streets = $this->fetchStreetsByPolygon($geo['polygon']);
             $streets = $this->filterStreetsByPolygon($streets, $geo['polygon']);
+            $streets = $this->filterUrbanStreets($streets);
 
             if (!empty($streets)) {
                 return $streets;
             }
 
             $streets = $this->fetchStreetsByBounds($geo['south'], $geo['west'], $geo['north'], $geo['east']);
-            return $this->filterStreetsByPolygon($streets, $geo['polygon']);
+            $streets = $this->filterStreetsByPolygon($streets, $geo['polygon']);
+            return $this->filterUrbanStreets($streets);
         }
 
         if ($geo) {
+            if (!empty($geo['polygon'])) {
+                $this->cityPolygon = $geo['polygon'];
+                $streets = $this->fetchStreetsByBounds($geo['south'], $geo['west'], $geo['north'], $geo['east']);
+                $streets = $this->filterStreetsByPolygon($streets, $geo['polygon']);
+                return $this->filterUrbanStreets($streets);
+            }
+
             $streets = $this->fetchStreetsByBounds($geo['south'], $geo['west'], $geo['north'], $geo['east']);
             if (!empty($streets)) {
-                return $streets;
+                return $this->filterUrbanStreets($streets);
             }
         }
 
@@ -121,7 +137,7 @@ class KmlNetworkGenerator
                 $streets = $this->parseOverpassResponse($data);
 
                 if (!empty($streets)) {
-                    return $streets;
+                    return $this->filterUrbanStreets($streets);
                 }
             } catch (\RuntimeException $e) {
                 continue;
@@ -129,6 +145,11 @@ class KmlNetworkGenerator
         }
 
         return [];
+    }
+
+    public function getCityPolygon(): ?array
+    {
+        return $this->cityPolygon;
     }
 
     private function geocodeWithNominatim(string $query): ?array
@@ -294,6 +315,126 @@ class KmlNetworkGenerator
         return $filtered;
     }
 
+    private function filterUrbanStreets(array $streets): array
+    {
+        if (empty($streets)) {
+            return [];
+        }
+
+        $nodes = [];
+        foreach ($streets as $si => $street) {
+            foreach ($street['nodes'] ?? [] as $node) {
+                $lat = $node['lat'] ?? $node[0] ?? null;
+                $lng = $node['lng'] ?? $node[1] ?? null;
+
+                if ($lat === null || $lng === null) {
+                    continue;
+                }
+
+                $nodes[] = [
+                    'lat' => (float) $lat,
+                    'lng' => (float) $lng,
+                    'si' => $si,
+                ];
+            }
+        }
+
+        $count = count($nodes);
+        if ($count === 0) {
+            return [];
+        }
+
+        // Agrupa os nós em células de ~400m e conta a densidade de cada célula.
+        // O maior aglomerado de células conectadas e suficientemente densas
+        // corresponde à mancha urbana da sede; estradas rurais (rodovias que
+        // saem da cidade, estradas de distritos isolados) têm células esparsas
+        // e não entram no aglomerado.
+        $latDeg = self::URBAN_CELL_SIZE_METERS / 111320.0;
+
+        $cells = [];
+        $cellOfNode = [];
+        foreach ($nodes as $i => $node) {
+            $lngDeg = self::URBAN_CELL_SIZE_METERS / (111320.0 * cos(deg2rad($node['lat'])));
+            $cx = (int) floor($node['lng'] / $lngDeg);
+            $cy = (int) floor($node['lat'] / $latDeg);
+            $key = "{$cx}:{$cy}";
+            $cellOfNode[$i] = $key;
+            $cells[$key] = ($cells[$key] ?? 0) + 1;
+        }
+
+        if (empty($cells)) {
+            return $streets;
+        }
+
+        $maxDensity = max($cells);
+        $minDensity = max(4, (int) floor($maxDensity * self::URBAN_MIN_CELL_DENSITY_RATIO));
+
+        // BFS a partir da célula mais densa, expandindo apenas para células
+        // vizinhas (Chebyshev <= 1) com densidade suficiente.
+        $seedKey = array_search($maxDensity, $cells, true);
+        $keptCells = [];
+        $queue = [$seedKey];
+        $visited = [$seedKey => true];
+        $keptCells[$seedKey] = true;
+
+        while (!empty($queue)) {
+            $key = array_pop($queue);
+            [$cx, $cy] = explode(':', $key);
+
+            for ($dx = -self::URBAN_MAX_CELL_DISTANCE; $dx <= self::URBAN_MAX_CELL_DISTANCE; $dx++) {
+                for ($dy = -self::URBAN_MAX_CELL_DISTANCE; $dy <= self::URBAN_MAX_CELL_DISTANCE; $dy++) {
+                    if ($dx === 0 && $dy === 0) {
+                        continue;
+                    }
+
+                    $nKey = ($cx + $dx) . ':' . ($cy + $dy);
+                    if (isset($visited[$nKey])) {
+                        continue;
+                    }
+                    $visited[$nKey] = true;
+
+                    if (($cells[$nKey] ?? 0) >= $minDensity) {
+                        $keptCells[$nKey] = true;
+                        $queue[] = $nKey;
+                    }
+                }
+            }
+        }
+
+        // Mantém apenas os nós dentro da mancha urbana. Ruas longas (ex.: uma
+        // rodovia que atravessa a cidade) são truncadas ao trecho urbano.
+        $filtered = [];
+        foreach ($streets as $si => $street) {
+            $keptNodes = [];
+            foreach ($street['nodes'] ?? [] as $node) {
+                $lat = $node['lat'] ?? $node[0] ?? null;
+                $lng = $node['lng'] ?? $node[1] ?? null;
+
+                if ($lat === null || $lng === null) {
+                    continue;
+                }
+
+                $lngDeg = self::URBAN_CELL_SIZE_METERS / (111320.0 * cos(deg2rad((float) $lat)));
+                $cx = (int) floor((float) $lng / $lngDeg);
+                $cy = (int) floor((float) $lat / $latDeg);
+                $key = $cx . ':' . $cy;
+
+                if (isset($keptCells[$key])) {
+                    $keptNodes[] = $node;
+                }
+            }
+
+            if (count($keptNodes) >= 2) {
+                $filtered[] = [
+                    'name' => $street['name'],
+                    'nodes' => $keptNodes,
+                ];
+            }
+        }
+
+        return $filtered;
+    }
+
     private function isPointInPolygon(float $lat, float $lng, array $polygon): bool
     {
         $inside = false;
@@ -352,7 +493,7 @@ class KmlNetworkGenerator
         return $streets;
     }
 
-    public function generateFromStreets(array $streets, string $prefix = '', string $city = '', string $state = '', int $ctoCapacity = 8, int $ctoIntervalMeters = 250): array
+    public function generateFromStreets(array $streets, string $prefix = '', string $city = '', string $state = '', int $ctoCapacity = 8, int $ctoIntervalMeters = 250, ?array $polygon = null): array
     {
         $this->reset();
         $this->currentPrefix = $prefix;
@@ -360,6 +501,7 @@ class KmlNetworkGenerator
         $this->currentState = $state;
         $this->ctoCapacity = $ctoCapacity > 0 ? $ctoCapacity : 8;
         $this->ctoIntervalMeters = $ctoIntervalMeters >= 50 && $ctoIntervalMeters <= 1000 ? $ctoIntervalMeters : 250;
+        $this->cityPolygon = $polygon;
 
         foreach ($streets as $streetIndex => $street) {
             $this->streetName = $street['name'] ?? "Rua {$streetIndex}";
@@ -382,6 +524,7 @@ class KmlNetworkGenerator
                 'total_caixas' => $this->totalCaixas,
                 'total_streets' => count($streets),
                 'total_distance_km' => $this->calculateTotalDistance($streets),
+                'skipped_out_of_bound' => $this->skippedOutOfBound,
             ],
         ];
     }
@@ -406,6 +549,8 @@ class KmlNetworkGenerator
         $accumulatedDistance = 0.0;
         $lastCtoDistance = 0.0;
         $lastPoint = null;
+        $createdInStreet = false;
+        $streetNodeCount = 0;
 
         foreach ($nodes as $nodeIndex => $node) {
             $lat = $node['lat'] ?? $node[0] ?? null;
@@ -414,6 +559,8 @@ class KmlNetworkGenerator
             if ($lat === null || $lng === null) {
                 continue;
             }
+
+            $streetNodeCount++;
 
             $currentPoint = ['lat' => (float) $lat, 'lng' => (float) $lng];
 
@@ -435,17 +582,36 @@ class KmlNetworkGenerator
                     $ctoLat = $lastPoint['lat'] + ($currentPoint['lat'] - $lastPoint['lat']) * $fraction;
                     $ctoLng = $lastPoint['lng'] + ($currentPoint['lng'] - $lastPoint['lng']) * $fraction;
 
-                    $this->createCto($ctoLat, $ctoLng, $prefix, $accumulatedDistance);
+                    $createdInStreet = $this->createCto($ctoLat, $ctoLng, $prefix, $accumulatedDistance) || $createdInStreet;
                     $lastCtoDistance += $this->ctoIntervalMeters;
                 }
             }
 
             $lastPoint = $currentPoint;
         }
+
+        if (!$createdInStreet && $streetNodeCount > 0 && $lastPoint !== null) {
+            foreach ($nodes as $node) {
+                $validLat = $node['lat'] ?? $node[0] ?? null;
+                $validLng = $node['lng'] ?? $node[1] ?? null;
+
+                if ($validLat === null || $validLng === null) {
+                    continue;
+                }
+
+                $this->createCto((float) $validLat, (float) $validLng, $prefix, 0.0);
+                break;
+            }
+        }
     }
 
-    private function createCto(float $lat, float $lng, string $prefix, float $distance): void
+    private function createCto(float $lat, float $lng, string $prefix, float $distance): bool
     {
+        if ($this->cityPolygon !== null && !$this->isPointInPolygon($lat, $lng, $this->cityPolygon)) {
+            $this->skippedOutOfBound++;
+            return false;
+        }
+
         $code = $prefix . self::CTO_BASE_CODE . str_pad($this->totalCtos + 1, 4, '0', STR_PAD_LEFT);
 
         $cto = Cto::create([
@@ -470,6 +636,8 @@ class KmlNetworkGenerator
         if ($this->ctoCount >= self::CTOS_PER_CAIXA) {
             $this->flushPendingCaixa();
         }
+
+        return true;
     }
 
     private function flushPendingCaixa(): void
@@ -567,5 +735,7 @@ class KmlNetworkGenerator
         $this->pendingCtoCoords = [];
         $this->generatedCtos = [];
         $this->generatedCaixas = [];
+        $this->cityPolygon = null;
+        $this->skippedOutOfBound = 0;
     }
 }

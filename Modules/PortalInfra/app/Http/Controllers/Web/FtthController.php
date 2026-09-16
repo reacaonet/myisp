@@ -395,12 +395,25 @@ class FtthController extends Controller
     public function destroyProject($id)
     {
         $project = FtthProject::findOrFail($id);
-        $project->ctos()->update(['ftth_project_id' => null]);
-        $project->caixas()->update(['ftth_project_id' => null]);
+
+        $ctoIds = $project->ctos()->pluck('id');
+        $caixaIds = $project->caixas()->pluck('id');
+
+        if ($ctoIds->isNotEmpty()) {
+            FtthFusion::whereIn('cto_id', $ctoIds)->delete();
+        }
+        if ($caixaIds->isNotEmpty()) {
+            FtthFusion::whereIn('caixa_emenda_id', $caixaIds)->delete();
+        }
+
+        $project->ctos()->delete();
+        $project->caixas()->delete();
         $project->delete();
 
+        $count = $ctoIds->count() + $caixaIds->count();
+
         return redirect()->route('infra.ftth.projects.index')
-            ->with('success', 'Projeto removido com sucesso.');
+            ->with('success', "Projeto removido com sucesso." . ($count > 0 ? " {$count} CTO(s)/Caixa(s) excluida(s)." : ''));
     }
 
     public function bulkDestroyCtos(Request $request)
@@ -729,7 +742,15 @@ class FtthController extends Controller
 
             $cityName = $request->input('city_name');
             $prefix = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $cityName), 0, 4));
-            $result = $generator->generateFromStreets($streets, $prefix, $cityName, $state, $ctoCapacity, $ctoInterval);
+            $result = $generator->generateFromStreets(
+                $streets,
+                $prefix,
+                $cityName,
+                $state,
+                $ctoCapacity,
+                $ctoInterval,
+                $hasBounds ? null : $generator->getCityPolygon()
+            );
 
             $cityLabel = $hasBounds
                 ? 'Regiao delimitada'
@@ -775,7 +796,7 @@ class FtthController extends Controller
                 }
 
                 $cityPrefix = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $city), 0, 4));
-                $result = $generator->generateFromStreets($streets, $cityPrefix, $city, $state, $ctoCapacity, $ctoInterval);
+                $result = $generator->generateFromStreets($streets, $cityPrefix, $city, $state, $ctoCapacity, $ctoInterval, $generator->getCityPolygon());
                 $project = $this->attachProject($city, $state, $cityPrefix, $result, false);
 
                 $allResults[] = [

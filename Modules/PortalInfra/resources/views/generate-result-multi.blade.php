@@ -50,6 +50,15 @@
     </div>
     @endif
 
+    @php
+        $totalSkipped = collect($results)->sum(fn ($d) => $d['result']['stats']['skipped_out_of_bound'] ?? 0);
+    @endphp
+    @if($totalSkipped > 0)
+    <div class="bg-orange-50 border border-orange-200 rounded-xl p-4">
+        <p class="text-sm text-orange-700">{{ $totalSkipped }} posicoes de CTO fora do limite da cidade foram ignoradas.</p>
+    </div>
+    @endif
+
     @foreach($results as $cityData)
     <div class="bg-white rounded-xl shadow-sm border border-gray-200">
         <div class="p-4 border-b border-gray-200 flex items-center justify-between">

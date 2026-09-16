@@ -34,7 +34,13 @@
                 @endif
             </div>
 
-            @if(count($result['caixas']) > 0)
+            @if(!empty($result['stats']['skipped_out_of_bound']))
+<div class="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4 text-sm text-orange-700">
+    {{ $result['stats']['skipped_out_of_bound'] }} posicoes de CTO fora do limite da cidade foram ignoradas.
+</div>
+@endif
+
+@if(count($result['caixas']) > 0)
             <div class="mb-6">
                 <h3 class="text-sm font-semibold text-gray-500 uppercase mb-3">Caixas de Emenda Criadas</h3>
                 <div class="grid grid-cols-2 gap-3">

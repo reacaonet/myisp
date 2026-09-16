@@ -52,10 +52,16 @@
 
     @php
         $totalSkipped = collect($results)->sum(fn ($d) => $d['result']['stats']['skipped_out_of_bound'] ?? 0);
+        $totalTooClose = collect($results)->sum(fn ($d) => $d['result']['stats']['skipped_too_close'] ?? 0);
     @endphp
     @if($totalSkipped > 0)
     <div class="bg-orange-50 border border-orange-200 rounded-xl p-4">
         <p class="text-sm text-orange-700">{{ $totalSkipped }} posicoes de CTO fora do limite da cidade foram ignoradas.</p>
+    </div>
+    @endif
+    @if($totalTooClose > 0)
+    <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+        <p class="text-sm text-yellow-700">{{ $totalTooClose }} posicoes de CTO descartadas por estarem muito proximas de outra da mesma rua (menos do que o intervalo configurado).</p>
     </div>
     @endif
 

@@ -12,6 +12,7 @@ class KmlNetworkGenerator
     private const URBAN_CELL_SIZE_METERS = 400;
     private const URBAN_MIN_CELL_DENSITY_RATIO = 0.2;
     private const URBAN_MAX_CELL_DISTANCE = 1;
+    private const STREET_SEGMENT_JOIN_METERS = 30;
     private const CTO_BASE_CODE = 'CTO';
     private const CAIXA_BASE_CODE = 'CE';
     private const OVERPASS_URLS = [
@@ -34,6 +35,8 @@ class KmlNetworkGenerator
     private string $currentState = '';
     private ?array $cityPolygon = null;
     private int $skippedOutOfBound = 0;
+    private int $skippedTooClose = 0;
+    private array $streetCtoCoords = [];
 
     private function overpassQuery(string $query): array
     {
@@ -503,7 +506,12 @@ class KmlNetworkGenerator
         $this->ctoIntervalMeters = $ctoIntervalMeters >= 50 && $ctoIntervalMeters <= 1000 ? $ctoIntervalMeters : 250;
         $this->cityPolygon = $polygon;
 
-        foreach ($streets as $streetIndex => $street) {
+        // OSM entrega cada rua quebrada em varios ways (um por quadra/cruzamento).
+        // Precisamos costurar os segmentos de mesmo nome que se tocam pelas
+        // pontas para gerar CTOs ao longo da rua inteira respeitando o intervalo.
+        $mergedStreets = $this->mergeStreetsByContinuity($streets);
+
+        foreach ($mergedStreets as $streetIndex => $street) {
             $this->streetName = $street['name'] ?? "Rua {$streetIndex}";
             $nodes = $street['nodes'] ?? [];
 
@@ -522,11 +530,131 @@ class KmlNetworkGenerator
             'stats' => [
                 'total_ctos' => $this->totalCtos,
                 'total_caixas' => $this->totalCaixas,
-                'total_streets' => count($streets),
-                'total_distance_km' => $this->calculateTotalDistance($streets),
+                'total_streets' => count($mergedStreets),
+                'total_distance_km' => $this->calculateTotalDistance($mergedStreets),
                 'skipped_out_of_bound' => $this->skippedOutOfBound,
+                'skipped_too_close' => $this->skippedTooClose,
             ],
         ];
+    }
+
+    private function mergeStreetsByContinuity(array $streets): array
+    {
+        $groups = [];
+        foreach ($streets as $street) {
+            $name = trim((string) ($street['name'] ?? ''));
+            if ($name === '') {
+                $name = 'Sem nome';
+            }
+
+            $groups[$name][] = $street['nodes'] ?? [];
+        }
+
+        $merged = [];
+        foreach ($groups as $name => $segments) {
+            foreach ($this->chainSegments($segments) as $chain) {
+                if (count($chain) >= 2) {
+                    $merged[] = [
+                        'name' => $name,
+                        'nodes' => $chain,
+                    ];
+                }
+            }
+        }
+
+        return $merged;
+    }
+
+    private function chainSegments(array $segments): array
+    {
+        $segments = array_values(array_filter($segments, fn ($s) => count($s) >= 2));
+        if (empty($segments)) {
+            return [];
+        }
+
+        // Remove segmentos exatamente duplicados.
+        $unique = [];
+        $seen = [];
+        foreach ($segments as $seg) {
+            $key = implode('|', array_map(
+                fn ($n) => round((float) ($n['lat'] ?? $n[0]), 6) . ',' . round((float) ($n['lng'] ?? $n[1]), 6),
+                $seg
+            ));
+            if (!isset($seen[$key])) {
+                $seen[$key] = true;
+                $unique[] = $seg;
+            }
+        }
+        $segments = $unique;
+
+        $count = count($segments);
+        $used = array_fill(0, $count, false);
+        $chains = [];
+
+        for ($i = 0; $i < $count; $i++) {
+            if ($used[$i]) {
+                continue;
+            }
+            $used[$i] = true;
+            $chain = $segments[$i];
+
+            $changed = true;
+            while ($changed) {
+                $changed = false;
+
+                $chainFirst = $chain[0];
+                $chainLast = $chain[count($chain) - 1];
+
+                for ($j = 0; $j < $count; $j++) {
+                    if ($used[$j]) {
+                        continue;
+                    }
+
+                    $seg = $segments[$j];
+                    $segFirst = $seg[0];
+                    $segLast = $seg[count($seg) - 1];
+
+                    if ($this->pointsEqual($chainLast, $segFirst)) {
+                        $chain = array_merge($chain, array_slice($seg, 1));
+                        $used[$j] = true;
+                        $changed = true;
+                        break;
+                    }
+                    if ($this->pointsEqual($chainLast, $segLast)) {
+                        $chain = array_merge($chain, array_slice(array_reverse($seg), 1));
+                        $used[$j] = true;
+                        $changed = true;
+                        break;
+                    }
+                    if ($this->pointsEqual($chainFirst, $segLast)) {
+                        $chain = array_merge(array_slice($seg, 0, -1), $chain);
+                        $used[$j] = true;
+                        $changed = true;
+                        break;
+                    }
+                    if ($this->pointsEqual($chainFirst, $segFirst)) {
+                        $chain = array_merge(array_slice(array_reverse($seg), 0, -1), $chain);
+                        $used[$j] = true;
+                        $changed = true;
+                        break;
+                    }
+                }
+            }
+
+            $chains[] = $chain;
+        }
+
+        return $chains;
+    }
+
+    private function pointsEqual(array $a, array $b): bool
+    {
+        $aLat = (float) ($a['lat'] ?? $a[0]);
+        $aLng = (float) ($a['lng'] ?? $a[1]);
+        $bLat = (float) ($b['lat'] ?? $b[0]);
+        $bLng = (float) ($b['lng'] ?? $b[1]);
+
+        return $this->haversine($aLat, $aLng, $bLat, $bLng) <= self::STREET_SEGMENT_JOIN_METERS;
     }
 
     public function generateFromCoordinates(array $coordinates, string $streetName = 'Rua Principal', string $prefix = '', int $ctoCapacity = 8, int $ctoIntervalMeters = 250): array
@@ -611,6 +739,15 @@ class KmlNetworkGenerator
             $this->skippedOutOfBound++;
             return false;
         }
+
+        foreach ($this->streetCtoCoords[$this->streetName] ?? [] as $prevCoord) {
+            if ($this->haversine($lat, $lng, $prevCoord['lat'], $prevCoord['lng']) < $this->ctoIntervalMeters) {
+                $this->skippedTooClose++;
+                return false;
+            }
+        }
+
+        $this->streetCtoCoords[$this->streetName][] = ['lat' => $lat, 'lng' => $lng];
 
         $code = $prefix . self::CTO_BASE_CODE . str_pad($this->totalCtos + 1, 4, '0', STR_PAD_LEFT);
 
@@ -737,5 +874,7 @@ class KmlNetworkGenerator
         $this->generatedCaixas = [];
         $this->cityPolygon = null;
         $this->skippedOutOfBound = 0;
+        $this->skippedTooClose = 0;
+        $this->streetCtoCoords = [];
     }
 }

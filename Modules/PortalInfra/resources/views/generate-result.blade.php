@@ -40,6 +40,12 @@
 </div>
 @endif
 
+@if(!empty($result['stats']['skipped_too_close']))
+<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 text-sm text-yellow-700">
+    {{ $result['stats']['skipped_too_close'] }} posicoes de CTO descartadas por estarem muito proximas de outra da mesma rua (menos do que o intervalo configurado).
+</div>
+@endif
+
 @if(count($result['caixas']) > 0)
             <div class="mb-6">
                 <h3 class="text-sm font-semibold text-gray-500 uppercase mb-3">Caixas de Emenda Criadas</h3>

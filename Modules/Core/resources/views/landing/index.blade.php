@@ -46,11 +46,15 @@
         .btn-block { display: block; text-align: center; }
 
         /* ------------------------------------------------------------------ */
-        /* Hero                                                                */
+        /* Hero / Slider                                                       */
         /* ------------------------------------------------------------------ */
-        section.hero { background: radial-gradient(1200px 500px at 15% -10%, rgba(37,99,235,0.35), transparent 60%), linear-gradient(160deg, var(--c-hero-start) 0%, var(--c-hero-mid) 55%, var(--c-hero-end) 130%); color: #fff; position: relative; overflow: hidden; }
-        section.hero::after { content: ''; position: absolute; right: -120px; top: 40px; width: 420px; height: 420px; background: radial-gradient(circle, rgba(59,130,246,0.22), transparent 70%); z-index: 1; }
-        section.hero .container { padding-top: 84px; padding-bottom: 96px; text-align: center; position: relative; z-index: 2; }
+        .hero-carousel { position: relative; overflow: hidden; background: linear-gradient(160deg, var(--c-hero-start) 0%, var(--c-hero-mid) 55%, var(--c-hero-end) 130%); }
+        .hero-slides { display: flex; transition: transform 0.55s ease; min-height: 400px; }
+        .hero-slide { flex: 0 0 100%; width: 100%; position: relative; overflow: hidden; display: flex; align-items: center; }
+        .hero-slide::after { content: ''; position: absolute; inset: 0; background: radial-gradient(1200px 500px at 15% -10%, rgba(37,99,235,0.35), transparent 60%); z-index: 1; pointer-events: none; }
+        .hero-slide.has-bg::before { content: ''; position: absolute; inset: 0; background-image: var(--bg, none); background-size: cover; background-position: center; opacity: 0.45; z-index: 0; }
+        .hero-slide.has-bg::after { background: linear-gradient(180deg, rgba(11,18,34,0.5), rgba(11,18,34,0.75)); }
+        section.hero .container, .hero-slide .container { padding-top: 48px; padding-bottom: 56px; text-align: center; position: relative; z-index: 2; width: 100%; }
         section.hero h1 { font-size: clamp(2rem, 4.5vw, 3.3rem); font-weight: 800; line-height: 1.15; margin-bottom: 18px; letter-spacing: -0.02em; }
         section.hero h1 .grada { background: linear-gradient(120deg, #60a5fa, #a5b4fc); -webkit-background-clip: text; background-clip: text; color: transparent; }
         section.hero p.sub { font-size: clamp(1rem, 2vw, 1.18rem); color: #b6c2d9; max-width: 760px; margin: 0 auto 30px; }
@@ -60,6 +64,16 @@
         .city-select { width: 100%; padding: 14px 42px 14px 18px; border-radius: 12px; border: 1px solid rgba(147,197,253,0.4); background: rgba(255,255,255,0.97); color: #0f172a; font-size: 1rem; font-weight: 600; outline: none; cursor: pointer; box-shadow: 0 10px 30px rgba(0,0,0,0.25); appearance: none; }
         .city-select-wrap::after { content: '▾'; position: absolute; right: 18px; top: 42px; color: var(--c-primary); pointer-events: none; font-size: 1.1rem; }
         .hero-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+        .slider-nav { position: absolute; top: 50%; transform: translateY(-50%); z-index: 5; width: 46px; height: 46px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.08); color: #fff; font-size: 1.4rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; backdrop-filter: blur(4px); }
+        .slider-nav:hover { background: rgba(255,255,255,0.22); }
+        .slider-nav.prev { left: 18px; }
+        .slider-nav.next { right: 18px; }
+        .slider-dots { position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 5; display: flex; gap: 9px; }
+        .slider-dots button { width: 10px; height: 10px; border-radius: 999px; border: none; background: rgba(255,255,255,0.35); cursor: pointer; transition: width 0.2s, background 0.2s; padding: 0; }
+        .slider-dots button.active { width: 26px; background: #fff; }
+        @media (max-width: 640px) {
+            .slider-nav { display: none; }
+        }
 
         /* ------------------------------------------------------------------ */
         /* Stats band                                                          */
@@ -86,6 +100,25 @@
         .feature-card .ic { font-size: 2.2rem; margin-bottom: 12px; }
         .feature-card h3 { font-size: 1.05rem; margin-bottom: 6px; color: #0f172a; }
         .feature-card p { font-size: 0.88rem; color: #64748b; }
+
+        /* ------------------------------------------------------------------ */
+        /* VOD Stream                                                          */
+        /* ------------------------------------------------------------------ */
+        section.vod { padding: 70px 0; background: linear-gradient(180deg, #fff 0%, #eef2ff 100%); }
+        .vod-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 320px)); gap: 22px; margin-top: 34px; justify-content: center; }
+        .vod-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 18px; padding: 30px 24px; text-align: center; transition: transform 0.2s, box-shadow 0.2s; position: relative; overflow: hidden; }
+        .vod-card:hover { transform: translateY(-4px); box-shadow: 0 18px 40px rgba(79,70,229,0.12); }
+        .vod-card .vod-ic { font-size: 2.4rem; margin-bottom: 14px; }
+        .vod-card .vod-ic-wrap { width: 74px; height: 74px; margin: 0 auto 16px; border-radius: 20px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(37,99,235,0.12)); }
+        .vod-card h3 { font-size: 1.08rem; margin-bottom: 6px; color: #0f172a; }
+        .vod-card p { font-size: 0.88rem; color: #64748b; }
+        .vod-featured { grid-column: 1 / -1; background: linear-gradient(160deg, var(--c-hero-end), var(--c-hero-mid)); color: #fff; text-align: left; display: grid; grid-template-columns: 1fr auto; gap: 30px; align-items: center; padding: 40px 38px; }
+        .vod-featured h3 { color: #fff; font-size: 1.5rem; margin-bottom: 8px; }
+        .vod-featured p { color: #c7d2fe; }
+        .vod-featured .vod-ic-wrap { background: rgba(255,255,255,0.12); }
+        @media (max-width: 720px) {
+            .vod-featured { grid-template-columns: 1fr; text-align: center; }
+        }
 
         /* ------------------------------------------------------------------ */
         /* Plans                                                               */
@@ -196,6 +229,7 @@
         </a>
         <nav class="site">
             <a class="nav-link" href="#planos">Planos</a>
+            <a class="nav-link" href="#vod">VOD Stream</a>
             <a class="nav-link" href="#cobertura">Cobertura</a>
             <a class="nav-link" href="#sobre">Sobre</a>
             <a class="nav-link" href="#duvidas">Duvidas</a>
@@ -205,6 +239,42 @@
     </div>
 </header>
 
+@if($banners->count())
+<section class="hero-carousel">
+    <div class="hero-slides" id="hero-slides">
+        @foreach($banners as $banner)
+        <div class="hero-slide {{ $banner->image ? 'has-bg' : '' }}" style="{{ $banner->image ? '--bg: url('.asset('storage/'.$banner->image).')' : '' }}">
+            <div class="container">
+                @if($banner->badge)
+                    <span class="hero-badge">✨ {{ $banner->badge }}</span>
+                @endif
+                @if($banner->highlight)
+                    <h1>{!! $banner->title !!} <span class="grada">{{ $banner->highlight }}</span></h1>
+                @else
+                    <h1>{!! $banner->title !!}</h1>
+                @endif
+                @if($banner->subtitle)
+                    <p class="sub">{{ $banner->subtitle }}</p>
+                @endif
+                <div class="hero-actions">
+                    @if($banner->link_url)
+                        <a class="btn btn-outline" href="{{ $banner->link_url }}" target="_blank" rel="noopener">{{ $banner->link_label ?: 'Saiba mais' }}</a>
+                    @endif
+                    @if($whatsapp)
+                        <a class="btn btn-primary" href="https://wa.me/{{ preg_replace('/\D/', '', $whatsapp) }}">Falar no WhatsApp</a>
+                    @endif
+                </div>
+            </div>
+        </div>
+        @endforeach
+    </div>
+    @if($banners->count() > 1)
+    <button class="slider-nav prev" type="button" aria-label="Anterior" onclick="moveSlide(-1)">‹</button>
+    <button class="slider-nav next" type="button" aria-label="Proximo" onclick="moveSlide(1)">›</button>
+    <div class="slider-dots" id="slider-dots"></div>
+    @endif
+</section>
+@else
 <section class="hero">
     <div class="container">
         <span class="hero-badge">🚀 Internet Fibra Optica</span>
@@ -231,6 +301,7 @@
         </div>
     </div>
 </section>
+@endif
 
 <section class="stats">
     <div class="container">
@@ -272,6 +343,39 @@
             <div class="feature-card"><div class="ic">📶</div><h3>Fibra Optica FTTH</h3><p>Tecnologia de ultima geracao chegando direto na sua casa.</p></div>
             <div class="feature-card"><div class="ic">🛡️</div><h3>Suporte Rapido</h3><p>Atendimento agil e dedicado para resolver qualquer problema.</p></div>
             <div class="feature-card"><div class="ic">💸</div><h3>Precos Justos</h3><p>Planos que cabem no seu bolso, sem letras miudas.</p></div>
+        </div>
+    </div>
+</section>
+
+<section class="vod" id="vod">
+    <div class="container">
+        <div class="section-title">
+            <h2>🎬 {{ $titles['vod_title'] }}</h2>
+            <p>{{ $titles['vod_subtitle'] }}</p>
+        </div>
+        <div class="vod-grid">
+            <div class="vod-card">
+                <div class="vod-ic-wrap"><div class="vod-ic">📽️</div></div>
+                <h3>Filmes</h3>
+                <p>Catalogo completo com lancamentos e classicos para assistir quando quiser.</p>
+            </div>
+            <div class="vod-card">
+                <div class="vod-ic-wrap"><div class="vod-ic">📺</div></div>
+                <h3>Series</h3>
+                <p>Maratonas inteiras de series nacionais e internacionais em alta qualidade.</p>
+            </div>
+            <div class="vod-card">
+                <div class="vod-ic-wrap"><div class="vod-ic">📡</div></div>
+                <h3>Canais Abertos</h3>
+                <p>Programacao ao vivo de TV aberta sem precisar de antena ou assinatura.</p>
+            </div>
+            <div class="vod-card vod-featured">
+                <div>
+                    <h3>Stream direto do seu plano de internet</h3>
+                    <p>VOD Stream chegando para transformar sua casa em um cinema. Filmes, series e canais abertos de TV reunidos em um so lugar, com a qualidade da fibra optica.</p>
+                </div>
+                <div class="vod-ic-wrap"><div class="vod-ic">🍿</div></div>
+            </div>
         </div>
     </div>
 </section>
@@ -407,6 +511,7 @@
             <div>
                 <h4>Navegacao</h4>
                 <a href="#planos">Planos</a>
+                <a href="#vod">VOD Stream</a>
                 <a href="#cobertura">Cobertura</a>
                 <a href="#sobre">Sobre</a>
                 <a href="#duvidas">Duvidas</a>
@@ -442,6 +547,48 @@
 
 <script>
     (function () {
+        var slidesWrap = document.getElementById('hero-slides');
+        if (slidesWrap) {
+            var slides = slidesWrap.querySelectorAll('.hero-slide');
+            var current = 0;
+
+            var dotsWrap = document.getElementById('slider-dots');
+            if (dotsWrap) {
+                slides.forEach(function (_, i) {
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    b.setAttribute('aria-label', 'Ir para o banner ' + (i + 1));
+                    if (i === 0) b.classList.add('active');
+                    b.addEventListener('click', function () { goTo(i); resetTimer(); });
+                    dotsWrap.appendChild(b);
+                });
+            }
+            var dots = dotsWrap ? dotsWrap.querySelectorAll('button') : [];
+
+            function goTo(index) {
+                current = (index + slides.length) % slides.length;
+                slidesWrap.style.transform = 'translateX(-' + (current * 100) + '%)';
+                if (dots.length) {
+                    dots.forEach(function (d, i) {
+                        d.classList.toggle('active', i === current);
+                    });
+                }
+            }
+
+            window.moveSlide = function (dir) {
+                goTo(current + dir);
+                resetTimer();
+            };
+
+            var timer = null;
+            function resetTimer() {
+                if (slides.length < 2) return;
+                if (timer) clearInterval(timer);
+                timer = setInterval(function () { goTo(current + 1); }, 6000);
+            }
+            resetTimer();
+        }
+
         var sel = document.getElementById('sel-cidade');
         if (!sel) return;
         var planButtons = document.querySelectorAll('.plan-cta');

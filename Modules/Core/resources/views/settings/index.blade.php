@@ -66,6 +66,8 @@
                 'landing_color_footer' => ['label' => 'Cor do Rodape', 'placeholder' => '#070b16'],
                 'landing_section_plans_title' => ['label' => 'Titulo da Secao Planos', 'placeholder' => 'Nossos Planos'],
                 'landing_section_plans_subtitle' => ['label' => 'Subtitulo da Secao Planos', 'placeholder' => 'Escolha o plano ideal para voce'],
+                'landing_section_vod_title' => ['label' => 'Titulo da Secao VOD Stream', 'placeholder' => 'VOD Stream'],
+                'landing_section_vod_subtitle' => ['label' => 'Subtitulo da Secao VOD Stream', 'placeholder' => 'Assista onde e quando quiser, incluido no seu plano'],
                 'landing_section_coverage_title' => ['label' => 'Titulo da Secao Cobertura', 'placeholder' => 'Cobertura'],
                 'landing_section_coverage_subtitle' => ['label' => 'Subtitulo da Secao Cobertura', 'placeholder' => 'Atendemos com fibra optica nas seguintes cidades'],
                 'landing_section_features_title' => ['label' => 'Titulo da Secao Vantagens', 'placeholder' => 'Por que escolher'],

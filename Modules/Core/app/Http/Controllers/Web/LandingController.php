@@ -4,6 +4,7 @@ namespace Modules\Core\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use Modules\Core\Models\SystemSetting;
+use Modules\Core\Models\LandingBanner;
 use Modules\CRM\Models\Plan;
 
 class LandingController extends Controller
@@ -22,6 +23,8 @@ class LandingController extends Controller
         $name = $company['company_fantasy'] ?? $company['company_name'] ?? 'MyISP';
 
         $plans = Plan::where('is_active', true)->orderBy('price')->get();
+
+        $banners = LandingBanner::active()->ordered()->get();
 
         $cities = collect(preg_split('/\r\n|\r|\n/', $settings['landing_cities'] ?? ''))
             ->map(fn ($item) => trim($item))
@@ -62,6 +65,8 @@ class LandingController extends Controller
             'faq_subtitle' => $settings['landing_section_faq_subtitle'] ?? 'Tire suas duvidas antes de contratar',
             'contact_title' => $settings['landing_section_contact_title'] ?? 'Fale Conosco',
             'contact_subtitle' => $settings['landing_section_contact_subtitle'] ?? 'Estamos prontos para atender voce por qualquer canal',
+            'vod_title' => $settings['landing_section_vod_title'] ?? 'VOD Stream',
+            'vod_subtitle' => $settings['landing_section_vod_subtitle'] ?? 'Assista onde e quando quiser, incluido no seu plano',
         ];
 
         return view('core::landing.index', [
@@ -85,6 +90,7 @@ class LandingController extends Controller
             'map_embed' => $settings['landing_map_embed'] ?? '',
             'faq' => $faq,
             'plans' => $plans,
+            'banners' => $banners,
             'colors' => $colors,
             'titles' => $section_titles,
         ]);

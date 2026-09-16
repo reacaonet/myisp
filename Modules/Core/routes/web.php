@@ -5,6 +5,7 @@ use Modules\Core\Http\Controllers\CoreController;
 use Modules\Core\Http\Controllers\Web\UserController;
 use Modules\Core\Http\Controllers\Web\UserGroupController;
 use Modules\Core\Http\Controllers\Web\SystemSettingController;
+use Modules\Core\Http\Controllers\Web\LandingBannerController;
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('cores', CoreController::class)->names('core');
@@ -14,6 +15,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/criar', [SystemSettingController::class, 'create'])->name('create');
         Route::post('/', [SystemSettingController::class, 'store'])->name('store');
         Route::put('/', [SystemSettingController::class, 'update'])->name('update');
+    });
+
+    Route::prefix('banners')->name('core.banners.')->group(function () {
+        Route::get('/', [LandingBannerController::class, 'index'])->name('index');
+        Route::get('/criar', [LandingBannerController::class, 'create'])->name('create');
+        Route::post('/', [LandingBannerController::class, 'store'])->name('store');
+        Route::get('/{id}/editar', [LandingBannerController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [LandingBannerController::class, 'update'])->name('update');
+        Route::post('/{id}/mover/{direction}', [LandingBannerController::class, 'move'])->name('move');
+        Route::delete('/{id}', [LandingBannerController::class, 'destroy'])->name('destroy');
     });
 
     Route::middleware('group.permission:settings')->group(function () {

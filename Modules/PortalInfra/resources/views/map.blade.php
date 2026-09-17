@@ -46,10 +46,27 @@
     const map = L.map('map', { zoomControl: true }).setView([-4.3, -46.5], 12);
     const caixaUrl = '{{ route("infra.ftth.caixas.show", "__ID__") }}';
     const ctoUrl = '{{ route("infra.ftth.ctos.show", "__ID__") }}';
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap',
         maxZoom: 19
-    }).addTo(map);
+    });
+    const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri',
+        maxZoom: 19,
+        maxNativeZoom: 17
+    });
+    const terrainLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        attribution: 'Map data: &copy; OpenStreetMap, SRTM | Style: &copy; OpenTopoMap',
+        maxZoom: 17,
+        maxNativeZoom: 17
+    });
+    osmLayer.addTo(map);
+    L.control.layers({
+        'Padrao': osmLayer,
+        'Satelite': satelliteLayer,
+        'Terreno': terrainLayer
+    }, null, { position: 'topright' }).addTo(map);
 
     let ctoLayer = L.layerGroup().addTo(map);
     let caixaLayer = L.layerGroup().addTo(map);

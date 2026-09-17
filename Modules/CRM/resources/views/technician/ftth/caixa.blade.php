@@ -179,7 +179,15 @@
 <script>
 (function() {
     var map = L.map('map', { zoomControl: true }).setView([{{ $caixa->latitude }}, {{ $caixa->longitude }}], 16);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap', maxZoom: 19 }).addTo(map);
+    var osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap', maxZoom: 19 });
+    var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri', maxZoom: 19, maxNativeZoom: 17 });
+    var terrainLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: 'Map data: &copy; OpenStreetMap, SRTM | Style: &copy; OpenTopoMap', maxZoom: 17, maxNativeZoom: 17 });
+    osmLayer.addTo(map);
+    L.control.layers({
+        'Padrao': osmLayer,
+        'Satelite': satelliteLayer,
+        'Terreno': terrainLayer
+    }, null, { position: 'topright' }).addTo(map);
     var icon = L.divIcon({ className: 'marker-caixa', iconSize: [14, 14], iconAnchor: [7, 7] });
     L.marker([{{ $caixa->latitude }}, {{ $caixa->longitude }}], { icon })
         .addTo(map)

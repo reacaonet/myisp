@@ -18,6 +18,7 @@ use Modules\PortalInfra\Http\Controllers\Web\EquipmentController;
 use Modules\PortalInfra\Http\Controllers\Web\ManufacturerController;
 use Modules\PortalInfra\Http\Controllers\Web\HotspotCouponController;
 use Modules\PortalInfra\Http\Controllers\Web\FtthController;
+use Modules\PortalInfra\Http\Controllers\Web\FtthEditorController;
 use Modules\PortalInfra\Http\Controllers\Web\InfraLoginController;
 use Modules\PortalInfra\Http\Controllers\Web\DashboardController;
 
@@ -162,6 +163,22 @@ Route::prefix('infra')->name('infra.')->group(function () {
 
         Route::get('/mapa', [FtthController::class, 'map'])->name('map');
         Route::get('/api/map-data', [FtthController::class, 'mapData'])->name('api.map-data');
+
+        Route::get('/editor', [FtthEditorController::class, 'index'])->name('editor.index');
+        Route::get('/editor/api/data', [FtthEditorController::class, 'data'])->name('editor.data');
+        Route::put('/editor/api/mover/{type}/{id}', [FtthEditorController::class, 'move'])->name('editor.move');
+        Route::post('/editor/api/fibras', [FtthEditorController::class, 'storeFiber'])->name('editor.fibers.store');
+        Route::put('/editor/api/fibras/{id}', [FtthEditorController::class, 'updateFiber'])->name('editor.fibers.update');
+        Route::delete('/editor/api/fibras/{id}', [FtthEditorController::class, 'destroyFiber'])->name('editor.fibers.destroy');
+        Route::post('/editor/api/splitters', [FtthEditorController::class, 'storeSplitter'])->name('editor.splitters.store');
+        Route::delete('/editor/api/splitters/{id}', [FtthEditorController::class, 'destroySplitter'])->name('editor.splitters.destroy');
+        Route::post('/editor/api/conexoes', [FtthEditorController::class, 'storeConnection'])->name('editor.connections.store');
+        Route::delete('/editor/api/conexoes/{id}', [FtthEditorController::class, 'destroyConnection'])->name('editor.connections.destroy');
+        Route::get('/editor/api/relatorio/{city}', [FtthEditorController::class, 'report'])->name('editor.report');
+        Route::get('/editor/api/validar/{city}', [FtthEditorController::class, 'validate'])->name('editor.validate');
+        Route::get('/editor/exportar-kml/{city}', [FtthEditorController::class, 'exportKml'])->name('editor.export.kml');
+        Route::get('/editor/exportar-csv/{city}', [FtthEditorController::class, 'exportCsv'])->name('editor.export.csv');
+        Route::get('/editor/exportar-csv/{city}', [FtthEditorController::class, 'exportCsv'])->name('editor.export.csv');
 
         Route::post('/fusoes', [FtthController::class, 'storeFusion'])->name('fusions.store');
         Route::put('/fusoes/{id}', [FtthController::class, 'updateFusion'])->name('fusions.update');

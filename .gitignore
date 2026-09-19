@@ -10,3 +10,6 @@
 *.log
 .DS_Store
 Thumbs.db
+
+# symlink do storage publico (criado por artisan storage:link no ambiente local)
+public/storage

@@ -37,6 +37,7 @@ class KmlNetworkGenerator
     private int $skippedOutOfBound = 0;
     private int $skippedTooClose = 0;
     private array $streetCtoCoords = [];
+    private array $chainCtoCoords = [];
 
     private function overpassQuery(string $query): array
     {
@@ -519,7 +520,7 @@ class KmlNetworkGenerator
                 continue;
             }
 
-            $this->processStreet($nodes, $prefix);
+            $this->processStreet($nodes, $prefix, $streetIndex);
         }
 
         $this->flushPendingCaixa();
@@ -672,7 +673,7 @@ class KmlNetworkGenerator
         return $this->generateFromStreets($streets, $prefix, '', '', $ctoCapacity, $ctoIntervalMeters);
     }
 
-    private function processStreet(array $nodes, string $prefix): void
+    private function processStreet(array $nodes, string $prefix, int $chainIndex = 0): void
     {
         $accumulatedDistance = 0.0;
         $lastCtoDistance = 0.0;
@@ -710,7 +711,7 @@ class KmlNetworkGenerator
                     $ctoLat = $lastPoint['lat'] + ($currentPoint['lat'] - $lastPoint['lat']) * $fraction;
                     $ctoLng = $lastPoint['lng'] + ($currentPoint['lng'] - $lastPoint['lng']) * $fraction;
 
-                    $createdInStreet = $this->createCto($ctoLat, $ctoLng, $prefix, $accumulatedDistance) || $createdInStreet;
+                    $createdInStreet = $this->createCto($ctoLat, $ctoLng, $prefix, $accumulatedDistance, $chainIndex) || $createdInStreet;
                     $lastCtoDistance += $this->ctoIntervalMeters;
                 }
             }
@@ -727,26 +728,39 @@ class KmlNetworkGenerator
                     continue;
                 }
 
-                $this->createCto((float) $validLat, (float) $validLng, $prefix, 0.0);
+                $this->createCto((float) $validLat, (float) $validLng, $prefix, 0.0, $chainIndex);
                 break;
             }
         }
     }
 
-    private function createCto(float $lat, float $lng, string $prefix, float $distance): bool
+    private function createCto(float $lat, float $lng, string $prefix, float $distance, int $chainIndex = 0): bool
     {
         if ($this->cityPolygon !== null && !$this->isPointInPolygon($lat, $lng, $this->cityPolygon)) {
             $this->skippedOutOfBound++;
             return false;
         }
 
-        foreach ($this->streetCtoCoords[$this->streetName] ?? [] as $prevCoord) {
-            if ($this->haversine($lat, $lng, $prevCoord['lat'], $prevCoord['lng']) < $this->ctoIntervalMeters) {
+        // Dedup com duas camadas (ambas apenas com clearance mínimo de junção,
+        // 30m). O espaçamento exato do intervalo é garantido pelo while em
+        // processStreet (distância acumulada de caminho); aqui apenas
+        // evitamos CTOs duplicadas no mesmo ponto físico (polilinhas que se
+        // fecham) e CTOs coladas entre vias paralelas de mesmo nome.
+        foreach ($this->chainCtoCoords[$chainIndex] ?? [] as $prevCoord) {
+            if ($this->haversine($lat, $lng, $prevCoord['lat'], $prevCoord['lng']) < self::STREET_SEGMENT_JOIN_METERS) {
                 $this->skippedTooClose++;
                 return false;
             }
         }
 
+        foreach ($this->streetCtoCoords[$this->streetName] ?? [] as $prevCoord) {
+            if ($this->haversine($lat, $lng, $prevCoord['lat'], $prevCoord['lng']) < self::STREET_SEGMENT_JOIN_METERS) {
+                $this->skippedTooClose++;
+                return false;
+            }
+        }
+
+        $this->chainCtoCoords[$chainIndex][] = ['lat' => $lat, 'lng' => $lng];
         $this->streetCtoCoords[$this->streetName][] = ['lat' => $lat, 'lng' => $lng];
 
         $code = $prefix . self::CTO_BASE_CODE . str_pad($this->totalCtos + 1, 4, '0', STR_PAD_LEFT);
@@ -876,5 +890,6 @@ class KmlNetworkGenerator
         $this->skippedOutOfBound = 0;
         $this->skippedTooClose = 0;
         $this->streetCtoCoords = [];
+        $this->chainCtoCoords = [];
     }
 }

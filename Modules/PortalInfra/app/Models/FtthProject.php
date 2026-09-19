@@ -43,4 +43,19 @@ class FtthProject extends Model
     {
         return $this->hasMany(CaixaEmenda::class);
     }
+
+    public function fiberLinks(): HasMany
+    {
+        return $this->hasMany(FtthFiberLink::class);
+    }
+
+    public function splitters(): HasMany
+    {
+        return $this->hasMany(FtthSplitter::class);
+    }
+
+    public function connections(): HasMany
+    {
+        return $this->hasMany(FtthConnection::class);
+    }
 }

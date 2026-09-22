@@ -40,6 +40,14 @@
                 </a>
                 @endif
 
+                @if($user && $user->hasPermission('olt_view'))
+                <p class="text-xs font-semibold uppercase text-gray-500 px-3 mt-4 mb-2">OLT</p>
+                <a href="{{ route('infra.olts.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('infra.olts.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h16v6H4zM4 14h16v6H4zM2 7h2v2H2zm0 8h2v2H2zm18-8h2v2h-2zm0 8h2v2h-2z"/></svg>
+                    OLTs
+                </a>
+                @endif
+
                 {{-- Provisionamento --}}
                 @if($user && $user->hasPermission('provisioning'))
                 <a href="{{ route('infra.provisioning.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('infra.provisioning.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">

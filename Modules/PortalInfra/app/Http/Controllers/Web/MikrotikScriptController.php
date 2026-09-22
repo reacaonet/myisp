@@ -20,6 +20,13 @@ class MikrotikScriptController extends Controller
             'server_id' => 'required|exists:mikrotik_servers,id',
             'script_type' => 'required|in:pppoe,hotspot,firewall,dhcp,complete',
             'wan_interface' => 'nullable|string|max:50',
+            'lan_interface' => 'nullable|string|max:50',
+            'wan_mode' => 'nullable|in:dhcp,static,pppoe',
+            'wan_ip' => 'nullable|string|max:50',
+            'wan_mask' => 'nullable|string|max:10',
+            'wan_gateway' => 'nullable|string|max:50',
+            'wan_pppoe_user' => 'nullable|string|max:50',
+            'wan_pppoe_password' => 'nullable|string|max:50',
             'lan_ip' => 'nullable|string|max:50',
             'lan_mask' => 'nullable|string|max:10',
             'pool_name' => 'nullable|string|max:50',
@@ -44,9 +51,17 @@ class MikrotikScriptController extends Controller
 
     private function buildScript(array $config, MikrotikServer $server): string
     {
-        $wan = $config['wan_interface'] ?? 'ether1';
+        $wan = $config['wan_interface'] ?? 'ether5';
+        $lan = $config['lan_interface'] ?? 'ether1';
+        $wanMode = $config['wan_mode'] ?? 'dhcp';
+        $wanIp = $config['wan_ip'] ?? '';
+        $wanMask = $config['wan_mask'] ?? '24';
+        $wanGateway = $config['wan_gateway'] ?? '';
+        $wanPppoeUser = $config['wan_pppoe_user'] ?? '';
+        $wanPppoePass = $config['wan_pppoe_password'] ?? '';
         $lanIp = $config['lan_ip'] ?? '192.168.1.1';
         $lanMask = $config['lan_mask'] ?? '24';
+        $lanSubnet = $this->subnetAddress($lanIp, $lanMask);
         $poolName = $config['pool_name'] ?? 'pool-hotspot';
         $poolStart = $config['pool_start'] ?? '192.168.1.10';
         $poolEnd = $config['pool_end'] ?? '192.168.1.250';
@@ -89,9 +104,19 @@ class MikrotikScriptController extends Controller
         $lines[] = '# --------------------------------------------';
         $lines[] = '# ' . ($adminPass ? '3' : '2') . '. CONFIGURACAO DE REDE';
         $lines[] = '# --------------------------------------------';
-        $lines[] = '/ip address add address=' . $lanIp . '/' . $lanMask . ' interface=ether2 comment="LAN - MyISP"';
+        $lines[] = '/ip address add address=' . $lanIp . '/' . $lanMask . ' interface=' . $lan . ' comment="LAN - MyISP"';
         $lines[] = '/ip dns set servers=' . $dns . ' allow-remote-requests=yes';
-        $lines[] = '/ip route add dst-address=0.0.0.0/0 gateway=' . $wan . ' comment="Rota Default - WAN"';
+        $lines[] = '# --- Acesso WAN (' . strtoupper($wanMode) . ') ---';
+
+        if ($wanMode === 'static') {
+            $lines[] = '/ip address add address=' . $wanIp . '/' . $wanMask . ' interface=' . $wan . ' comment="WAN - IP Fixo"';
+            $lines[] = '/ip route add dst-address=0.0.0.0/0 gateway=' . $wanGateway . ' comment="Rota Default - WAN"';
+        } elseif ($wanMode === 'pppoe') {
+            $lines[] = '/interface pppoe-client add name="wan-pppoe" interface=' . $wan . ' user="' . $wanPppoeUser . '" password="' . $wanPppoePass . '" disabled=no add-default-route=yes use-peer-dns=no comment="WAN - PPPoE"';
+            $lines[] = '/ip route add dst-address=0.0.0.0/0 gateway="wan-pppoe" comment="Rota Default - WAN"';
+        } else {
+            $lines[] = '/ip dhcp-client add interface=' . $wan . ' disabled=no add-default-route=yes use-peer-dns=no comment="WAN - DHCP"';
+        }
         $lines[] = '/system ntp client set enabled=yes';
         $lines[] = '/system ntp client servers add address=' . $ntp;
         $lines[] = '/ip pool add name="' . $poolName . '" ranges=' . $poolStart . '-' . $poolEnd;
@@ -103,7 +128,7 @@ class MikrotikScriptController extends Controller
             $lines[] = '# --------------------------------------------';
             $lines[] = '# ' . $lineNum . '. SERVIDOR PPPoE';
             $lines[] = '# --------------------------------------------';
-            $lines[] = '/interface pppoe-server server add service-name="' . $pppoeService . '" interface=ether2 mtu=' . $mtuLan . ' mru=' . $mtuLan . ' default-profile=default';
+            $lines[] = '/interface pppoe-server server add service-name="' . $pppoeService . '" interface=' . $lan . ' mtu=' . $mtuLan . ' mru=' . $mtuLan . ' default-profile=default';
             $lines[] = '/ppp profile add name="pppoe-profile" local-address=' . $lanIp . ' remote-address="' . $poolName . '" dns-server=' . $dns . ' use-upnp=no';
             $lines[] = '/ppp aaa set use-radius=yes accounting=yes interim-update=5m';
             $lines[] = '';
@@ -115,7 +140,7 @@ class MikrotikScriptController extends Controller
             $lines[] = '# ' . $lineNum . '. SERVIDOR HOTSPOT';
             $lines[] = '# --------------------------------------------';
             $lines[] = '/ip hotspot profile add name="hsprof1" hotspot-address=' . $lanIp . ' dns-name="hotspot.' . $lanIp . '.sslip.io" html-directory=hotspot';
-            $lines[] = '/ip hotspot add name="' . $hotspotName . '" interface=ether2 profile="hsprof1" address-pool="' . $poolName . '" addresses="' . $lanIp . '/' . $lanMask . '"';
+            $lines[] = '/ip hotspot add name="' . $hotspotName . '" interface=' . $lan . ' profile="hsprof1" address-pool="' . $poolName . '" addresses="' . $lanIp . '/' . $lanMask . '"';
             $lines[] = '/ip hotspot user profile add name="hs-user-profile" idle-time=5m session-timeout=0s rate-limit="' . $bandwidthDown . '/' . $bandwidthUp . '"';
             $lines[] = '/ip hotspot user add name="admin" password="admin" profile="hs-user-profile" server="' . $hotspotName . '" comment="Usuario administrativo"';
             $lines[] = '';
@@ -133,8 +158,10 @@ class MikrotikScriptController extends Controller
             $lines[] = '/ip firewall filter add chain=input connection-state=established,related action=accept comment="Permitir Conexoes Estabelecidas"';
             $lines[] = '/ip firewall filter add chain=input connection-state=invalid action=drop comment="Dropar Conexoes Invalidas"';
             $lines[] = '/ip firewall filter add chain=input protocol=icmp action=accept comment="Permitir ICMP"';
-            $lines[] = '/ip firewall filter add chain=input dst-port=8291 protocol=tcp src-address=192.168.0.0/16 action=accept comment="Permitir WinBox LAN"';
+            $lines[] = '/ip firewall filter add chain=input dst-port=8291 protocol=tcp src-address=' . $lanSubnet . ' action=accept comment="Permitir WinBox LAN"';
+            $lines[] = '/ip firewall filter add chain=input dst-port=8728 protocol=tcp src-address=' . $lanSubnet . ' action=accept comment="Permitir API RouterOS - MyISP (LAN)"';
             $lines[] = '/ip firewall filter add chain=input dst-port=8291 protocol=tcp action=drop comment="Bloquear WinBox WAN"';
+            $lines[] = '/ip firewall filter add chain=input dst-port=8728 protocol=tcp action=drop comment="Bloquear API RouterOS WAN"';
             $lines[] = '/ip firewall filter add chain=input protocol=tcp dst-port=23 action=drop comment="Bloquear Telnet"';
             $lines[] = '/ip firewall filter add chain=input protocol=tcp dst-port=21 action=drop comment="Bloquear FTP"';
             $lines[] = '';
@@ -152,8 +179,8 @@ class MikrotikScriptController extends Controller
             $lines[] = '# --------------------------------------------';
             $lines[] = '/ip pool add name="dhcp-pool" ranges=' . $poolStart . '-' . $poolEnd;
             $lines[] = '/ip dhcp-server network add address=' . $lanIp . '/' . $lanMask . ' dns-server=' . $dns . ' gateway=' . $lanIp;
-            $lines[] = '/ip dhcp-server add name="dhcp1" interface=ether2 address-pool="dhcp-pool" lease-time=1h disabled=no';
-            $lines[] = '/ip dhcp-server lease add address=' . $lanIp . ' mac-address=* * dynamic=no comment="IP Reservado - MyISP Server"';
+            $lines[] = '/ip dhcp-server add name="dhcp1" interface=' . $lan . ' address-pool="dhcp-pool" lease-time=1h disabled=no';
+            $lines[] = '/ip dhcp-server lease add address=' . $lanIp . ' mac-address=02:BB:01:00:00:01 dynamic=no comment="IP Reservado - MyISP Server"';
             $lines[] = '';
             $lineNum++;
         }
@@ -163,9 +190,11 @@ class MikrotikScriptController extends Controller
             $lines[] = '# ' . $lineNum . '. SERVIDOR RADIUS';
             $lines[] = '# --------------------------------------------';
             $lines[] = '/radius add address=127.0.0.1 secret=myisp-radius service=pppoe,hotspot authentication-port=1812 accounting-port=1813';
-            $lines[] = '/ip service set www-ssl disabled=no tls-version=only tls-cipher=ecdsa';
-            $lines[] = '/ip service set api disabled=no';
+
+            $lines[] = '# API RouterOS (para o MyISP se conectar)';
+            $lines[] = '/ip service set api disabled=no port=8728';
             $lines[] = '/ip service set api-ssl disabled=no';
+            $lines[] = '/user add name=myisp password="' . $adminPass . '" group=full comment="Usuario API - MyISP"';
             $lines[] = '';
             $lineNum++;
 
@@ -182,9 +211,8 @@ class MikrotikScriptController extends Controller
             $lines[] = '# --------------------------------------------';
             $lines[] = '# ' . $lineNum . '. AGENDA DE BLOQUEIO (MyISP)';
             $lines[] = '# --------------------------------------------';
-            $lines[] = '/system scheduler add name="myisp-check" interval=5m start-time=00:00:00 on-event=';
-            $lines[] = '# Este scheduler deve ser configurado para chamar a API do MyISP';
-            $lines[] = '# e bloquear/desbloquear clientes via address-list';
+            $lines[] = '# Agenda diaria para checagem via API do MyISP';
+            $lines[] = '/system scheduler add name="myisp-check" interval=5m start-time=00:00:00 comment="Chamada de bloqueio/desbloqueio MyISP" on-event="/tool fetch url=\"http://' . $lanIp . ':8000/api/infra/blocked-addresses\" keep-result=no"';
             $lines[] = '';
             $lineNum++;
 
@@ -209,5 +237,20 @@ class MikrotikScriptController extends Controller
         $lines[] = '# 6. Teste a conexao em Servidores MikroTik > Testar';
 
         return implode("\n", $lines);
+    }
+
+    private function subnetAddress(string $ip, string $mask): string
+    {
+        $mask = (int) $mask;
+        $mask = ($mask > 32 || $mask < 0) ? 24 : $mask;
+        $ipLong = ip2long($ip);
+
+        if ($ipLong === false) {
+            return '192.168.0.0/16';
+        }
+
+        $maskLong = $mask === 0 ? 0 : (0xFFFFFFFF << (32 - $mask));
+
+        return long2ip($ipLong & $maskLong) . '/' . $mask;
     }
 }

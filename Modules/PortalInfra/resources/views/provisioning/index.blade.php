@@ -3,6 +3,12 @@
 @section('title', 'Provisionamento')
 
 @section('content')
+@if(session('success'))
+    <div class="bg-green-50 border border-green-200 text-green-700 rounded-lg p-4 mb-4">{{ session('success') }}</div>
+@endif
+@if(session('error'))
+    <div class="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 mb-4">{{ session('error') }}</div>
+@endif
 <div class="bg-white rounded-xl shadow-sm border border-gray-200">
     <div class="p-6 border-b border-gray-200 flex items-center justify-between">
         <h2 class="text-lg font-semibold text-gray-800">Provisionamento MikroTik</h2>
@@ -77,7 +83,8 @@
                     <td class="px-6 py-4 text-gray-600 text-xs">{{ $r->created_at->format('d/m/Y H:i') }}</td>
                     <td class="px-6 py-4 text-right">
                         <div class="flex items-center justify-end gap-0.5">
-                        @if($r->action === 'add' && $r->success)
+                        @if(in_array($r->action, ['add', 'update']) && $r->success)
+                            <a href="{{ route('infra.provisioning.edit', $r) }}" title="Editar" class="p-1.5 rounded hover:bg-blue-50 text-blue-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></a>
                             <form method="POST" action="{{ route('infra.provisioning.block', $r) }}" class="inline">
                                 @csrf
                                 <button type="submit" title="Bloquear" class="p-1.5 rounded hover:bg-yellow-50 text-yellow-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg></button>

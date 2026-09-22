@@ -13,58 +13,108 @@ class MikrotikApi
     private int $timeout = 5;
     private int $attempts = 3;
 
+    public string $lastError = '';
+
     public function connect(string $ip, string $login, string $password): bool
     {
-        for ($attempt = 1; $attempt <= $this->attempts; $attempt++) {
-            $this->connected = false;
+        $this->lastError = '';
 
-            $this->socket = @fsockopen($ip, $this->port, $this->errorNo, $this->errorStr, $this->timeout);
-
-            if (!$this->socket) {
-                usleep(500000);
-                continue;
-            }
-
-            socket_set_timeout($this->socket, $this->timeout);
-
-            $this->write('/login');
-            $response = $this->read();
-
-            if (!isset($response[0]) || $response[0] !== '!done') {
-                $this->disconnect();
-                continue;
-            }
-
-            if (isset($response[1]) && preg_match('/[^=]+/i', $response[1], $matches)) {
-                if ($matches[0][0] === 'ret' && strlen($matches[0][1]) === 32) {
-                    $this->write('/login', false);
-                    $this->write('=name=' . $login, false);
-                    $this->write('=response=00' . md5(chr(0) . $password . pack('H*', $matches[0][1])));
-                    $this->write('');
-
-                    $loginResponse = $this->read();
-
-                    if (!isset($loginResponse[0]) || $loginResponse[0] !== '!done') {
-                        $this->disconnect();
-                        continue;
-                    }
-                } else {
-                    $this->write('=name=' . $login, false);
-                    $this->write('=password=' . $password);
-                    $loginResponse = $this->read();
-
-                    if (!isset($loginResponse[0]) || $loginResponse[0] !== '!done') {
-                        $this->disconnect();
-                        continue;
-                    }
+        foreach (['challenge', 'plain'] as $method) {
+            for ($attempt = 1; $attempt <= $this->attempts; $attempt++) {
+                if ($this->tryLogin($method, $ip, $login, $password)) {
+                    return true;
                 }
             }
-
-            $this->connected = true;
-            return true;
         }
 
         return false;
+    }
+
+    private function tryLogin(string $method, string $ip, string $login, string $password): bool
+    {
+        $this->connected = false;
+
+        $socket = @fsockopen($ip, $this->port, $this->errorNo, $this->errorStr, $this->timeout);
+
+        if (!$socket) {
+            $this->lastError = 'TCP: servidor inalcancavel na porta ' . $this->port . ' (' . ($this->errorStr ?: 'timeout') . ')';
+            usleep(500000);
+            return false;
+        }
+
+        socket_set_timeout($socket, $this->timeout);
+
+        $this->socket = $socket;
+
+        $this->write('/login');
+        $response = $this->readFrom($socket);
+
+        if (!isset($response[0]) || $response[0] !== '!done') {
+            $this->lastError = 'API: respostainesperada do servidor';
+            fclose($socket);
+            return false;
+        }
+
+        if ($method === 'challenge') {
+            $challenge = '';
+
+            foreach ($response as $word) {
+                if (preg_match('/^=ret=(.{32})$/i', $word, $m)) {
+                    $challenge = $m[1];
+                }
+            }
+
+            if ($challenge) {
+                $this->write('/login', false);
+                $this->write('=name=' . $login, false);
+                $this->write('=response=00' . md5(chr(0) . $password . pack('H*', $challenge)));
+                $this->write('');
+
+                $loginResponse = $this->readFrom($socket);
+
+                if (isset($loginResponse[0]) && $loginResponse[0] === '!done') {
+                    $this->socket = $socket;
+                    $this->connected = true;
+                    $this->lastError = '';
+                    return true;
+                }
+
+                $this->lastError = 'autenticacao recusada (login/senha invalidos) - ' . $this->trapMessage($loginResponse);
+                fclose($socket);
+                return false;
+            }
+
+            fclose($socket);
+            return false;
+        }
+
+        $this->write('/login', false);
+        $this->write('=name=' . $login, false);
+        $this->write('=password=' . $password);
+        $this->write('');
+        $loginResponse = $this->readFrom($socket);
+
+        if (isset($loginResponse[0]) && $loginResponse[0] !== '!done') {
+            $this->lastError = 'autenticacao recusada (login/senha invalidos) - ' . $this->trapMessage($loginResponse);
+            fclose($socket);
+            return false;
+        }
+
+        $this->socket = $socket;
+        $this->connected = true;
+        $this->lastError = '';
+        return true;
+    }
+
+    private function trapMessage(array $response): string
+    {
+        foreach ($response as $word) {
+            if (preg_match('/^=message=(.+)$/i', $word, $m)) {
+                return $m[1];
+            }
+        }
+
+        return 'sem detalhe';
     }
 
     public function disconnect(): void
@@ -95,50 +145,126 @@ class MikrotikApi
 
     public function read(bool $retainBuffer = true): array
     {
+        return $this->readFrom($this->socket);
+    }
+
+    private function readFrom($socket): array
+    {
         $response = [];
-        $buffer = '';
 
         while (true) {
-            $this->readResponse($buffer);
+            $sentence = $this->readSentenceFrom($socket);
 
-            if (strlen($buffer) === 0) {
+            if (empty($sentence)) {
                 break;
             }
 
-            if ($buffer[0] === '!trap' || $buffer[0] === '!done') {
-                if (isset($buffer[1])) {
-                    $response[] = $buffer[1];
-                }
-                break;
+            foreach ($sentence as $word) {
+                $response[] = $word;
             }
 
-            if ($buffer[0] === '=') {
-                $response[] = $buffer;
+            $tag = $sentence[0] ?? '';
+
+            if (in_array($tag, ['!done', '!trap', '!fatal', '!final'], true)) {
+                break;
             }
         }
 
         return $response;
     }
 
-    private function readResponse(&$buffer): void
+    private function readSentence(): array
     {
-        $length = ord(fread($this->socket, 1));
-        $buffer = '';
+        return $this->readSentenceFrom($this->socket);
+    }
 
-        if (($length & 0x80) === 0) {
-            $buffer = fread($this->socket, $length);
-        } elseif (($length & 0xC0) === 0x80) {
-            $length = (($length & 0x3F) << 8) | ord(fread($this->socket, 1));
-            $buffer = fread($this->socket, $length);
-        } elseif (($length & 0xE0) === 0xC0) {
-            $length = (($length & 0x1F) << 16) | (ord(fread($this->socket, 1)) << 8) | ord(fread($this->socket, 1));
-            $buffer = fread($this->socket, $length);
-        } elseif (($length & 0xF0) === 0xE0) {
-            $length = (($length & 0x0F) << 24) | (ord(fread($this->socket, 1)) << 16) | (ord(fread($this->socket, 1)) << 8) | ord(fread($this->socket, 1));
-            $buffer = fread($this->socket, $length);
+    private function readSentenceFrom($socket): array
+    {
+        $sentence = [];
+
+        while (true) {
+            $word = $this->readWordFrom($socket);
+
+            if ($word === '') {
+                break;
+            }
+
+            $sentence[] = $word;
         }
 
-        $buffer = explode("\n", $buffer);
+        return $sentence;
+    }
+
+    private function readWord(): string
+    {
+        return $this->readWordFrom($this->socket);
+    }
+
+    private function readWordFrom($socket): string
+    {
+        $first = $this->readByteFrom($socket);
+
+        if ($first === null) {
+            return '';
+        }
+
+        $first = ord($first);
+
+        if ($first < 0x80) {
+            $length = $first;
+        } elseif ($first < 0xC0) {
+            $length = (($first & 0x3F) << 8) | $this->readByteOrdFrom($socket);
+        } elseif ($first < 0xE0) {
+            $length = (($first & 0x1F) << 16) | ($this->readByteOrdFrom($socket) << 8) | $this->readByteOrdFrom($socket);
+        } else {
+            $length = (($first & 0x0F) << 24) | ($this->readByteOrdFrom($socket) << 16) | ($this->readByteOrdFrom($socket) << 8) | $this->readByteOrdFrom($socket);
+        }
+
+        if ($length === 0 || $length > 65535) {
+            return '';
+        }
+
+        $word = '';
+
+        while (strlen($word) < $length) {
+            $chunk = fread($socket, $length - strlen($word));
+
+            if ($chunk === false || $chunk === '') {
+                break;
+            }
+
+            $word .= $chunk;
+        }
+
+        return $word;
+    }
+
+    private function readByte(): ?string
+    {
+        return $this->readByteFrom($this->socket);
+    }
+
+    private function readByteFrom($socket): ?string
+    {
+        $byte = fread($socket, 1);
+
+        if ($byte === false || $byte === '') {
+            return null;
+        }
+
+        return $byte;
+    }
+
+    private function readByteOrd(): int
+    {
+        return $this->readByteOrdFrom($this->socket);
+    }
+
+    private function readByteOrdFrom($socket): int
+    {
+        $byte = $this->readByteFrom($socket);
+
+        return $byte === null ? 0 : ord($byte);
     }
 
     private function encodeLength(int $length): string
@@ -162,18 +288,59 @@ class MikrotikApi
         $this->write($command, false);
 
         foreach ($args as $key => $value) {
-            if (is_array($value)) {
-                $this->write($key . '=' . $value[0], false);
-                $this->write($key . '=' . $value[1]);
+            if ($key !== '' && $key[0] === '?') {
+                $this->write($key . '=' . $value, false);
             } else {
-                $this->write('=' . $key . '=' . $value, empty($args));
+                $this->write('=' . $key . '=' . $value, false);
             }
         }
 
-        if (empty($args)) {
-            $this->write('');
+        $this->write('');
+
+        return $this->parseRecords($this->read());
+    }
+
+    private function parseRecords(array $flat): array
+    {
+        $records = [];
+        $current = null;
+
+        foreach ($flat as $word) {
+            if ($word === '!re' || $word === '!data') {
+                if ($current !== null && !empty($current)) {
+                    $records[] = $current;
+                }
+                $current = [];
+                continue;
+            }
+
+            if (in_array($word, ['!done', '!trap', '!fatal', '!final'], true)) {
+                if ($current !== null && !empty($current)) {
+                    $records[] = $current;
+                }
+                $current = null;
+                continue;
+            }
+
+            if ($current !== null && preg_match('/^=([^=]+)=(.*)$/s', $word, $m)) {
+                $key = $m[1];
+                $value = $m[2];
+
+                if (array_key_exists($key, $current)) {
+                    if (!is_array($current[$key])) {
+                        $current[$key] = [$current[$key]];
+                    }
+                    $current[$key][] = $value;
+                } else {
+                    $current[$key] = $value;
+                }
+            }
         }
 
-        return $this->read();
+        if ($current !== null && !empty($current)) {
+            $records[] = $current;
+        }
+
+        return $records;
     }
 }

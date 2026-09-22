@@ -5,6 +5,7 @@ use Modules\PortalInfra\Http\Controllers\Web\MikrotikServerController;
 use Modules\PortalInfra\Http\Controllers\Web\MikrotikController;
 use Modules\PortalInfra\Http\Controllers\Web\MikrotikScriptController;
 use Modules\PortalInfra\Http\Controllers\Web\MikrotikBackupController;
+use Modules\PortalInfra\Http\Controllers\Web\OltController;
 use Modules\PortalInfra\Http\Controllers\Web\IpPoolController;
 use Modules\PortalInfra\Http\Controllers\Web\FirewallController;
 use Modules\PortalInfra\Http\Controllers\Web\InterfaceController;
@@ -35,6 +36,11 @@ Route::prefix('infra')->name('infra.')->group(function () {
     Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+
+    // ==================== OLT ====================
+
+    Route::resource('olts', OltController::class)
+        ->names('olts');
 
     // ==================== MikroTik ====================
 
@@ -69,6 +75,9 @@ Route::prefix('infra')->name('infra.')->group(function () {
         Route::get('/', [ProvisionController::class, 'index'])->name('index');
         Route::get('/create', [ProvisionController::class, 'create'])->name('create');
         Route::post('/', [ProvisionController::class, 'store'])->name('store');
+        Route::get('/client-plan/{client_id}', [ProvisionController::class, 'clientPlan'])->name('client-plan');
+        Route::get('/{id}/edit', [ProvisionController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [ProvisionController::class, 'update'])->name('update');
         Route::delete('/{id}', [ProvisionController::class, 'destroy'])->name('destroy');
         Route::post('/{id}/block', [ProvisionController::class, 'block'])->name('block');
         Route::get('/profiles/{server_id}', [ProvisionController::class, 'profiles'])->name('profiles');

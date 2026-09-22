@@ -23,7 +23,8 @@ class MikrotikService
         );
 
         if (!$connected) {
-            throw new Exception("Nao foi possivel conectar ao servidor MikroTik {$server->name} ({$server->ip})");
+            $detail = $this->api->lastError ?: 'erro desconhecido';
+            throw new Exception("Nao foi possivel conectar ao servidor MikroTik {$server->name} ({$server->ip}) - {$detail}");
         }
 
         return true;
@@ -44,9 +45,11 @@ class MikrotikService
             $identity = $this->api->comm('/system/identity/print');
             $this->disconnect();
 
+            $name = $identity[0]['name'] ?? 'MikroTik';
+
             return [
                 'success' => true,
-                'identity' => $identity[0] ?? 'MikroTik',
+                'identity' => $name,
             ];
         } catch (Exception $e) {
             $this->disconnect();
@@ -63,7 +66,8 @@ class MikrotikService
         string $profile,
         ?string $mac = null,
         ?string $comment = null,
-        ?string $ip = null
+        ?string $ip = null,
+        ?int $clientId = null
     ): bool {
         $this->ensureConnected();
 
@@ -88,7 +92,7 @@ class MikrotikService
 
         $response = $this->api->comm('/ppp/secret/add', $args);
 
-        $this->recordProvisioning('pppoe', 'add', $login, $args, $response);
+        $this->recordProvisioning('pppoe', 'add', $login, $args, $response, $clientId);
 
         return true;
     }
@@ -114,13 +118,59 @@ class MikrotikService
         return true;
     }
 
+    public function updatePppoeUser(
+        string $login,
+        ?string $password = null,
+        ?string $profile = null,
+        ?string $ip = null,
+        ?string $mac = null,
+        ?int $clientId = null
+    ): bool {
+        $this->ensureConnected();
+
+        $secrets = $this->api->comm('/ppp/secret/print', [
+            '?name' => $login,
+        ]);
+
+        if (empty($secrets)) {
+            return false;
+        }
+
+        $args = [
+            '.id' => $secrets[0]['.id'],
+        ];
+
+        if ($password !== null) {
+            $args['password'] = $password;
+        }
+
+        if ($profile !== null) {
+            $args['profile'] = $profile;
+        }
+
+        if ($ip !== null && $ip !== '') {
+            $args['address'] = $ip;
+        }
+
+        if ($mac !== null && $mac !== '') {
+            $args['caller-id'] = $mac;
+        }
+
+        $response = $this->api->comm('/ppp/secret/set', $args);
+
+        $this->recordProvisioning('pppoe', 'update', $login, $args, $response, $clientId);
+
+        return true;
+    }
+
     public function addHotspotUser(
         string $login,
         string $password,
         string $profile,
         ?string $mac = null,
         ?string $comment = null,
-        ?string $ip = null
+        ?string $ip = null,
+        ?int $clientId = null
     ): bool {
         $this->ensureConnected();
 
@@ -144,7 +194,7 @@ class MikrotikService
 
         $response = $this->api->comm('/ip/hotspot/user/add', $args);
 
-        $this->recordProvisioning('hotspot', 'add', $login, $args, $response);
+        $this->recordProvisioning('hotspot', 'add', $login, $args, $response, $clientId);
 
         return true;
     }
@@ -166,6 +216,51 @@ class MikrotikService
         ]);
 
         $this->recordProvisioning('hotspot', 'remove', $login, [], $response);
+
+        return true;
+    }
+
+    public function updateHotspotUser(
+        string $login,
+        ?string $password = null,
+        ?string $profile = null,
+        ?string $ip = null,
+        ?string $mac = null,
+        ?int $clientId = null
+    ): bool {
+        $this->ensureConnected();
+
+        $users = $this->api->comm('/ip/hotspot/user/print', [
+            '?name' => $login,
+        ]);
+
+        if (empty($users)) {
+            return false;
+        }
+
+        $args = [
+            '.id' => $users[0]['.id'],
+        ];
+
+        if ($password !== null) {
+            $args['password'] = $password;
+        }
+
+        if ($profile !== null) {
+            $args['profile'] = $profile;
+        }
+
+        if ($ip !== null && $ip !== '') {
+            $args['address'] = $ip;
+        }
+
+        if ($mac !== null && $mac !== '') {
+            $args['mac-address'] = $mac;
+        }
+
+        $response = $this->api->comm('/ip/hotspot/user/set', $args);
+
+        $this->recordProvisioning('hotspot', 'update', $login, $args, $response, $clientId);
 
         return true;
     }
@@ -248,10 +343,214 @@ class MikrotikService
         return $this->api->comm('/ppp/profile/print');
     }
 
+    public function ensurePppoeProfile(
+        string $name,
+        ?int $downloadKbps = null,
+        ?int $uploadKbps = null,
+        ?string $pool = null,
+        ?string $localAddress = null,
+        ?string $dns = null
+    ): string {
+        $this->ensureConnected();
+
+        $dns = $dns ?: '8.8.8.8,8.8.4.4';
+
+        $existing = $this->api->comm('/ppp/profile/print', [
+            '?name' => $name,
+        ]);
+
+        if (!empty($existing)) {
+            $update = [];
+
+            if ($localAddress && empty($existing[0]['local-address'] ?? '')) {
+                $update['local-address'] = $localAddress;
+            }
+
+            if (empty($existing[0]['dns-server'] ?? '')) {
+                $update['dns-server'] = $dns;
+            }
+
+            if (!empty($update)) {
+                $update['.id'] = $existing[0]['.id'];
+                $this->api->comm('/ppp/profile/set', $update);
+            }
+
+            return $name;
+        }
+
+        $args = ['name' => $name];
+
+        if (($downloadKbps && $downloadKbps > 0) || ($uploadKbps && $uploadKbps > 0)) {
+            $args['rate-limit'] = (int) $downloadKbps . 'k/' . (int) $uploadKbps . 'k';
+        }
+
+        if ($pool) {
+            $args['remote-address'] = $pool;
+        }
+
+        if ($localAddress) {
+            $args['local-address'] = $localAddress;
+        }
+
+        $args['dns-server'] = $dns;
+
+        $this->api->comm('/ppp/profile/add', $args);
+
+        return $name;
+    }
+
+    public function resolveLanInfo(): array
+    {
+        $this->ensureConnected();
+
+        $lanInterface = $this->determineLanInterface();
+        $ip = null;
+
+        if ($lanInterface) {
+            $addresses = $this->api->comm('/ip/address/print', [
+                '.proplist' => 'address,interface',
+            ]);
+
+            foreach ($addresses as $a) {
+                if (($a['interface'] ?? null) === $lanInterface) {
+                    $ip = $a['address'] ?? null;
+                    $ip = explode('/', (string) $ip)[0];
+                    break;
+                }
+            }
+        }
+
+        return ['interface' => $lanInterface, 'ip' => $ip];
+    }
+
+    public function ensurePppoeServer(?string $serviceName = null): array
+    {
+        $this->ensureConnected();
+
+        $servers = $this->getPppoeServers();
+
+        if (!empty($servers)) {
+            foreach ($servers as $s) {
+                if (($s['disabled'] ?? 'false') === 'true') {
+                    $this->api->comm('/interface/pppoe-server/server/set', [
+                        '.id' => $s['.id'],
+                        'disabled' => 'no',
+                    ]);
+                }
+            }
+
+            return [
+                'ok' => true,
+                'created' => false,
+                'message' => 'PPPoE Server ja configurado.',
+            ];
+        }
+
+        $lan = $this->resolveLanInfo();
+
+        if (empty($lan['interface'])) {
+            return [
+                'ok' => false,
+                'created' => false,
+                'message' => 'Nao foi possivel identificar a interface LAN da rede.',
+            ];
+        }
+
+        $args = [
+            'interface' => $lan['interface'],
+            'service-name' => $serviceName ?: 'myisp-pppoe',
+            'max-mtu' => 1492,
+            'max-mru' => 1492,
+            'authentication' => 'pap,chap,mschap1,mschap2',
+            'default-profile' => 'default',
+            'one-session-per-host' => 'yes',
+            'disabled' => 'no',
+        ];
+
+        $this->api->comm('/interface/pppoe-server/server/add', $args);
+
+        return [
+            'ok' => true,
+            'created' => true,
+            'message' => 'PPPoE Server criado automaticamente na interface ' . $lan['interface'] . '.',
+        ];
+    }
+
+    private function determineLanInterface(): ?string
+    {
+        $wanInterface = null;
+
+        $routes = $this->api->comm('/ip/route/print', [
+            '.proplist' => 'dst-address,interface,vrf-interface,gateway-status',
+        ]);
+
+        foreach ($routes as $r) {
+            if (($r['dst-address'] ?? '') === '0.0.0.0/0') {
+                $wanInterface = $r['vrf-interface'] ?? $r['interface'] ?? null;
+                break;
+            }
+        }
+
+        $addresses = $this->api->comm('/ip/address/print', [
+            '.proplist' => 'address,interface,disabled,dynamic',
+        ]);
+
+        foreach ($addresses as $a) {
+            if (($a['disabled'] ?? 'false') !== 'true'
+                && empty($a['dynamic'] ?? '')
+                && ($a['interface'] ?? null) !== $wanInterface) {
+                return $a['interface'] ?? null;
+            }
+        }
+
+        return $addresses[0]['interface'] ?? null;
+    }
+
     public function getHotspotProfiles(): array
     {
         $this->ensureConnected();
         return $this->api->comm('/ip/hotspot/profile/print');
+    }
+
+    public function getHotspotUserProfiles(): array
+    {
+        $this->ensureConnected();
+        return $this->api->comm('/ip/hotspot/user/profile/print');
+    }
+
+    public function ensureHotspotUserProfile(string $name, ?int $downloadKbps = null, ?int $uploadKbps = null): string
+    {
+        $this->ensureConnected();
+
+        $existing = $this->api->comm('/ip/hotspot/user/profile/print', [
+            '?name' => $name,
+        ]);
+
+        if (!empty($existing)) {
+            return $name;
+        }
+
+        $args = ['name' => $name];
+
+        if (($downloadKbps && $downloadKbps > 0) || ($uploadKbps && $uploadKbps > 0)) {
+            $args['rate-limit'] = (int) $downloadKbps . 'k/' . (int) $uploadKbps . 'k';
+        }
+
+        $this->api->comm('/ip/hotspot/user/profile/add', $args);
+
+        return $name;
+    }
+
+    public function getPppoeServers(): array
+    {
+        $this->ensureConnected();
+        return $this->api->comm('/interface/pppoe-server/server/print');
+    }
+
+    public function getHotspotServers(): array
+    {
+        $this->ensureConnected();
+        return $this->api->comm('/ip/hotspot/print');
     }
 
     public function getSystemResources(): array
@@ -369,17 +668,29 @@ class MikrotikService
         }
     }
 
-    private function recordProvisioning(string $type, string $action, string $login, array $params, array $response): void
+    private function recordProvisioning(string $type, string $action, string $login, array $params, array $response, ?int $clientId = null): void
     {
-        ProvisioningRecord::create([
-            'mikrotik_server_id' => $this->server?->id,
+        $existing = ProvisioningRecord::where('mikrotik_server_id', $this->server?->id)
+            ->where('login', $login)
+            ->latest()
+            ->first();
+
+        $data = [
+            'client_id' => $clientId ?? $existing?->client_id,
             'type' => $type,
             'action' => $action,
             'login' => $login,
             'params' => json_encode($params),
             'response' => json_encode($response),
-            'success' => !empty($response) && ($response[0] ?? '') === '!done',
-        ]);
+            'success' => empty($response),
+        ];
+
+        if ($existing) {
+            $existing->update($data);
+            return;
+        }
+
+        ProvisioningRecord::create(array_merge(['mikrotik_server_id' => $this->server?->id], $data));
     }
 
     public function getFirewallAddressList(string $listName): array
@@ -388,7 +699,7 @@ class MikrotikService
         $all = $this->api->comm('/ip/firewall/address-list/print');
         $results = [];
         foreach ($all as $row) {
-            if (isset($row['list']) && $row['list'] === $listName && $row[0] !== '!done') {
+            if (isset($row['list']) && $row['list'] === $listName) {
                 $results[] = $row;
             }
         }
@@ -434,21 +745,21 @@ class MikrotikService
     {
         $this->ensureConnected();
         $results = $this->api->comm('/ip/firewall/nat/print');
-        return array_filter($results, fn($row) => $row[0] !== '!done');
+        return $results;
     }
 
     public function listWlanClients(): array
     {
         $this->ensureConnected();
         $results = $this->api->comm('/interface/wireless/registration/print');
-        return array_filter($results, fn($row) => $row[0] !== '!done');
+        return $results;
     }
 
     public function listIpPools(): array
     {
         $this->ensureConnected();
         $results = $this->api->comm('/ip/pool/print');
-        return array_filter($results, fn($row) => $row[0] !== '!done');
+        return $results;
     }
 
     public function addIpPool(string $name, string $addresses): bool
@@ -480,6 +791,6 @@ class MikrotikService
     {
         $this->ensureConnected();
         $results = $this->api->comm('/ip/arp/print');
-        return array_filter($results, fn($row) => $row[0] !== '!done');
+        return $results;
     }
 }

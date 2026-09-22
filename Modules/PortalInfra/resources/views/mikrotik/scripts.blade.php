@@ -45,11 +45,64 @@
 
             <div class="border-t border-gray-200 pt-6">
                 <h4 class="font-medium text-gray-800 mb-4">Rede</h4>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Modo de Acesso WAN</label>
+                        <select name="wan_mode" id="wan_mode" onchange="toggleWanFields()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <option value="dhcp" @selected(old('wan_mode')=='dhcp')>DHCP Automatico (recomendado)</option>
+                            <option value="static" @selected(old('wan_mode')=='static')>IP Fixo (Estatico)</option>
+                            <option value="pppoe" @selected(old('wan_mode')=='pppoe')>PPPoE</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Interface WAN</label>
-                        <input type="text" name="wan_interface" value="{{ old('wan_interface', 'ether1') }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        <select name="wan_interface" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            @foreach(['ether1','ether2','ether3','ether4','ether5'] as $p)
+                                <option value="{{ $p }}" @selected(old('wan_interface', 'ether5')==$p)>{{ $p }}</option>
+                            @endforeach
+                        </select>
                     </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Interface LAN</label>
+                        <select name="lan_interface" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            @foreach(['ether1','ether2','ether3','ether4','ether5'] as $p)
+                                <option value="{{ $p }}" @selected(old('lan_interface', 'ether1')==$p)>{{ $p }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+
+                <div id="wan-static-fields" style="display:none" class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">IP WAN</label>
+                        <input type="text" name="wan_ip" value="{{ old('wan_ip') }}" placeholder="Ex: 200.20.10.5" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Mascara</label>
+                        <input type="text" name="wan_mask" value="{{ old('wan_mask', '24') }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Gateway</label>
+                        <input type="text" name="wan_gateway" value="{{ old('wan_gateway') }}" placeholder="Ex: 200.20.10.1" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                </div>
+
+                <div id="wan-pppoe-fields" style="display:none" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Usuario PPPoE</label>
+                        <input type="text" name="wan_pppoe_user" value="{{ old('wan_pppoe_user') }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Senha PPPoE</label>
+                        <input type="password" name="wan_pppoe_password" value="{{ old('wan_pppoe_password') }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">IP da LAN</label>
                         <input type="text" name="lan_ip" value="{{ old('lan_ip', '192.168.1.1') }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
@@ -137,4 +190,13 @@
         </form>
     </div>
 </div>
+
+<script>
+function toggleWanFields() {
+    const mode = document.getElementById('wan_mode').value;
+    document.getElementById('wan-static-fields').style.display = (mode === 'static') ? 'grid' : 'none';
+    document.getElementById('wan-pppoe-fields').style.display = (mode === 'pppoe') ? 'grid' : 'none';
+}
+document.addEventListener('DOMContentLoaded', toggleWanFields);
+</script>
 @endsection

@@ -9,10 +9,20 @@
     <title>@yield('title', 'Infraestrutura') - MyISP</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('styles')
+    <style>
+        #appSidebar { position: fixed; top: 0; left: 0; bottom: 0; width: 16rem; z-index: 40; transition: transform .2s ease; }
+        #appMain { margin-left: 16rem; transition: margin-left .2s ease; }
+        body.app-sidebar-closed #appSidebar { transform: translateX(-100%); }
+        body.app-sidebar-closed #appMain { margin-left: 0; }
+        @media (max-width: 767px) {
+            #appMain { margin-left: 0; }
+            body.app-sidebar-closed #appSidebar { transform: translateX(-100%); }
+        }
+    </style>
 </head>
 <body class="bg-gray-100 font-sans antialiased">
-    <div class="flex h-screen overflow-hidden">
-        <aside class="w-64 bg-gray-900 text-white flex flex-col shrink-0">
+    <div class="h-screen overflow-hidden">
+        <aside id="appSidebar" class="bg-gray-900 text-white flex flex-col overflow-hidden">
             <div class="h-16 flex items-center px-6 border-b border-gray-700">
                 <a href="{{ route('infra.dashboard') }}" class="text-xl font-bold tracking-tight">My<span class="text-blue-400">ISP</span></a>
             </div>
@@ -173,9 +183,14 @@
             </div>
         </aside>
 
-        <div class="flex-1 flex flex-col overflow-hidden">
+        <div id="appMain" class="flex flex-col h-full overflow-hidden">
             <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
-                <h1 class="text-lg font-semibold text-gray-800">@yield('title', 'Infraestrutura')</h1>
+                <div class="flex items-center gap-3">
+                    <button id="btnToggleSidebar" type="button" title="Ocultar/mostrar menu" class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 focus:outline-none transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                    </button>
+                    <h1 class="text-lg font-semibold text-gray-800">@yield('title', 'Infraestrutura')</h1>
+                </div>
                 <div class="flex items-center gap-4 text-sm text-gray-500">
                     <span id="clock"></span>
                 </div>
@@ -192,6 +207,22 @@
         }
         updateClock();
         setInterval(updateClock, 1000);
+
+        (function() {
+            var body = document.body;
+            var btn = document.getElementById('btnToggleSidebar');
+            var saved = localStorage.getItem('infra_sidebar');
+            function setClosed(closed) {
+                body.classList.toggle('app-sidebar-closed', closed);
+                localStorage.setItem('infra_sidebar', closed ? 'closed' : 'open');
+                window.dispatchEvent(new Event('sidebar-toggle'));
+            }
+            if (saved === null && window.innerWidth < 768) setClosed(true);
+            else if (saved === 'closed') setClosed(true);
+            if (btn) btn.addEventListener('click', function() {
+                setClosed(!body.classList.contains('app-sidebar-closed'));
+            });
+        })();
     </script>
     @stack('scripts')
 </body>

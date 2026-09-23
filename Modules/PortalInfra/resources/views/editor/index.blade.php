@@ -105,9 +105,6 @@
             <h3 class="text-lg font-bold text-gray-900">Nova Conexão</h3>
             <button id="btnCloseModal" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
         </div>
-            <h3 class="text-lg font-bold text-gray-900">Nova Conexão</h3>
-            <button id="btnCloseModal" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
-        </div>
         <div class="space-y-3">
             <div>
                 <label class="text-xs font-semibold uppercase text-gray-500">Origem</label>
@@ -158,36 +155,6 @@
                 <button id="btnCloseModal2" class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
             </div>
         </div>
-    </div>
-</div>
-
-<div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <p class="text-xs font-semibold uppercase text-gray-500 mb-2">CTOs da Rede</p>
-        <p class="text-2xl font-bold text-red-600" id="countCto">0</p>
-    </div>
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <p class="text-xs font-semibold uppercase text-gray-500 mb-2">Caixas de Emenda</p>
-        <p class="text-2xl font-bold text-green-600" id="countCaixa">0</p>
-    </div>
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <p class="text-xs font-semibold uppercase text-gray-500 mb-2">Fibra Lançada</p>
-        <p class="text-lg font-bold text-blue-600" id="totalFiber">0 m</p>
-    </div>
-</div>
-
-<div class="mt-4 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-        <h2 class="text-sm font-bold text-gray-700 uppercase">Relatório da Rede</h2>
-        <div class="flex items-center gap-2">
-            <button id="btnReloadReport" class="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-semibold hover:bg-gray-200">Atualizar</button>
-            <button id="btnValidate" class="px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-xs font-semibold hover:bg-amber-200">Validar topologia</button>
-            <a id="btnExportKml" href="#" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700">Exportar KML editado</a>
-            <a id="btnExportCsv" href="#" class="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700">Exportar CSV</a>
-        </div>
-    </div>
-    <div id="reportBody" class="p-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-        <div class="text-gray-400">Carregando relatório...</div>
     </div>
 </div>
 
@@ -733,6 +700,7 @@
     }
 
     setTimeout(() => { map.invalidateSize(); }, 200);
+    window.addEventListener('sidebar-toggle', () => { map.invalidateSize(); });
     loadData();
 })();
 </script>

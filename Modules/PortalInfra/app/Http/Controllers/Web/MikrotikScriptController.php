@@ -128,7 +128,7 @@ class MikrotikScriptController extends Controller
             $lines[] = '# --------------------------------------------';
             $lines[] = '# ' . $lineNum . '. SERVIDOR PPPoE';
             $lines[] = '# --------------------------------------------';
-            $lines[] = '/interface pppoe-server server add service-name="' . $pppoeService . '" interface=' . $lan . ' mtu=' . $mtuLan . ' mru=' . $mtuLan . ' default-profile=default';
+            $lines[] = '/interface pppoe-server server add service-name="' . $pppoeService . '" interface=' . $lan . ' max-mtu=1492 max-mru=1492 authentication=pap,chap,mschap1,mschap2 default-profile=default one-session-per-host=yes disabled=no';
             $lines[] = '/ppp profile add name="pppoe-profile" local-address=' . $lanIp . ' remote-address="' . $poolName . '" dns-server=' . $dns . ' use-upnp=no';
             $lines[] = '/ppp aaa set use-radius=yes accounting=yes interim-update=5m';
             $lines[] = '';
@@ -199,12 +199,13 @@ class MikrotikScriptController extends Controller
             $lineNum++;
 
             $lines[] = '# --------------------------------------------';
-            $lines[] = '# ' . $lineNum . '. QUEUE SIMPLE (BANDA POR PLANO)';
+            $lines[] = '# ' . $lineNum . '. PERFIS PPPoE POR PLANO (BANDA)';
             $lines[] = '# --------------------------------------------';
-            $lines[] = '/queue simple add name="plano-5m" target="' . $lanIp . '/' . $lanMask . '" max-limit=' . $bandwidthDown . '/' . $bandwidthUp . ' comment="Plano 5Mbps"';
-            $lines[] = '/queue simple add name="plano-10m" target="' . $lanIp . '/' . $lanMask . '" max-limit=10M/5M burst-limit=12M/6M burst-threshold=8M/4M burst-time=10s comment="Plano 10Mbps"';
-            $lines[] = '/queue simple add name="plano-20m" target="' . $lanIp . '/' . $lanMask . '" max-limit=20M/10M burst-limit=24M/12M burst-threshold=16M/8M burst-time=10s comment="Plano 20Mbps"';
-            $lines[] = '/queue simple add name="plano-50m" target="' . $lanIp . '/' . $lanMask . '" max-limit=50M/25M burst-limit=60M/30M burst-threshold=40M/20M burst-time=10s comment="Plano 50Mbps"';
+            $lines[] = '# Perfis usados pelo provisionamento MyISP: plano-<slug>';
+            $lines[] = '/ppp profile add name="plano-5m" local-address=' . $lanIp . ' remote-address="' . $poolName . '" dns-server=' . $dns . ' rate-limit=' . $bandwidthDown . '/' . $bandwidthUp . ' comment="Plano 5Mbps"';
+            $lines[] = '/ppp profile add name="plano-10m" local-address=' . $lanIp . ' remote-address="' . $poolName . '" dns-server=' . $dns . ' rate-limit=10M/5M comment="Plano 10Mbps"';
+            $lines[] = '/ppp profile add name="plano-20m" local-address=' . $lanIp . ' remote-address="' . $poolName . '" dns-server=' . $dns . ' rate-limit=20M/10M comment="Plano 20Mbps"';
+            $lines[] = '/ppp profile add name="plano-50m" local-address=' . $lanIp . ' remote-address="' . $poolName . '" dns-server=' . $dns . ' rate-limit=50M/25M comment="Plano 50Mbps"';
             $lines[] = '';
             $lineNum++;
 

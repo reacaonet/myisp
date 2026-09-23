@@ -367,6 +367,10 @@ class ProvisionController extends Controller
 
             $service->disconnect();
 
+            ProvisioningRecord::where('mikrotik_server_id', $record->mikrotik_server_id)
+                ->where('login', $record->login)
+                ->delete();
+
             return redirect()->route('infra.provisioning.index')
                 ->with('success', "Usuario {$record->login} removido com sucesso.");
 

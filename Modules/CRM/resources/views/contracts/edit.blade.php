@@ -12,6 +12,14 @@
             @csrf
             @method('PUT')
 
+            @if($errors->any())
+            <div class="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 text-sm space-y-1">
+                @foreach($errors->all() as $error)
+                <p>{{ $error }}</p>
+                @endforeach
+            </div>
+            @endif
+
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Cliente *</label>
@@ -69,7 +77,7 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Situacao</label>
                     <select name="situacao" class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm">
-                        <option value="">Normal</option>
+                        <option value="A" @selected(old('situacao', $contract->situacao) == 'A')>Ativo</option>
                         <option value="S" @selected(old('situacao', $contract->situacao) == 'S')>Suspenso</option>
                         <option value="I" @selected(old('situacao', $contract->situacao) == 'I')>Inadimplente</option>
                         <option value="C" @selected(old('situacao', $contract->situacao) == 'C')>Cancelado</option>

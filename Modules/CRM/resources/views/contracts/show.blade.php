@@ -69,7 +69,8 @@
             <h3 class="text-sm font-semibold text-gray-500 uppercase mb-3">Conexao</h3>
             <dl class="grid grid-cols-2 gap-4 text-sm">
                 <div class="flex justify-between"><dt class="text-gray-500">Tipo Conexao</dt><dd class="text-gray-900">{{ strtoupper($contract->tipo_conexao) }}</dd></div>
-                <div class="flex justify-between"><dt class="text-gray-500">Situacao</dt><dd class="text-gray-900">{{ $contract->situacao ?: 'Normal' }}</dd></div>
+                @php $situacaoLabel = collect(['A' => 'Ativo', 'S' => 'Suspenso', 'I' => 'Inadimplente', 'C' => 'Cancelado', 'N' => 'Novo', 'F' => 'Fidelizado', 'D' => 'Desativado'])->get($contract->situacao); @endphp
+            <div class="flex justify-between"><dt class="text-gray-500">Situacao</dt><dd class="text-gray-900">{{ $situacaoLabel ?? 'Normal' }}</dd></div>
             </dl>
         </div>
 

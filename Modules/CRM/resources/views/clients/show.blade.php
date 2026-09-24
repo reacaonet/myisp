@@ -115,7 +115,7 @@
                                 <td class="px-4 py-3 text-gray-900 font-medium">R$ {{ number_format(($contract->plan?->price ?? 0) - $contract->discount + $contract->acrescimo, 2, ',', '.') }}</td>
                                 <td class="px-4 py-3 text-gray-600">Dia {{ $contract->due_day }}</td>
                                 <td class="px-4 py-3">
-                                    @php $situacaoLabels = ['' => 'Normal', 'S' => 'Suspenso', 'I' => 'Inadimplente', 'C' => 'Cancelado', 'N' => 'Novo', 'F' => 'Fidelizado', 'D' => 'Desativado']; @endphp
+                                    @php $situacaoLabels = ['' => 'Normal', 'A' => 'Ativo', 'S' => 'Suspenso', 'I' => 'Inadimplente', 'C' => 'Cancelado', 'N' => 'Novo', 'F' => 'Fidelizado', 'D' => 'Desativado']; @endphp
                                     <span class="text-xs font-medium
                                         @if($contract->situacao == 'S' || $contract->situacao == 'I') text-red-600
                                         @elseif($contract->situacao == 'C' || $contract->situacao == 'D') text-gray-500

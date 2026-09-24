@@ -39,9 +39,10 @@ class ContractController extends Controller
         $validated = $request->validate([
             'client_id' => 'required|exists:clients,id',
             'plan_id' => 'required|exists:plans,id',
+            'pedido' => 'nullable|string|max:255',
             'activation_date' => 'required|date',
-            'status' => 'in:active,inactive,suspended,canceled',
-            'situacao' => 'in:S,I,C,N,F,D',
+            'status' => 'nullable|in:active,inactive,suspended,canceled',
+            'situacao' => 'nullable|in:A,S,I,C,N,F,D',
             'billing_type' => 'required|in:boleto,pix,credit_card,debit_contract',
             'due_day' => 'required|integer|between:1,31',
             'tipo_conexao' => 'required|in:pppoe,hotspot,iparp,dhcp',
@@ -61,7 +62,11 @@ class ContractController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $validated['pedido'] = $validated['pedido'] ?? 'PED-' . str_pad(Contract::max('id') + 1, 6, '0', STR_PAD_LEFT);
+        $validated['insento'] = $request->boolean('insento');
+        $validated['autobloqueio'] = $request->boolean('autobloqueio');
+        $validated['alterar_senha'] = $request->boolean('alterar_senha');
+
+        $validated['pedido'] = $validated['pedido'] ?: 'PED-' . str_pad(Contract::max('id') + 1, 6, '0', STR_PAD_LEFT);
 
         $contract = Contract::create($validated);
 
@@ -90,9 +95,10 @@ class ContractController extends Controller
         $validated = $request->validate([
             'client_id' => 'exists:clients,id',
             'plan_id' => 'exists:plans,id',
+            'pedido' => 'nullable|string|max:255',
             'activation_date' => 'date',
             'status' => 'in:active,inactive,suspended,canceled',
-            'situacao' => 'in:S,I,C,N,F,D',
+            'situacao' => 'nullable|in:A,S,I,C,N,F,D',
             'billing_type' => 'in:boleto,pix,credit_card,debit_contract',
             'due_day' => 'integer|between:1,31',
             'tipo_conexao' => 'in:pppoe,hotspot,iparp,dhcp',
@@ -111,6 +117,10 @@ class ContractController extends Controller
             'install_zipcode' => 'nullable|string|max:9',
             'notes' => 'nullable|string',
         ]);
+
+        $validated['insento'] = $request->boolean('insento');
+        $validated['autobloqueio'] = $request->boolean('autobloqueio');
+        $validated['alterar_senha'] = $request->boolean('alterar_senha');
 
         $contract->update($validated);
 

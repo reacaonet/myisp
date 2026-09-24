@@ -79,7 +79,7 @@
                     <td class="px-4 py-3 font-medium">{{ $contract->client?->name ?? '-' }}</td>
                     <td class="px-4 py-3 text-gray-500">{{ $contract->plan?->name ?? '-' }}</td>
                     <td class="px-4 py-3 text-gray-500">{{ $contract->activation_date?->format('d/m/Y') ?? '-' }}</td>
-                    <td class="px-4 py-3 text-gray-500">{{ $contract->server?->name ?? '-' }}</td>
+                    <td class="px-4 py-3 text-gray-500">{{ $contract->provisionedMikrotikServer()?->name ?? '-' }}</td>
                     <td class="px-4 py-3 text-right font-medium">R$ {{ number_format($contract->plan?->price ?? 0, 2, ',', '.') }}</td>
                     <td class="px-4 py-3 text-center">
                         <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">Ativo</span>

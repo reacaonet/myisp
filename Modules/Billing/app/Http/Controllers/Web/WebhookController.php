@@ -127,15 +127,14 @@ class WebhookController extends Controller
             if (!$hasOtherOverdue) {
                 $contract->update(['status' => 'active']);
 
-                if ($contract->server) {
+                $mikrotikServer = $contract->provisionedMikrotikServer();
+                $blockedIp = $contract->provisionedIp();
+
+                if ($mikrotikServer && $blockedIp) {
                     try {
                         $service = new MikrotikService();
-                        $service->connect($contract->server);
-                        if ($contract->tipo_conexao === 'pppoe' && $contract->pppoe_user) {
-                            $service->disconnectPppoeActive($contract->pppoe_user);
-                        } elseif ($contract->tipo_conexao === 'hotspot' && $contract->pppoe_user) {
-                            $service->disconnectHotspotActive($contract->pppoe_user);
-                        }
+                        $service->connect($mikrotikServer);
+                        $service->removeFirewallAddressList('myisp-blocked', $blockedIp);
                         $service->disconnect();
                     } catch (\Exception $e) {
                     }

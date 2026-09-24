@@ -198,18 +198,28 @@ class InvoiceController extends Controller
         $invoice = Invoice::findOrFail($id);
         $contract = $invoice->contract;
 
-        if (!$contract || !$contract->server) {
+        $mikrotikServer = $contract?->provisionedMikrotikServer();
+
+        if (!$contract || !$mikrotikServer) {
             return back()->with('error', 'Contrato ou servidor MikroTik nao encontrado.');
         }
 
         try {
             $service = new MikrotikService();
-            $service->connect($contract->server);
+            $service->connect($mikrotikServer);
 
-            if ($contract->tipo_conexao === 'pppoe' && $contract->pppoe_user) {
-                $service->disconnectPppoeActive($contract->pppoe_user);
-            } elseif ($contract->tipo_conexao === 'hotspot' && $contract->pppoe_user) {
-                $service->disconnectHotspotActive($contract->pppoe_user);
+            $login = $contract->provisionedLogin();
+
+            if ($contract->tipo_conexao === 'pppoe' && $login) {
+                $service->disconnectPppoeActive($login);
+            } elseif ($contract->tipo_conexao === 'hotspot' && $login) {
+                $service->disconnectHotspotActive($login);
+            }
+
+            $blockedIp = $contract->provisionedIp();
+
+            if ($blockedIp) {
+                $service->addFirewallAddressList('myisp-blocked', $blockedIp);
             }
 
             $service->disconnect();
@@ -247,6 +257,19 @@ class InvoiceController extends Controller
 
         if ($contract->status === 'suspended') {
             $contract->update(['status' => 'active']);
+
+            $mikrotikServer = $contract->provisionedMikrotikServer();
+            $blockedIp = $contract->provisionedIp();
+
+            if ($mikrotikServer && $blockedIp) {
+                try {
+                    $service = new MikrotikService();
+                    $service->connect($mikrotikServer);
+                    $service->removeFirewallAddressList('myisp-blocked', $blockedIp);
+                    $service->disconnect();
+                } catch (\Exception $e) {
+                }
+            }
         }
 
         return back()->with('success', "Cliente {$contract->client?->name} desbloqueado com sucesso.");
@@ -324,18 +347,16 @@ class InvoiceController extends Controller
             if (!$hasOtherOverdue) {
                 $contract->update(['status' => 'active']);
 
-                if ($contract->server) {
+                $mikrotikServer = $contract->provisionedMikrotikServer();
+                $blockedIp = $contract->provisionedIp();
+
+                if ($mikrotikServer && $blockedIp) {
                     try {
                         $service = new MikrotikService();
-                        $service->connect($contract->server);
-                        if ($contract->tipo_conexao === 'pppoe' && $contract->pppoe_user) {
-                            $service->disconnectPppoeActive($contract->pppoe_user);
-                        } elseif ($contract->tipo_conexao === 'hotspot' && $contract->pppoe_user) {
-                            $service->disconnectHotspotActive($contract->pppoe_user);
-                        }
+                        $service->connect($mikrotikServer);
+                        $service->removeFirewallAddressList('myisp-blocked', $blockedIp);
                         $service->disconnect();
                     } catch (\Exception $e) {
-                        // silent fail for MikroTik disconnect
                     }
                 }
             }

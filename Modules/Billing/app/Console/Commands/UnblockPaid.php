@@ -5,7 +5,6 @@ namespace Modules\Billing\Console\Commands;
 use Illuminate\Console\Command;
 use Modules\Billing\Models\Invoice;
 use Modules\CRM\Models\Contract;
-use Modules\CRM\Models\MikrotikServer;
 use Modules\CRM\Services\MikrotikService;
 
 class UnblockPaid extends Command
@@ -15,7 +14,7 @@ class UnblockPaid extends Command
 
     public function handle(): int
     {
-        $blockedContracts = Contract::with('client', 'mikrotikServer', 'server')
+        $blockedContracts = Contract::with('client')
             ->where('status', 'suspended')
             ->get();
 
@@ -28,12 +27,13 @@ class UnblockPaid extends Command
 
             if (!$hasPending) {
                 try {
-                    $mikrotikServer = $contract->mikrotikServer ?? $this->resolveMikrotikServer($contract);
+                    $mikrotikServer = $contract->provisionedMikrotikServer();
+                    $blockedIp = $contract->provisionedIp();
 
-                    if ($mikrotikServer && $contract->ip_address) {
+                    if ($mikrotikServer && $blockedIp) {
                         $service = new MikrotikService();
                         $service->connect($mikrotikServer);
-                        $service->removeFirewallAddressList('myisp-blocked', $contract->ip_address);
+                        $service->removeFirewallAddressList('myisp-blocked', $blockedIp);
                         $service->disconnect();
                     }
 
@@ -54,16 +54,5 @@ class UnblockPaid extends Command
 
         $this->info("{$unblocked} contratos reativados.");
         return self::SUCCESS;
-    }
-
-    private function resolveMikrotikServer(Contract $contract): ?MikrotikServer
-    {
-        if (!$contract->server) {
-            return null;
-        }
-
-        return MikrotikServer::where('ip', $contract->server->ip)
-            ->where('is_active', true)
-            ->first();
     }
 }

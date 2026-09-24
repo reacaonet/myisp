@@ -302,21 +302,6 @@ class ProvisionController extends Controller
         }
     }
 
-    private function resolvePool(?Contract $contract, MikrotikService $service): ?string
-    {
-        if ($contract?->plan?->pool) {
-            return $contract->plan->pool;
-        }
-
-        if ($contract && $contract->ip_pool) {
-            return $contract->ip_pool;
-        }
-
-        $pools = $service->listIpPools();
-
-        return $pools[0]['name'] ?? null;
-    }
-
     private function resolvePassword(?string $password): ?string
     {
         if ($password === null || $password === '' || $password === '*') {

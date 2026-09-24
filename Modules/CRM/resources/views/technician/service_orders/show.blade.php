@@ -96,9 +96,9 @@ OS - {{ $serviceOrder->codigo }}
         <dl class="space-y-3 text-sm">
             <div class="flex justify-between"><dt class="text-gray-500">Plano</dt><dd class="font-medium text-gray-900">{{ $serviceOrder->contract->plan->name ?? 'N/A' }}</dd></div>
             <div class="flex justify-between"><dt class="text-gray-500">Tipo Conexao</dt><dd class="font-medium text-gray-900">{{ $serviceOrder->contract->tipo_conexao ?? 'N/A' }}</dd></div>
-            <div class="flex justify-between"><dt class="text-gray-500">PPPoE User</dt><dd class="font-medium text-gray-900 font-mono text-sm">{{ $serviceOrder->contract->pppoe_user ?? 'N/A' }}</dd></div>
-            <div class="flex justify-between"><dt class="text-gray-500">IP</dt><dd class="font-medium text-gray-900">{{ $serviceOrder->contract->ip_address ?? 'N/A' }}</dd></div>
-            <div class="flex justify-between"><dt class="text-gray-500">MAC</dt><dd class="font-medium text-gray-900 font-mono text-sm">{{ $serviceOrder->contract->mac_address ?? 'N/A' }}</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-500">PPPoE User</dt><dd class="font-medium text-gray-900 font-mono text-sm">{{ $serviceOrder->contract->provisionedLogin() ?? 'N/A' }}</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-500">IP</dt><dd class="font-medium text-gray-900">{{ $serviceOrder->contract->provisionedIp() ?? 'N/A' }}</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-500">MAC</dt><dd class="font-medium text-gray-900 font-mono text-sm">{{ $serviceOrder->contract->provisionedMac() ?? 'N/A' }}</dd></div>
         </dl>
         @else
         <p class="text-gray-500">Sem contrato vinculado</p>

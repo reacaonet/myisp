@@ -66,62 +66,12 @@
         </div>
 
         <div class="border-t border-gray-200 p-6">
-            <h3 class="text-sm font-semibold text-gray-500 uppercase mb-3">Dados de Conexao</h3>
+            <h3 class="text-sm font-semibold text-gray-500 uppercase mb-3">Conexao</h3>
             <dl class="grid grid-cols-2 gap-4 text-sm">
                 <div class="flex justify-between"><dt class="text-gray-500">Tipo Conexao</dt><dd class="text-gray-900">{{ strtoupper($contract->tipo_conexao) }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Situacao</dt><dd class="text-gray-900">{{ $contract->situacao ?: 'Normal' }}</dd></div>
-                @if($contract->server)
-                <div class="flex justify-between"><dt class="text-gray-500">Servidor</dt><dd class="text-gray-900">{{ $contract->server->name }}</dd></div>
-                @endif
-                @if($contract->ip_pool)
-                <div class="flex justify-between"><dt class="text-gray-500">IP Pool</dt><dd class="text-gray-900 font-mono">{{ $contract->ip_pool }}</dd></div>
-                @endif
-                @if($contract->pppoe_user)
-                <div class="flex justify-between"><dt class="text-gray-500">Usuario PPPoE</dt><dd class="text-gray-900 font-mono">{{ $contract->pppoe_user }}</dd></div>
-                @endif
-                @if($contract->pppoe_password)
-                <div class="flex justify-between"><dt class="text-gray-500">Senha PPPoE</dt><dd class="text-gray-900 font-mono">{{ $contract->pppoe_password }}</dd></div>
-                @endif
-                @if($contract->wpa_key)
-                <div class="flex justify-between"><dt class="text-gray-500">WPA Key</dt><dd class="text-gray-900 font-mono">{{ $contract->wpa_key }}</dd></div>
-                @endif
-                @if($contract->ip_address)
-                <div class="flex justify-between"><dt class="text-gray-500">IP</dt><dd class="text-gray-900 font-mono">{{ $contract->ip_address }}</dd></div>
-                @endif
-                @if($contract->route_ip)
-                <div class="flex justify-between"><dt class="text-gray-500">IP Roteamento</dt><dd class="text-gray-900 font-mono">{{ $contract->route_ip }}</dd></div>
-                @endif
-                @if($contract->ipv6)
-                <div class="flex justify-between"><dt class="text-gray-500">IPv6</dt><dd class="text-gray-900 font-mono">{{ $contract->ipv6 }}</dd></div>
-                @endif
-                @if($contract->mac_address)
-                <div class="flex justify-between"><dt class="text-gray-500">MAC</dt><dd class="text-gray-900 font-mono">{{ $contract->mac_address }}</dd></div>
-                @endif
-                @if($contract->mac_wireless)
-                <div class="flex justify-between"><dt class="text-gray-500">MAC Wireless</dt><dd class="text-gray-900 font-mono">{{ $contract->mac_wireless }}</dd></div>
-                @endif
             </dl>
         </div>
-
-        @if($contract->ip_ubnt || $contract->porta_ubnt)
-        <div class="border-t border-gray-200 p-6">
-            <h3 class="text-sm font-semibold text-gray-500 uppercase mb-3">Ubiquiti</h3>
-            <dl class="grid grid-cols-2 gap-4 text-sm">
-                @if($contract->ip_ubnt)
-                <div class="flex justify-between"><dt class="text-gray-500">IP Ubiquiti</dt><dd class="text-gray-900 font-mono">{{ $contract->ip_ubnt }}</dd></div>
-                @endif
-                @if($contract->porta_ubnt)
-                <div class="flex justify-between"><dt class="text-gray-500">Porta</dt><dd class="text-gray-900">{{ $contract->porta_ubnt }}</dd></div>
-                @endif
-                @if($contract->login_ubnt)
-                <div class="flex justify-between"><dt class="text-gray-500">Login</dt><dd class="text-gray-900">{{ $contract->login_ubnt }}</dd></div>
-                @endif
-                @if($contract->senha_ubnt)
-                <div class="flex justify-between"><dt class="text-gray-500">Senha</dt><dd class="text-gray-900">{{ $contract->senha_ubnt }}</dd></div>
-                @endif
-            </dl>
-        </div>
-        @endif
 
         @if($contract->install_street || $contract->install_neighborhood)
         <div class="border-t border-gray-200 p-6">

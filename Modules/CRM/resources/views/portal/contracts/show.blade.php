@@ -56,26 +56,31 @@
                 </dl>
             </div>
 
-            @if($contract->pppoe_user || $contract->ip_address)
+            @php
+                $portalLogin = $contract->provisionedLogin();
+                $portalIp = $contract->provisionedIp();
+                $portalMac = $contract->provisionedMac();
+            @endphp
+            @if($portalLogin || $portalIp)
             <div>
                 <h3 class="text-sm font-semibold text-gray-500 uppercase mb-3">Conexao</h3>
                 <dl class="grid grid-cols-2 gap-4 text-sm">
-                    @if($contract->pppoe_user)
+                    @if($portalLogin)
                     <div>
                         <dt class="text-gray-500">Usuario PPPoE</dt>
-                        <dd class="font-medium font-mono text-gray-900">{{ $contract->pppoe_user }}</dd>
+                        <dd class="font-medium font-mono text-gray-900">{{ $portalLogin }}</dd>
                     </div>
                     @endif
-                    @if($contract->ip_address)
+                    @if($portalIp)
                     <div>
                         <dt class="text-gray-500">Endereco IP</dt>
-                        <dd class="font-medium font-mono text-gray-900">{{ $contract->ip_address }}</dd>
+                        <dd class="font-medium font-mono text-gray-900">{{ $portalIp }}</dd>
                     </div>
                     @endif
-                    @if($contract->mac_address)
+                    @if($portalMac)
                     <div>
                         <dt class="text-gray-500">MAC Address</dt>
-                        <dd class="font-medium font-mono text-gray-900">{{ $contract->mac_address }}</dd>
+                        <dd class="font-medium font-mono text-gray-900">{{ $portalMac }}</dd>
                     </div>
                     @endif
                     @if($contract->tipo_conexao)
@@ -88,7 +93,7 @@
             </div>
             @endif
 
-            @if($contract->autoBloqueio)
+            @if($contract->autobloqueio)
             <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700">
                 Bloqueio automatico ativado para este contrato.
             </div>

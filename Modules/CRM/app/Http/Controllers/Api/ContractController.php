@@ -23,10 +23,6 @@ class ContractController extends Controller
             'status' => 'in:active,inactive,suspended,canceled',
             'billing_type' => 'required|in:boleto,pix,credit_card,debit_contract',
             'due_day' => 'required|integer|between:1,31',
-            'pppoe_user' => 'nullable|string|max:255',
-            'pppoe_password' => 'nullable|string|max:255',
-            'ip_address' => 'nullable|ip',
-            'mac_address' => 'nullable|string|max:17',
             'discount' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
         ]);
@@ -53,10 +49,6 @@ class ContractController extends Controller
             'status' => 'in:active,inactive,suspended,canceled',
             'billing_type' => 'in:boleto,pix,credit_card,debit_contract',
             'due_day' => 'integer|between:1,31',
-            'pppoe_user' => 'nullable|string|max:255',
-            'pppoe_password' => 'nullable|string|max:255',
-            'ip_address' => 'nullable|ip',
-            'mac_address' => 'nullable|string|max:17',
             'discount' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
         ]);

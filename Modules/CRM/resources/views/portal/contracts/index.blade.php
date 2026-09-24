@@ -33,16 +33,20 @@
                     <span class="text-gray-500">Faturamento:</span>
                     <span class="text-gray-900 font-medium">{{ ucfirst($contract->billing_type ?? 'mensal') }}</span>
                 </div>
-                @if($contract->pppoe_user)
+                @php
+                    $portalLogin = $contract->provisionedLogin();
+                    $portalIp = $contract->provisionedIp();
+                @endphp
+                @if($portalLogin)
                 <div>
                     <span class="text-gray-500">PPPoE:</span>
-                    <span class="text-gray-900 font-medium font-mono text-xs">{{ $contract->pppoe_user }}</span>
+                    <span class="text-gray-900 font-medium font-mono text-xs">{{ $portalLogin }}</span>
                 </div>
                 @endif
-                @if($contract->ip_address)
+                @if($portalIp)
                 <div>
                     <span class="text-gray-500">IP:</span>
-                    <span class="text-gray-900 font-medium font-mono text-xs">{{ $contract->ip_address }}</span>
+                    <span class="text-gray-900 font-medium font-mono text-xs">{{ $portalIp }}</span>
                 </div>
                 @endif
             </div>

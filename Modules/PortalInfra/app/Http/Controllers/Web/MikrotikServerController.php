@@ -40,6 +40,11 @@ class MikrotikServerController extends Controller
             ->with('success', 'Servidor MikroTik cadastrado com sucesso.');
     }
 
+    public function show($id)
+    {
+        return redirect()->route('infra.mikrotik-servers.edit', $id);
+    }
+
     public function edit($id)
     {
         $server = MikrotikServer::findOrFail($id);

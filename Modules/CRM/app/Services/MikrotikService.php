@@ -362,11 +362,15 @@ class MikrotikService
         if (!empty($existing)) {
             $update = [];
 
-            if ($localAddress && empty($existing[0]['local-address'] ?? '')) {
+            if ($localAddress) {
                 $update['local-address'] = $localAddress;
             }
 
-            if (empty($existing[0]['dns-server'] ?? '')) {
+            if ($pool) {
+                $update['remote-address'] = $pool;
+            }
+
+            if (empty($existing[0]['dns-server'] ?? '') && $dns) {
                 $update['dns-server'] = $dns;
             }
 
@@ -421,6 +425,52 @@ class MikrotikService
         }
 
         return ['interface' => $lanInterface, 'ip' => $ip];
+    }
+
+    public function resolvePppoePool(): array
+    {
+        $this->ensureConnected();
+
+        $lan = $this->resolveLanInfo();
+        $ip = $lan['ip'] ?? '10.0.0.1';
+
+        $parts = array_map('intval', explode('.', $ip));
+        $third = ($parts[2] ?? 0) + 1;
+
+        if ($third > 254) {
+            $third = 1;
+        }
+
+        $base = ($parts[0] ?? 10) . '.' . ($parts[1] ?? 0) . '.' . $third;
+        $poolName = 'pool-pppoe';
+
+        $pools = $this->api->comm('/ip/pool/print', [
+            '.proplist' => 'name',
+        ]);
+
+        $found = false;
+
+        foreach ($pools as $p) {
+            if (($p['name'] ?? null) === $poolName) {
+                $found = true;
+                break;
+            }
+        }
+
+        if (!$found) {
+            $this->api->comm('/ip/pool/add', [
+                'name' => $poolName,
+                'ranges' => $base . '.10-' . $base . '.254',
+            ]);
+        }
+
+        return [
+            'pool' => $poolName,
+            'gateway' => $base . '.1',
+            'subnet' => $base . '.0/24',
+            'start' => $base . '.10',
+            'end' => $base . '.254',
+        ];
     }
 
     public function ensurePppoeServer(?string $serviceName = null): array

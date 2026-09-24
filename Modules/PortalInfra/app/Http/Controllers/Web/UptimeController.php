@@ -127,7 +127,11 @@ class UptimeController extends Controller
                     $error = "{$errstr} ({$errno})";
                 }
             } elseif ($monitor->type === 'ping') {
-                $ping = @exec("ping -n 1 -w 3000 {$monitor->host} 2>&1", $output, $returnCode);
+                $host = escapeshellarg($monitor->host);
+                $pingCmd = PHP_OS_FAMILY === 'Windows'
+                    ? "ping -n 1 -w 3000 {$host}"
+                    : "ping -c 1 -W 3 {$host}";
+                @exec($pingCmd . " 2>&1", $output, $returnCode);
                 $isUp = $returnCode === 0;
             }
 
@@ -185,7 +189,11 @@ class UptimeController extends Controller
                     $fp = @fsockopen($monitor->host, $monitor->port, $errno, $errstr, 5);
                     if ($fp) { fclose($fp); $isUp = true; } else { $error = "{$errstr} ({$errno})"; }
                 } elseif ($monitor->type === 'ping') {
-                    exec("ping -n 1 -w 3000 {$monitor->host} 2>&1", $output, $returnCode);
+                    $host = escapeshellarg($monitor->host);
+                    $pingCmd = PHP_OS_FAMILY === 'Windows'
+                        ? "ping -n 1 -w 3000 {$host}"
+                        : "ping -c 1 -W 3 {$host}";
+                    exec($pingCmd . " 2>&1", $output, $returnCode);
                     $isUp = $returnCode === 0;
                 }
 

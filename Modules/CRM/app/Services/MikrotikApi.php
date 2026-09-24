@@ -119,10 +119,10 @@ class MikrotikApi
 
     public function disconnect(): void
     {
-        if ($this->socket) {
+        if (is_resource($this->socket)) {
             fclose($this->socket);
-            $this->socket = null;
         }
+        $this->socket = null;
         $this->connected = false;
     }
 

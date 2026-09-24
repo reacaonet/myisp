@@ -62,6 +62,7 @@ class MikrotikScriptController extends Controller
         $lanIp = $config['lan_ip'] ?? '192.168.1.1';
         $lanMask = $config['lan_mask'] ?? '24';
         $lanSubnet = $this->subnetAddress($lanIp, $lanMask);
+        $pppoe = $this->pppoeSubnet($lanIp);
         $poolName = $config['pool_name'] ?? 'pool-hotspot';
         $poolStart = $config['pool_start'] ?? '192.168.1.10';
         $poolEnd = $config['pool_end'] ?? '192.168.1.250';
@@ -128,8 +129,9 @@ class MikrotikScriptController extends Controller
             $lines[] = '# --------------------------------------------';
             $lines[] = '# ' . $lineNum . '. SERVIDOR PPPoE';
             $lines[] = '# --------------------------------------------';
+            $lines[] = '/ip pool add name="pool-pppoe" ranges=' . $pppoe['start'] . '-' . $pppoe['end'];
             $lines[] = '/interface pppoe-server server add service-name="' . $pppoeService . '" interface=' . $lan . ' max-mtu=1492 max-mru=1492 authentication=pap,chap,mschap1,mschap2 default-profile=default one-session-per-host=yes disabled=no';
-            $lines[] = '/ppp profile add name="pppoe-profile" local-address=' . $lanIp . ' remote-address="' . $poolName . '" dns-server=' . $dns . ' use-upnp=no';
+            $lines[] = '/ppp profile add name="pppoe-profile" local-address=' . $pppoe['gateway'] . ' remote-address="pool-pppoe" dns-server=' . $dns . ' use-upnp=no';
             $lines[] = '/ppp aaa set use-radius=yes accounting=yes interim-update=5m';
             $lines[] = '';
             $lineNum++;
@@ -147,7 +149,7 @@ class MikrotikScriptController extends Controller
             $lineNum++;
         }
 
-        if ($scriptType === 'firewall' || $scriptType === 'complete') {
+        if ($scriptType === 'firewall' || $scriptType === 'pppoe' || $scriptType === 'complete') {
             $lines[] = '# --------------------------------------------';
             $lines[] = '# ' . $lineNum . '. FIREWALL / NAT';
             $lines[] = '# --------------------------------------------';
@@ -170,6 +172,16 @@ class MikrotikScriptController extends Controller
             $lines[] = '/ip firewall filter add chain=forward src-address-list=myisp-blocked action=drop comment="Bloquear Inadimplentes - Upload"';
             $lines[] = '/ip firewall filter add chain=forward dst-address-list=myisp-blocked action=drop comment="Bloquear Inadimplentes - Download"';
             $lines[] = '';
+
+            if ($scriptType === 'pppoe' || $scriptType === 'complete') {
+                $lines[] = '# Internet somente para clientes PPPoE autenticados';
+                $lines[] = '/ip firewall filter add chain=forward connection-state=established,related action=accept comment="Permitir Conexoes Estabelecidas - Forward"';
+                $lines[] = '/ip firewall filter add chain=forward connection-state=invalid action=drop comment="Dropar Conexoes Invalidas - Forward"';
+                $lines[] = '/ip firewall filter add chain=forward connection-state=new src-address=' . $pppoe['subnet'] . ' out-interface=' . $wan . ' action=accept comment="Internet - Cliente PPPoE autenticado"';
+                $lines[] = '/ip firewall filter add chain=forward connection-state=new out-interface=' . $wan . ' action=drop comment="Bloquear internet sem PPPoE"';
+                $lines[] = '';
+            }
+
             $lineNum++;
         }
 
@@ -202,10 +214,10 @@ class MikrotikScriptController extends Controller
             $lines[] = '# ' . $lineNum . '. PERFIS PPPoE POR PLANO (BANDA)';
             $lines[] = '# --------------------------------------------';
             $lines[] = '# Perfis usados pelo provisionamento MyISP: plano-<slug>';
-            $lines[] = '/ppp profile add name="plano-5m" local-address=' . $lanIp . ' remote-address="' . $poolName . '" dns-server=' . $dns . ' rate-limit=' . $bandwidthDown . '/' . $bandwidthUp . ' comment="Plano 5Mbps"';
-            $lines[] = '/ppp profile add name="plano-10m" local-address=' . $lanIp . ' remote-address="' . $poolName . '" dns-server=' . $dns . ' rate-limit=10M/5M comment="Plano 10Mbps"';
-            $lines[] = '/ppp profile add name="plano-20m" local-address=' . $lanIp . ' remote-address="' . $poolName . '" dns-server=' . $dns . ' rate-limit=20M/10M comment="Plano 20Mbps"';
-            $lines[] = '/ppp profile add name="plano-50m" local-address=' . $lanIp . ' remote-address="' . $poolName . '" dns-server=' . $dns . ' rate-limit=50M/25M comment="Plano 50Mbps"';
+            $lines[] = '/ppp profile add name="plano-5m" local-address=' . $pppoe['gateway'] . ' remote-address="pool-pppoe" dns-server=' . $dns . ' rate-limit=' . $bandwidthDown . '/' . $bandwidthUp . ' comment="Plano 5Mbps"';
+            $lines[] = '/ppp profile add name="plano-10m" local-address=' . $pppoe['gateway'] . ' remote-address="pool-pppoe" dns-server=' . $dns . ' rate-limit=10M/5M comment="Plano 10Mbps"';
+            $lines[] = '/ppp profile add name="plano-20m" local-address=' . $pppoe['gateway'] . ' remote-address="pool-pppoe" dns-server=' . $dns . ' rate-limit=20M/10M comment="Plano 20Mbps"';
+            $lines[] = '/ppp profile add name="plano-50m" local-address=' . $pppoe['gateway'] . ' remote-address="pool-pppoe" dns-server=' . $dns . ' rate-limit=50M/25M comment="Plano 50Mbps"';
             $lines[] = '';
             $lineNum++;
 
@@ -253,5 +265,27 @@ class MikrotikScriptController extends Controller
         $maskLong = $mask === 0 ? 0 : (0xFFFFFFFF << (32 - $mask));
 
         return long2ip($ipLong & $maskLong) . '/' . $mask;
+    }
+
+    private function pppoeSubnet(string $ip): array
+    {
+        $parts = array_map('intval', explode('.', $ip));
+
+        if (count($parts) < 3) {
+            $base = '10.99.0';
+        } else {
+            $third = $parts[2] + 1;
+            if ($third > 254) {
+                $third = 1;
+            }
+            $base = $parts[0] . '.' . $parts[1] . '.' . $third;
+        }
+
+        return [
+            'gateway' => $base . '.1',
+            'start' => $base . '.10',
+            'end' => $base . '.254',
+            'subnet' => $base . '.0/24',
+        ];
     }
 }

@@ -81,14 +81,13 @@ class ProvisionController extends Controller
 
             if ($plan && $plan->download_speed > 0) {
                 if ($validated['type'] === 'pppoe') {
-                    $pool = $this->resolvePool($contract, $service);
-                    $lan = $service->resolveLanInfo();
+                    $pppoe = $service->resolvePppoePool();
                     $profile = $service->ensurePppoeProfile(
                         $plan->slug ? 'plano-' . $plan->slug : 'plano-' . $plan->id,
                         (int) $plan->download_speed,
                         (int) $plan->upload_speed,
-                        $pool,
-                        $lan['ip'] ?? null
+                        $pppoe['pool'],
+                        $pppoe['gateway']
                     );
                 } else {
                     $profile = $service->ensureHotspotUserProfile(
@@ -228,14 +227,13 @@ class ProvisionController extends Controller
 
             if ($plan && $plan->download_speed > 0) {
                 if ($validated['type'] === 'pppoe') {
-                    $pool = $this->resolvePool($contract, $service);
-                    $lan = $service->resolveLanInfo();
+                    $pppoe = $service->resolvePppoePool();
                     $profile = $service->ensurePppoeProfile(
                         $plan->slug ? 'plano-' . $plan->slug : 'plano-' . $plan->id,
                         (int) $plan->download_speed,
                         (int) $plan->upload_speed,
-                        $pool,
-                        $lan['ip'] ?? null
+                        $pppoe['pool'],
+                        $pppoe['gateway']
                     );
                 } else {
                     $profile = $service->ensureHotspotUserProfile(

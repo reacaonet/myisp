@@ -37,6 +37,43 @@
                 </div>
             </div>
 
+            <div class="border-t border-gray-100 pt-4">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Estilo do texto</p>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Cor do Titulo</label>
+                        <div class="flex items-center gap-3">
+                            <input type="color" value="{{ old('title_color', $banner->title_color ?: '#ffffff') }}" data-color-target="input[name='title_color']"
+                                   class="w-11 h-9 rounded-lg border border-gray-300 p-1 bg-white cursor-pointer">
+                            <input type="text" name="title_color" value="{{ old('title_color', $banner->title_color) }}" placeholder="#ffffff"
+                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono" data-color-mirror>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tamanho do Titulo (px)</label>
+                        <input type="number" name="title_font_size" value="{{ old('title_font_size', $banner->title_font_size) }}" min="16" max="120" placeholder="Padrao"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mt-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Cor do Subtitulo</label>
+                        <div class="flex items-center gap-3">
+                            <input type="color" value="{{ old('subtitle_color', $banner->subtitle_color ?: '#e2e8f0') }}" data-color-target="input[name='subtitle_color']"
+                                   class="w-11 h-9 rounded-lg border border-gray-300 p-1 bg-white cursor-pointer">
+                            <input type="text" name="subtitle_color" value="{{ old('subtitle_color', $banner->subtitle_color) }}" placeholder="#e2e8f0"
+                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono" data-color-mirror>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tamanho do Subtitulo (px)</label>
+                        <input type="number" name="subtitle_font_size" value="{{ old('subtitle_font_size', $banner->subtitle_font_size) }}" min="12" max="64" placeholder="Padrao"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                </div>
+                <p class="mt-2 text-xs text-gray-400">Deixe em branco para usar o padrao do tema.</p>
+            </div>
+
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Imagem do Banner</label>
                 @if($banner->image)
@@ -86,3 +123,17 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.querySelectorAll('input[type="color"][data-color-target]').forEach(function (picker) {
+    var text = document.querySelector(picker.dataset.colorTarget);
+    if (!text) return;
+    picker.addEventListener('input', function () { text.value = picker.value; });
+    text.addEventListener('input', function () {
+        var v = text.value.trim();
+        if (/^#[0-9a-fA-F]{3,8}$/.test(v)) picker.value = v;
+    });
+});
+</script>
+@endpush

@@ -14,6 +14,10 @@ class LandingBanner extends Model
         'link_url',
         'link_label',
         'highlight',
+        'title_font_size',
+        'title_color',
+        'subtitle_font_size',
+        'subtitle_color',
         'sort_order',
         'is_active',
     ];
@@ -21,6 +25,8 @@ class LandingBanner extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'sort_order' => 'integer',
+        'title_font_size' => 'integer',
+        'subtitle_font_size' => 'integer',
     ];
 
     public function scopeActive($query)

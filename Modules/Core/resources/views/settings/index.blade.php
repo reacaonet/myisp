@@ -76,6 +76,8 @@
                 'landing_section_faq_subtitle' => ['label' => 'Subtitulo da Secao Duvidas', 'placeholder' => 'Tire suas duvidas antes de contratar'],
                 'landing_section_contact_title' => ['label' => 'Titulo da Secao Contato', 'placeholder' => 'Fale Conosco'],
                 'landing_section_contact_subtitle' => ['label' => 'Subtitulo da Secao Contato', 'placeholder' => 'Estamos prontos para atender voce por qualquer canal'],
+                'landing_sac_title' => ['label' => 'Pagina SAC - Titulo', 'placeholder' => 'Central de Atendimento (SAC)'],
+                'landing_sac_subtitle' => ['label' => 'Pagina SAC - Subtitulo', 'placeholder' => 'Estamos aqui para ajudar...'],
             ];
         @endphp
 

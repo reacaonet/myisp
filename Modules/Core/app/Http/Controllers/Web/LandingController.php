@@ -11,20 +11,50 @@ class LandingController extends Controller
 {
     public function index()
     {
-        if (SystemSetting::get('landing_enabled', '1') !== '1') {
+        if (! $this->landingEnabled()) {
             return redirect()->route('crm.dashboard');
         }
 
+        $data = $this->landingData();
+
+        $data['banners'] = LandingBanner::active()->ordered()->get();
+        $data['hero_title'] = $data['settings']['landing_hero_title'] ?? 'Internet Fibra Optica de Alta Velocidade';
+        $data['hero_subtitle'] = $data['settings']['landing_hero_subtitle'] ?? '';
+
+        return view('core::landing.index', $data);
+    }
+
+    public function sac()
+    {
+        if (! $this->landingEnabled()) {
+            return redirect()->route('crm.dashboard');
+        }
+
+        $data = $this->landingData([
+            'landing_sac_title' => 'Central de Atendimento (SAC)',
+            'landing_sac_subtitle' => 'Estamos aqui para ajudar, resolver seu problema e deixar voce conectado.',
+        ]);
+
+        return view('core::landing.sac', $data);
+    }
+
+    protected function landingEnabled(): bool
+    {
+        return SystemSetting::get('landing_enabled', '1') === '1';
+    }
+
+    protected function landingData(array $defaults = []): array
+    {
         $settings = SystemSetting::getGroup('landing');
         $company = SystemSetting::getGroup('company');
+
+        $settings = array_merge($defaults, $settings);
 
         $logo = $settings['landing_logo'] ?? '';
 
         $name = $company['company_fantasy'] ?? $company['company_name'] ?? 'MyISP';
 
         $plans = Plan::where('is_active', true)->orderBy('price')->get();
-
-        $banners = LandingBanner::active()->ordered()->get();
 
         $cities = collect(preg_split('/\r\n|\r|\n/', $settings['landing_cities'] ?? ''))
             ->map(fn ($item) => trim($item))
@@ -69,11 +99,10 @@ class LandingController extends Controller
             'vod_subtitle' => $settings['landing_section_vod_subtitle'] ?? 'Assista onde e quando quiser, incluido no seu plano',
         ];
 
-        return view('core::landing.index', [
+        return [
             'name' => $name,
             'logo' => $logo,
-            'hero_title' => $settings['landing_hero_title'] ?? 'Internet Fibra Optica de Alta Velocidade',
-            'hero_subtitle' => $settings['landing_hero_subtitle'] ?? '',
+            'settings' => $settings,
             'about' => $settings['landing_about'] ?? '',
             'cities' => $cities,
             'phone' => $company['company_phone'] ?? '',
@@ -90,9 +119,10 @@ class LandingController extends Controller
             'map_embed' => $settings['landing_map_embed'] ?? '',
             'faq' => $faq,
             'plans' => $plans,
-            'banners' => $banners,
             'colors' => $colors,
             'titles' => $section_titles,
-        ]);
+            'sac_title' => $settings['landing_sac_title'] ?? 'Central de Atendimento (SAC)',
+            'sac_subtitle' => $settings['landing_sac_subtitle'] ?? 'Estamos aqui para ajudar, resolver seu problema e deixar voce conectado.',
+        ];
     }
 }

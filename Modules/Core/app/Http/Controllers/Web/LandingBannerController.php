@@ -30,6 +30,10 @@ class LandingBannerController extends Controller
             'link_url' => 'nullable|url|max:255',
             'link_label' => 'nullable|string|max:255',
             'highlight' => 'nullable|string|max:255',
+            'title_font_size' => 'nullable|integer|between:16,120',
+            'title_color' => 'nullable|string|regex:/^#[0-9A-Fa-f]{3,8}$/',
+            'subtitle_font_size' => 'nullable|integer|between:12,64',
+            'subtitle_color' => 'nullable|string|regex:/^#[0-9A-Fa-f]{3,8}$/',
             'sort_order' => 'nullable|integer',
             'is_active' => 'boolean',
         ]);
@@ -65,6 +69,10 @@ class LandingBannerController extends Controller
             'link_url' => 'nullable|url|max:255',
             'link_label' => 'nullable|string|max:255',
             'highlight' => 'nullable|string|max:255',
+            'title_font_size' => 'nullable|integer|between:16,120',
+            'title_color' => 'nullable|string|regex:/^#[0-9A-Fa-f]{3,8}$/',
+            'subtitle_font_size' => 'nullable|integer|between:12,64',
+            'subtitle_color' => 'nullable|string|regex:/^#[0-9A-Fa-f]{3,8}$/',
             'sort_order' => 'nullable|integer',
             'is_active' => 'boolean',
         ]);

@@ -9,3 +9,4 @@ Route::post('login', [LoginController::class, 'login']);
 Route::post('logout', [LoginController::class, 'logout'])->name('logout');
 
 Route::get('/', [LandingController::class, 'index'])->name('landing.index');
+Route::get('/sac', [LandingController::class, 'sac'])->name('landing.sac');

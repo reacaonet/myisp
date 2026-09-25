@@ -44,6 +44,7 @@ services:
       - "8000:8000"
     volumes:
       - ./:/var/www/html
+      - ./docker/php/99-uploads.ini:/usr/local/etc/php/conf.d/99-uploads.ini:ro
       - vendor_data:/var/www/html/vendor
       - node_modules_data:/var/www/html/node_modules
     environment:

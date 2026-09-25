@@ -76,8 +76,9 @@
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Imagem do Banner</label>
                 <input type="file" name="image" accept="image/jpeg,image/png,image/webp,image/gif"
-                       class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 file:text-sm file:font-medium">
-                <p class="mt-1 text-xs text-gray-400">JPG, PNG, WebP ou GIF ate 4MB. Recomendado ~1280x720 (16:9).</p>
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 file:text-sm file:font-medium @error('image') border-red-500 @enderror">
+                @error('image') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                <p class="mt-1 text-xs text-gray-400">JPG, PNG, WebP ou GIF ate 16MB. Recomendado ~1280x720 (16:9).</p>
             </div>
 
             <div class="grid grid-cols-2 gap-4">

@@ -162,6 +162,9 @@
             @if($email)
             <div class="contact-box"><div class="ic">✉️</div><h4>Email</h4><a href="mailto:{{ $email }}">{{ $email }}</a></div>
             @endif
+            @if($instagram)
+            <div class="contact-box"><div class="ic">📸</div><h4>Instagram</h4><a href="{{ $instagram }}" target="_blank">@itamidiatelecom</a></div>
+            @endif
             @if($hours)
             <div class="contact-box"><div class="ic">🕐</div><h4>Horario de Atendimento</h4><p>{{ $hours }}</p></div>
             @endif

@@ -789,6 +789,13 @@ class MikrotikService
     public function addFirewallAddressList(string $listName, string $address): void
     {
         $this->ensureConnected();
+        $existing = $this->api->comm('/ip/firewall/address-list/print', [
+            '?list' => $listName,
+            '?address' => $address,
+        ]);
+        if (!empty($existing)) {
+            return;
+        }
         $this->api->comm('/ip/firewall/address-list/add', [
             'list' => $listName,
             'address' => $address,

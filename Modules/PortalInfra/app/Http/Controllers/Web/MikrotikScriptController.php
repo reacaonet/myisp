@@ -171,6 +171,40 @@ class MikrotikScriptController extends Controller
             $lines[] = '/ip firewall address-list add list=myisp-blocked address=0.0.0.0 comment="Lista para bloqueio MyISP"';
             $lines[] = '/ip firewall filter add chain=forward src-address-list=myisp-blocked action=drop comment="Bloquear Inadimplentes - Upload"';
             $lines[] = '/ip firewall filter add chain=forward dst-address-list=myisp-blocked action=drop comment="Bloquear Inadimplentes - Download"';
+
+            $block = \Modules\Core\Models\SystemSetting::getGroup('block');
+            $aviso = \Modules\Core\Models\SystemSetting::getGroup('aviso');
+
+            $lines[] = '';
+            $lines[] = '# Address List - Clientes em periodo de tolerancia (aviso de vencimento)';
+            $lines[] = '/ip firewall address-list add list=myisp-vencida address=0.0.0.0 comment="Lista para aviso de vencimento MyISP"';
+
+            if (($aviso['notice_page_enabled'] ?? '') == '1' && !empty($aviso['notice_page_url'])) {
+                $parsed = parse_url($aviso['notice_page_url']);
+                $target = $parsed['host'] ?? null;
+                $port = isset($parsed['port']) && (int) $parsed['port'] > 0 ? (int) $parsed['port'] : 80;
+
+                if ($target) {
+                    $lines[] = '# Redireciona o trafego HTTP (porta 80) dos clientes em tolerancia para a pagina de aviso';
+                    $lines[] = '/ip firewall nat add chain=dstnat src-address-list=myisp-vencida protocol=tcp dst-port=80 action=dst-nat to-addresses=' . $target . ' to-ports=' . $port . ' comment="Aviso de vencimento - MyISP"';
+                    $lines[] = '# OBS.: enquanto no periodo de tolerancia a velocidade nao e reduzida e HTTPS/WhatsApp continuam funcionando.';
+                    $lines[] = '';
+                }
+            }
+
+            if (($block['block_page_enabled'] ?? '') == '1' && !empty($block['block_page_url'])) {
+                $parsed = parse_url($block['block_page_url']);
+                $target = $parsed['host'] ?? null;
+                $port = isset($parsed['port']) && (int) $parsed['port'] > 0 ? (int) $parsed['port'] : 80;
+
+                if ($target) {
+                    $lines[] = '# Pagina de bloqueio MyISP: redireciona o trafego HTTP de clientes bloqueados';
+                    $lines[] = '/ip firewall nat add chain=dstnat src-address-list=myisp-blocked protocol=tcp dst-port=80 action=dst-nat to-addresses=' . $target . ' to-ports=' . $port . ' comment="Bloqueio - Pagina de aviso"';
+                    $lines[] = '# OBS.: o redirecionamento funciona para HTTP (porta 80). Sites HTTPS nao carregam enquanto houver bloqueio.';
+                    $lines[] = '';
+                }
+            }
+
             $lines[] = '';
 
             if ($scriptType === 'pppoe' || $scriptType === 'complete') {

@@ -212,6 +212,8 @@ class InvoiceController extends Controller
 
             $settings = \Modules\Billing\Models\BillingSetting::get();
 
+            $blockedIp = $contract->provisionedIp();
+
             if ($settings->plano_minimo_habilitado && $login) {
                 $service->applyMinimumPlan(
                     $contract->tipo_conexao === 'hotspot' ? 'hotspot' : 'pppoe',
@@ -226,11 +228,13 @@ class InvoiceController extends Controller
                     $service->disconnectHotspotActive($login);
                 }
 
-                $blockedIp = $contract->provisionedIp();
-
                 if ($blockedIp) {
                     $service->addFirewallAddressList('myisp-blocked', $blockedIp);
                 }
+            }
+
+            if ($blockedIp) {
+                $service->removeFirewallAddressList('myisp-vencida', $blockedIp);
             }
 
             $service->disconnect();
@@ -282,6 +286,7 @@ class InvoiceController extends Controller
                     $service->connect($mikrotikServer);
                     if ($blockedIp) {
                         $service->removeFirewallAddressList('myisp-blocked', $blockedIp);
+                        $service->removeFirewallAddressList('myisp-vencida', $blockedIp);
                     }
                     if ($login && $profile) {
                         $service->restorePlanProfile(
@@ -382,6 +387,7 @@ class InvoiceController extends Controller
                         $service->connect($mikrotikServer);
                         if ($blockedIp) {
                             $service->removeFirewallAddressList('myisp-blocked', $blockedIp);
+                        $service->removeFirewallAddressList('myisp-vencida', $blockedIp);
                         }
                         if ($login && $profile) {
                             $service->restorePlanProfile(

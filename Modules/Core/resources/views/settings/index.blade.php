@@ -4,9 +4,8 @@
 
 @section('content')
 <div class="max-w-4xl mx-auto">
-    <div class="flex items-center justify-between mb-6">
+    <div class="mb-6">
         <h2 class="text-2xl font-bold text-gray-900">Configuracoes do Sistema</h2>
-        <a href="{{ route('core.settings.create') }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">+ Nova Configuracao</a>
     </div>
 
     @if(session('success'))
@@ -78,31 +77,61 @@
                 'landing_section_contact_subtitle' => ['label' => 'Subtitulo da Secao Contato', 'placeholder' => 'Estamos prontos para atender voce por qualquer canal'],
                 'landing_sac_title' => ['label' => 'Pagina SAC - Titulo', 'placeholder' => 'Central de Atendimento (SAC)'],
                 'landing_sac_subtitle' => ['label' => 'Pagina SAC - Subtitulo', 'placeholder' => 'Estamos aqui para ajudar...'],
+                'block_page_enabled' => ['label' => 'Pagina de Bloqueio Ativa', 'placeholder' => ''],
+                'block_page_url' => ['label' => 'URL Publica da Pagina de Bloqueio', 'placeholder' => 'http://portal.meuprovedor.com.br/bloqueio'],
+                'block_portal_url' => ['label' => 'Link do Portal do Cliente', 'placeholder' => 'Deixe vazio para usar o portal do sistema'],
+                'block_support_url' => ['label' => 'Link de Suporte (WhatsApp/Site)', 'placeholder' => 'Deixe vazio para usar o WhatsApp da landing'],
+                'block_mark_text' => ['label' => 'Sigla da Marca (quadrado do topo)', 'placeholder' => 'MK'],
+                'block_page_html' => ['label' => 'HTML da Pagina de Bloqueio', 'placeholder' => 'Cole o script da pagina aqui. Use {{link_portal}}, {{link_suporte}}, {{brand_mark}} e {{cliente_nome}}'],
+                'block_grace_days' => ['label' => 'Dias de Tolerancia apos o Vencimento', 'placeholder' => '10'],
+                'plan_min_enabled' => ['label' => 'Plano Reduzido de Navegacao Ativo', 'placeholder' => ''],
+                'plan_min_down_kbps' => ['label' => 'Plano Reduzido - Download (kbps)', 'placeholder' => '512'],
+                'plan_min_up_kbps' => ['label' => 'Plano Reduzido - Upload (kbps)', 'placeholder' => '128'],
+                'notice_page_enabled' => ['label' => 'Pagina de Aviso Ativa', 'placeholder' => ''],
+                'notice_page_url' => ['label' => 'URL Publica da Pagina de Aviso', 'placeholder' => 'http://portal.meuprovedor.com.br/aviso'],
+                'notice_mark_text' => ['label' => 'Sigla da Marca (quadrado do topo)', 'placeholder' => 'MK'],
+                'notice_page_html' => ['label' => 'HTML da Pagina de Aviso de Vencimento', 'placeholder' => 'Cole o script da pagina aqui. Use {{link_portal}}, {{link_suporte}}, {{brand_mark}}, {{cliente_nome}}, {{dias}} e {{vencimento}}'],
             ];
+
+            $groupMeta = [
+                'company' => ['title' => 'Dados do Provedor', 'icon' => 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'],
+                'billing' => ['title' => 'Financeiro / Banco', 'icon' => 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z'],
+                'landing' => ['title' => 'Landing Page', 'icon' => 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4'],
+                'block' => ['title' => 'Bloqueio e Plano Reduzido', 'icon' => 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z'],
+                'aviso' => ['title' => 'Pagina de Aviso de Vencimento', 'icon' => 'M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z'],
+            ];
+            $fallbackIcon = 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z';
+            $availableGroups = $settings instanceof \Illuminate\Support\Collection ? $settings->keys()->all() : array_keys($settings);
+            $orderedGroups = array_values(array_intersect(array_keys($groupMeta), $availableGroups));
         @endphp
 
-        @foreach($settings as $group => $items)
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+        <div class="flex flex-wrap gap-1 mb-6 border-b border-gray-200">
+            @foreach($orderedGroups as $i => $group)
+                <button type="button" data-tab-btn="{{ $group }}" class="flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm font-medium border-b-2 transition-colors {{ $i === 0 ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $groupMeta[$group]['icon'] ?? $fallbackIcon }}"/></svg>
+                    {{ $groupMeta[$group]['title'] ?? ucfirst($group) }}
+                </button>
+            @endforeach
+        </div>
+
+        @php $first = true; @endphp
+        @foreach($orderedGroups as $group)
+            @php $items = $settings[$group]; @endphp
+        <div data-tab-panel="{{ $group }}" class="{{ $first ? '' : 'hidden' }} bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
             <div class="p-4 border-b border-gray-200 flex items-center gap-2">
-@if($group === 'company')
-                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-                @elseif($group === 'billing')
-                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                @elseif($group === 'landing')
-                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
-                @else
-                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                @endif
-                <h3 class="font-semibold text-gray-900 uppercase text-sm">
-                    {{ $group === 'company' ? 'Dados do Provedor' : ($group === 'billing' ? 'Financeiro / Banco' : ($group === 'landing' ? 'Landing Page' : ucfirst($group))) }}
-                </h3>
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $groupMeta[$group]['icon'] ?? $fallbackIcon }}"/></svg>
+                <h3 class="font-semibold text-gray-900 uppercase text-sm">{{ $groupMeta[$group]['title'] ?? ucfirst($group) }}</h3>
                 @if($group === 'landing')
                     <a href="{{ route('landing.index') }}" target="_blank" class="ml-auto text-xs text-blue-600 hover:underline">Ver site &#8599;</a>
+                @elseif($group === 'block')
+                    <a href="{{ route('block.page', ['preview' => 1]) }}" target="_blank" class="ml-auto text-xs text-blue-600 hover:underline">Ver pagina &#8599;</a>
+                @elseif($group === 'aviso')
+                    <a href="{{ route('notice.page', ['preview' => 1]) }}" target="_blank" class="ml-auto text-xs text-blue-600 hover:underline">Ver pagina &#8599;</a>
                 @endif
             </div>
             <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                 @foreach($items as $setting)
-                <div class="{{ in_array($setting->key, ['company_address', 'boleto_instrucoes', 'landing_hero_subtitle', 'landing_about', 'landing_cities', 'landing_faq', 'landing_map_embed']) ? 'md:col-span-2' : '' }}">
+                <div class="{{ in_array($setting->key, ['company_address', 'boleto_instrucoes', 'landing_hero_subtitle', 'landing_about', 'landing_cities', 'landing_faq', 'landing_map_embed', 'block_page_html', 'notice_page_html']) ? 'md:col-span-2' : '' }}">
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         {{ $labels[$setting->key]['label'] ?? ucfirst(str_replace('_', ' ', $setting->key)) }}
                     </label>
@@ -130,7 +159,12 @@
                         </div>
                         <p class="mt-1 text-xs text-gray-400">PNG, JPG, SVG ou WebP ate 2MB.</p>
                     @elseif($setting->type === 'textarea')
-                        <textarea name="settings[{{ $setting->key }}]" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="{{ $labels[$setting->key]['placeholder'] ?? '' }}">{{ $setting->value }}</textarea>
+                        <textarea name="settings[{{ $setting->key }}]" rows="{{ in_array($setting->key, ['block_page_html', 'notice_page_html']) ? 16 : 3 }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono" placeholder="{{ $labels[$setting->key]['placeholder'] ?? '' }}">{{ $setting->value }}</textarea>
+                        @if($setting->key === 'block_page_html')
+                        <p class="mt-1 text-xs text-gray-400">Placeholders disponiveis: <code>&#123;&#123;link_portal&#125;&#125;</code>, <code>&#123;&#123;link_suporte&#125;&#125;</code>, <code>&#123;&#123;brand_mark&#125;&#125;</code> e <code>&#123;&#123;cliente_nome&#125;&#125;</code>.</p>
+                        @elseif($setting->key === 'notice_page_html')
+                        <p class="mt-1 text-xs text-gray-400">Placeholders disponiveis: <code>&#123;&#123;link_portal&#125;&#125;</code>, <code>&#123;&#123;link_suporte&#125;&#125;</code>, <code>&#123;&#123;brand_mark&#125;&#125;</code>, <code>&#123;&#123;cliente_nome&#125;&#125;</code>, <code>&#123;&#123;dias&#125;&#125;</code> e <code>&#123;&#123;vencimento&#125;&#125;</code>.</p>
+                        @endif
                     @elseif($setting->type === 'boolean')
                         <select name="settings[{{ $setting->key }}]" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                             <option value="1" {{ $setting->value == '1' ? 'selected' : '' }}>Sim</option>
@@ -147,6 +181,7 @@
                 @endforeach
             </div>
         </div>
+        @php $first = false; @endphp
         @endforeach
 
         <div class="flex justify-end">
@@ -204,5 +239,45 @@ document.querySelectorAll('input[type="color"][data-color-target]').forEach(func
         if (/^#[0-9a-fA-F]{6}$/.test(v)) picker.value = v;
     });
 });
+
+(function () {
+    var btns = document.querySelectorAll('[data-tab-btn]');
+    var panels = document.querySelectorAll('[data-tab-panel]');
+    if (!btns.length) return;
+
+    var activeClasses = 'border-blue-600 text-blue-600';
+    var inactiveClasses = 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300';
+    var storageKey = 'settings_active_tab';
+    var current = null;
+
+    if (window.localStorage) {
+        var saved = localStorage.getItem(storageKey);
+        btns.forEach(function (b) { if (b.dataset.tabBtn === saved) current = b.dataset.tabBtn; });
+    }
+    if (!current) current = btns[0].dataset.tabBtn;
+
+    function select(name) {
+        current = name;
+        btns.forEach(function (b) {
+            if (b.dataset.tabBtn === name) {
+                b.classList.remove(...inactiveClasses.split(' '));
+                b.classList.add('border-blue-600', 'text-blue-600');
+            } else {
+                b.classList.remove('border-blue-600', 'text-blue-600');
+                b.classList.add(...inactiveClasses.split(' '));
+            }
+        });
+        panels.forEach(function (p) {
+            p.classList.toggle('hidden', p.dataset.tabPanel !== name);
+        });
+        if (window.localStorage) localStorage.setItem(storageKey, name);
+    }
+
+    btns.forEach(function (b) {
+        b.addEventListener('click', function () { select(b.dataset.tabBtn); });
+    });
+
+    select(current);
+})();
 </script>
 @endpush

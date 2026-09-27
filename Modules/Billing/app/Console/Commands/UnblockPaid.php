@@ -37,6 +37,7 @@ class UnblockPaid extends Command
                         $service->connect($mikrotikServer);
                         if ($blockedIp) {
                             $service->removeFirewallAddressList('myisp-blocked', $blockedIp);
+                            $service->removeFirewallAddressList('myisp-vencida', $blockedIp);
                         }
                         if ($login && $profile) {
                             $service->restorePlanProfile(

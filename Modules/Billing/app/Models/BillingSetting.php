@@ -40,6 +40,22 @@ class BillingSetting extends Model
                 'plano_minimo_upload_kbps' => 128,
             ]);
         }
+
+        $sys = \Modules\Core\Models\SystemSetting::getGroup('block');
+
+        if (array_key_exists('block_grace_days', $sys) && $sys['block_grace_days'] !== '' && $sys['block_grace_days'] !== null) {
+            $settings->dias_bloqueio = (int) $sys['block_grace_days'];
+        }
+        if (array_key_exists('plan_min_enabled', $sys)) {
+            $settings->plano_minimo_habilitado = $sys['plan_min_enabled'] == '1';
+        }
+        if (array_key_exists('plan_min_down_kbps', $sys) && $sys['plan_min_down_kbps'] !== '' && $sys['plan_min_down_kbps'] !== null) {
+            $settings->plano_minimo_kbps = (int) $sys['plan_min_down_kbps'];
+        }
+        if (array_key_exists('plan_min_up_kbps', $sys) && $sys['plan_min_up_kbps'] !== '' && $sys['plan_min_up_kbps'] !== null) {
+            $settings->plano_minimo_upload_kbps = (int) $sys['plan_min_up_kbps'];
+        }
+
         return $settings;
     }
 }

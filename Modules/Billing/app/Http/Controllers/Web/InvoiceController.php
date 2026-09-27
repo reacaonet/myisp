@@ -210,16 +210,27 @@ class InvoiceController extends Controller
 
             $login = $contract->provisionedLogin();
 
-            if ($contract->tipo_conexao === 'pppoe' && $login) {
-                $service->disconnectPppoeActive($login);
-            } elseif ($contract->tipo_conexao === 'hotspot' && $login) {
-                $service->disconnectHotspotActive($login);
-            }
+            $settings = \Modules\Billing\Models\BillingSetting::get();
 
-            $blockedIp = $contract->provisionedIp();
+            if ($settings->plano_minimo_habilitado && $login) {
+                $service->applyMinimumPlan(
+                    $contract->tipo_conexao === 'hotspot' ? 'hotspot' : 'pppoe',
+                    $login,
+                    (int) ($settings->plano_minimo_kbps ?: 512),
+                    (int) ($settings->plano_minimo_upload_kbps ?: 128)
+                );
+            } else {
+                if ($contract->tipo_conexao === 'pppoe' && $login) {
+                    $service->disconnectPppoeActive($login);
+                } elseif ($contract->tipo_conexao === 'hotspot' && $login) {
+                    $service->disconnectHotspotActive($login);
+                }
 
-            if ($blockedIp) {
-                $service->addFirewallAddressList('myisp-blocked', $blockedIp);
+                $blockedIp = $contract->provisionedIp();
+
+                if ($blockedIp) {
+                    $service->addFirewallAddressList('myisp-blocked', $blockedIp);
+                }
             }
 
             $service->disconnect();
@@ -228,7 +239,9 @@ class InvoiceController extends Controller
                 'status' => 'overdue',
                 'blocked_at' => now(),
                 'auto_blocked' => false,
-                'motivo' => 'Bloqueio manual pelo administrador',
+                'motivo' => $settings->plano_minimo_habilitado
+                    ? 'Bloqueio manual pelo administrador. Liberado plano minimo de navegacao.'
+                    : 'Bloqueio manual pelo administrador',
             ]);
 
             $contract->update(['status' => 'suspended']);
@@ -260,12 +273,23 @@ class InvoiceController extends Controller
 
             $mikrotikServer = $contract->provisionedMikrotikServer();
             $blockedIp = $contract->provisionedIp();
+            $login = $contract->provisionedLogin();
+            $profile = $contract->planProfileName();
 
-            if ($mikrotikServer && $blockedIp) {
+            if ($mikrotikServer) {
                 try {
                     $service = new MikrotikService();
                     $service->connect($mikrotikServer);
-                    $service->removeFirewallAddressList('myisp-blocked', $blockedIp);
+                    if ($blockedIp) {
+                        $service->removeFirewallAddressList('myisp-blocked', $blockedIp);
+                    }
+                    if ($login && $profile) {
+                        $service->restorePlanProfile(
+                            $contract->tipo_conexao === 'hotspot' ? 'hotspot' : 'pppoe',
+                            $login,
+                            $profile
+                        );
+                    }
                     $service->disconnect();
                 } catch (\Exception $e) {
                 }
@@ -349,12 +373,23 @@ class InvoiceController extends Controller
 
                 $mikrotikServer = $contract->provisionedMikrotikServer();
                 $blockedIp = $contract->provisionedIp();
+                $login = $contract->provisionedLogin();
+                $profile = $contract->planProfileName();
 
-                if ($mikrotikServer && $blockedIp) {
+                if ($mikrotikServer) {
                     try {
                         $service = new MikrotikService();
                         $service->connect($mikrotikServer);
-                        $service->removeFirewallAddressList('myisp-blocked', $blockedIp);
+                        if ($blockedIp) {
+                            $service->removeFirewallAddressList('myisp-blocked', $blockedIp);
+                        }
+                        if ($login && $profile) {
+                            $service->restorePlanProfile(
+                                $contract->tipo_conexao === 'hotspot' ? 'hotspot' : 'pppoe',
+                                $login,
+                                $profile
+                            );
+                        }
                         $service->disconnect();
                     } catch (\Exception $e) {
                     }

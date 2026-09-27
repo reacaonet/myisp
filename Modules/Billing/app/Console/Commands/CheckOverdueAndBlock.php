@@ -60,18 +60,27 @@ class CheckOverdueAndBlock extends Command
 
                 $login = $contract->provisionedLogin();
 
-                if ($login) {
-                    if ($contract->tipo_conexao === 'pppoe') {
-                        $service->disconnectPppoeActive($login);
-                    } elseif ($contract->tipo_conexao === 'hotspot') {
-                        $service->disconnectHotspotActive($login);
+                if ($settings->plano_minimo_habilitado && $login) {
+                    $service->applyMinimumPlan(
+                        $contract->tipo_conexao === 'hotspot' ? 'hotspot' : 'pppoe',
+                        $login,
+                        (int) ($settings->plano_minimo_kbps ?: 512),
+                        (int) ($settings->plano_minimo_upload_kbps ?: 128)
+                    );
+                } else {
+                    if ($login) {
+                        if ($contract->tipo_conexao === 'pppoe') {
+                            $service->disconnectPppoeActive($login);
+                        } elseif ($contract->tipo_conexao === 'hotspot') {
+                            $service->disconnectHotspotActive($login);
+                        }
                     }
-                }
 
-                $blockedIp = $contract->provisionedIp();
+                    $blockedIp = $contract->provisionedIp();
 
-                if ($blockedIp) {
-                    $service->addFirewallAddressList('myisp-blocked', $blockedIp);
+                    if ($blockedIp) {
+                        $service->addFirewallAddressList('myisp-blocked', $blockedIp);
+                    }
                 }
 
                 $service->disconnect();
@@ -80,7 +89,9 @@ class CheckOverdueAndBlock extends Command
                     'status' => 'overdue',
                     'blocked_at' => now(),
                     'auto_blocked' => true,
-                    'motivo' => "Bloqueio automatico - fatura vencida em {$invoice->due_date->format('d/m/Y')}",
+                    'motivo' => $settings->plano_minimo_habilitado
+                        ? "Bloqueio automatico - fatura vencida em {$invoice->due_date->format('d/m/Y')}. Liberado plano minimo de navegacao."
+                        : "Bloqueio automatico - fatura vencida em {$invoice->due_date->format('d/m/Y')}",
                 ]);
 
                 $contract->update(['status' => 'suspended']);

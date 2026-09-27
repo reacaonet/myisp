@@ -104,6 +104,15 @@ class Contract extends Model
         return $record?->params['mac-address'] ?? $record?->params['caller-id'] ?? null;
     }
 
+    public function planProfileName(): ?string
+    {
+        if (!$this->plan) {
+            return null;
+        }
+
+        return $this->plan->slug ? 'plano-' . $this->plan->slug : 'plano-' . $this->plan->id;
+    }
+
     public function provisionedMikrotikServer(): ?MikrotikServer
     {
         if ($this->mikrotikServer) {

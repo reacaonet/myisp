@@ -129,12 +129,23 @@ class WebhookController extends Controller
 
                 $mikrotikServer = $contract->provisionedMikrotikServer();
                 $blockedIp = $contract->provisionedIp();
+                $login = $contract->provisionedLogin();
+                $profile = $contract->planProfileName();
 
-                if ($mikrotikServer && $blockedIp) {
+                if ($mikrotikServer) {
                     try {
                         $service = new MikrotikService();
                         $service->connect($mikrotikServer);
-                        $service->removeFirewallAddressList('myisp-blocked', $blockedIp);
+                        if ($blockedIp) {
+                            $service->removeFirewallAddressList('myisp-blocked', $blockedIp);
+                        }
+                        if ($login && $profile) {
+                            $service->restorePlanProfile(
+                                $contract->tipo_conexao === 'hotspot' ? 'hotspot' : 'pppoe',
+                                $login,
+                                $profile
+                            );
+                        }
                         $service->disconnect();
                     } catch (\Exception $e) {
                     }

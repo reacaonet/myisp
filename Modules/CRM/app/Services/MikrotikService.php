@@ -743,6 +743,36 @@ class MikrotikService
         ProvisioningRecord::create(array_merge(['mikrotik_server_id' => $this->server?->id], $data));
     }
 
+    public function applyMinimumPlan(string $type, string $login, int $downloadKbps, int $uploadKbps): bool
+    {
+        $this->ensureConnected();
+
+        $profileName = 'plano-minimo-navegacao';
+
+        if ($type === 'hotspot') {
+            $this->ensureHotspotUserProfile($profileName, $downloadKbps, $uploadKbps);
+            $this->updateHotspotUser($login, null, $profileName);
+            $this->disconnectHotspotActive($login);
+        } else {
+            $this->ensurePppoeProfile($profileName, $downloadKbps, $uploadKbps);
+            $this->updatePppoeUser($login, null, $profileName);
+            $this->disconnectPppoeActive($login);
+        }
+
+        return true;
+    }
+
+    public function restorePlanProfile(string $type, string $login, string $profile): bool
+    {
+        $this->ensureConnected();
+
+        if ($type === 'hotspot') {
+            return $this->updateHotspotUser($login, null, $profile);
+        }
+
+        return $this->updatePppoeUser($login, null, $profile);
+    }
+
     public function getFirewallAddressList(string $listName): array
     {
         $this->ensureConnected();

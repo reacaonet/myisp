@@ -125,6 +125,14 @@ class PortalController extends Controller
         return view('crm::portal.contracts.show', compact('contract'));
     }
 
+    public function contractPrint($id)
+    {
+        $client = Auth::guard('client')->user();
+        $contract = $client->contracts()->with(['plan', 'server'])->findOrFail($id);
+
+        return view('crm::contracts.print', compact('contract'));
+    }
+
     public function serviceOrders()
     {
         $client = Auth::guard('client')->user()->load([

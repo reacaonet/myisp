@@ -74,10 +74,16 @@ class ContractController extends Controller
             ->with('success', 'Contrato criado com sucesso.');
     }
 
-    public function show($id)
+public function show($id)
     {
-        $contract = Contract::with(['client.addresses', 'plan', 'server', 'mikrotikServer', 'invoices.payments'])->findOrFail($id);
+        $contract = Contract::with('client', 'plan', 'invoices')->findOrFail($id);
         return view('crm::contracts.show', compact('contract'));
+    }
+
+    public function printContract($id)
+    {
+        $contract = Contract::with(['client.addresses', 'plan', 'server'])->findOrFail($id);
+        return view('crm::contracts.print', compact('contract'));
     }
 
     public function edit($id)

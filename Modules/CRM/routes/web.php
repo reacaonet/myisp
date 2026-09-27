@@ -37,6 +37,7 @@ Route::prefix('crm')->middleware('auth')->group(function () {
         ->except('show');
 
     Route::get('contracts/{contract}', [ContractController::class, 'show'])->name('crm.contracts.show');
+    Route::get('contracts/{contract}/print', [ContractController::class, 'printContract'])->name('crm.contracts.print');
 
     Route::resource('service-orders', ServiceOrderController::class)
         ->names('crm.service-orders')
@@ -92,6 +93,7 @@ Route::prefix('crm/portal')->name('crm.portal.')->group(function () {
         Route::post('faturas/{invoice}/excluir-pagamento', [PortalController::class, 'invoiceDeleteBoleto'])->name('invoices.delete-payment');
         Route::get('contratos', [PortalController::class, 'contracts'])->name('contracts');
         Route::get('contratos/{contract}', [PortalController::class, 'contractShow'])->name('contracts.show');
+        Route::get('contratos/{contract}/imprimir', [PortalController::class, 'contractPrint'])->name('contracts.print');
         Route::get('ordens-servico', [PortalController::class, 'serviceOrders'])->name('service-orders');
         Route::get('perfil', [PortalController::class, 'profile'])->name('profile');
         Route::post('perfil', [PortalController::class, 'updateProfile'])->name('profile.update');

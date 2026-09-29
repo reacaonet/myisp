@@ -4,16 +4,26 @@ namespace Modules\PortalInfra\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Modules\CRM\Models\UptimeMonitor;
-use Modules\CRM\Models\UptimeCheck;
-use Modules\Core\Models\Server;
 use Illuminate\Support\Facades\Http;
+use Modules\Core\Models\Server;
+use Modules\Core\Services\TenantContext;
+use Modules\CRM\Models\MikrotikServer;
+use Modules\CRM\Models\UptimeCheck;
+use Modules\CRM\Models\UptimeMonitor;
 
 class UptimeController extends Controller
 {
     public function index()
     {
-        $monitors = UptimeMonitor::with('server')->orderBy('name')->get();
+        $query = UptimeMonitor::with('server');
+
+        if (! TenantContext::isCrossTenant()) {
+            $query->whereIn('server_id', MikrotikServer::query()
+                ->where('company_id', TenantContext::companyId())
+                ->pluck('id'));
+        }
+
+        $monitors = $query->orderBy('name')->get();
 
         $stats = [
             'total' => $monitors->count(),
@@ -28,6 +38,7 @@ class UptimeController extends Controller
     public function create()
     {
         $servers = Server::orderBy('name')->get();
+
         return view('infra::uptime.create', compact('servers'));
     }
 
@@ -71,6 +82,7 @@ class UptimeController extends Controller
     {
         $monitor = UptimeMonitor::findOrFail($id);
         $servers = Server::orderBy('name')->get();
+
         return view('infra::uptime.edit', compact('monitor', 'servers'));
     }
 
@@ -131,11 +143,11 @@ class UptimeController extends Controller
                 $pingCmd = PHP_OS_FAMILY === 'Windows'
                     ? "ping -n 1 -w 3000 {$host}"
                     : "ping -c 1 -W 3 {$host}";
-                @exec($pingCmd . " 2>&1", $output, $returnCode);
+                @exec($pingCmd.' 2>&1', $output, $returnCode);
                 $isUp = $returnCode === 0;
             }
 
-            $responseTime = (int)((microtime(true) - $start) * 1000);
+            $responseTime = (int) ((microtime(true) - $start) * 1000);
 
             $monitor->update([
                 'is_up' => $isUp,
@@ -168,7 +180,7 @@ class UptimeController extends Controller
                 'checked_at' => now(),
             ]);
 
-            return back()->with('error', "Erro ao verificar {$monitor->name}: " . $e->getMessage());
+            return back()->with('error', "Erro ao verificar {$monitor->name}: ".$e->getMessage());
         }
     }
 
@@ -187,17 +199,22 @@ class UptimeController extends Controller
                     $isUp = $response->successful();
                 } elseif ($monitor->type === 'tcp') {
                     $fp = @fsockopen($monitor->host, $monitor->port, $errno, $errstr, 5);
-                    if ($fp) { fclose($fp); $isUp = true; } else { $error = "{$errstr} ({$errno})"; }
+                    if ($fp) {
+                        fclose($fp);
+                        $isUp = true;
+                    } else {
+                        $error = "{$errstr} ({$errno})";
+                    }
                 } elseif ($monitor->type === 'ping') {
                     $host = escapeshellarg($monitor->host);
                     $pingCmd = PHP_OS_FAMILY === 'Windows'
                         ? "ping -n 1 -w 3000 {$host}"
                         : "ping -c 1 -W 3 {$host}";
-                    exec($pingCmd . " 2>&1", $output, $returnCode);
+                    exec($pingCmd.' 2>&1', $output, $returnCode);
                     $isUp = $returnCode === 0;
                 }
 
-                $responseTime = (int)((microtime(true) - $start) * 1000);
+                $responseTime = (int) ((microtime(true) - $start) * 1000);
 
                 $monitor->update(['is_up' => $isUp, 'last_check_at' => now(), 'response_time_ms' => $responseTime, 'last_error' => $error]);
 

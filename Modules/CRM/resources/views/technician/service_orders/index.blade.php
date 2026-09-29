@@ -38,7 +38,7 @@
                 @foreach($serviceOrders as $os)
                 <tr class="hover:bg-gray-50">
                     <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ $os->codigo }}</td>
-                    <td class="px-4 py-3 text-sm text-gray-600">{{ $os->client->name }}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600">{{ $os->client?->name }}</td>
                     <td class="px-4 py-3 text-sm text-gray-600">{{ $os->servico ?? $os->tipo_servico }}</td>
                     <td class="px-4 py-3 text-sm text-gray-600">
                         {{ $os->data_agendamento?->format('d/m/Y') ?? '-' }}

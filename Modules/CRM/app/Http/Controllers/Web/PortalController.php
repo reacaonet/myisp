@@ -6,14 +6,13 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Modules\CRM\Models\Client;
-use Modules\CRM\Models\Ticket;
-use Modules\CRM\Models\TicketMessage;
-use Modules\CRM\Models\Contract;
 use Modules\Billing\Models\Invoice;
 use Modules\Billing\Models\PaymentGateway;
 use Modules\Billing\Services\PaymentService;
+use Modules\Core\Models\Company;
 use Modules\Core\Models\SystemSetting;
+use Modules\Core\Services\TenantContext;
+use Modules\CRM\Models\Ticket;
 
 class PortalController extends Controller
 {
@@ -34,6 +33,7 @@ class PortalController extends Controller
             'password' => $credentials['senha'],
         ], $request->boolean('remember'))) {
             $request->session()->regenerate();
+
             return redirect()->intended(route('crm.portal.dashboard'));
         }
 
@@ -45,6 +45,7 @@ class PortalController extends Controller
         Auth::guard('client')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
         return redirect()->route('crm.portal.login');
     }
 
@@ -53,8 +54,8 @@ class PortalController extends Controller
         $client = Auth::guard('client')->user()->load([
             'addresses',
             'contracts.plan',
-            'invoices' => fn($q) => $q->latest(),
-            'serviceOrders' => fn($q) => $q->latest(),
+            'invoices' => fn ($q) => $q->latest(),
+            'serviceOrders' => fn ($q) => $q->latest(),
         ]);
 
         $stats = [
@@ -145,6 +146,7 @@ class PortalController extends Controller
     public function profile()
     {
         $client = Auth::guard('client')->user()->load('addresses');
+
         return view('crm::portal.profile.index', compact('client'));
     }
 
@@ -173,7 +175,7 @@ class PortalController extends Controller
             'new_senha' => 'required|string|min:6|confirmed',
         ]);
 
-        if (!Hash::check($validated['current_senha'], $client->senha)) {
+        if (! Hash::check($validated['current_senha'], $client->senha)) {
             return back()->withErrors(['current_senha' => 'Senha atual incorreta.']);
         }
 
@@ -198,6 +200,7 @@ class PortalController extends Controller
     public function ticketCreate()
     {
         $client = Auth::guard('client')->user()->load('activeContracts.plan');
+
         return view('crm::portal.tickets.create', compact('client'));
     }
 
@@ -213,7 +216,7 @@ class PortalController extends Controller
         ]);
 
         $validated['client_id'] = $client->id;
-        $validated['codigo'] = 'CHM-' . str_pad(Ticket::max('id') + 1, 5, '0', STR_PAD_LEFT);
+        $validated['codigo'] = 'CHM-'.str_pad(Ticket::max('id') + 1, 5, '0', STR_PAD_LEFT);
         $validated['status'] = 'open';
         $validated['priority'] = 'low';
 
@@ -226,7 +229,7 @@ class PortalController extends Controller
         ]);
 
         return redirect()->route('crm.portal.tickets.show', $ticket)
-            ->with('success', 'Chamado aberto com sucesso. Codigo: ' . $ticket->codigo);
+            ->with('success', 'Chamado aberto com sucesso. Codigo: '.$ticket->codigo);
     }
 
     public function ticketShow($id)
@@ -271,6 +274,7 @@ class PortalController extends Controller
         }
 
         $gateways = PaymentGateway::where('status', 'active')
+            ->where('company_id', $invoice->company_id)
             ->where(function ($q) {
                 $q->where('supports_pix', true)->orWhere('supports_boleto', true);
             })
@@ -295,18 +299,18 @@ class PortalController extends Controller
             'payment_method' => 'required|in:pix,boleto',
         ]);
 
-        $gateway = PaymentGateway::findOrFail($validated['gateway_id']);
+        $gateway = PaymentGateway::where('company_id', $invoice->company_id)->findOrFail($validated['gateway_id']);
 
-        if ($validated['payment_method'] === 'pix' && !$gateway->supports_pix) {
+        if ($validated['payment_method'] === 'pix' && ! $gateway->supports_pix) {
             return back()->with('error', 'Este gateway nao suporta PIX.');
         }
 
-        if ($validated['payment_method'] === 'boleto' && !$gateway->supports_boleto) {
+        if ($validated['payment_method'] === 'boleto' && ! $gateway->supports_boleto) {
             return back()->with('error', 'Este gateway nao suporta Boleto.');
         }
 
-        $service = PaymentService::getGateway($gateway->slug);
-        if (!$service) {
+        $service = PaymentService::getGateway($gateway->slug, $invoice->company_id);
+        if (! $service) {
             return back()->with('error', 'Gateway de pagamento indisponivel.');
         }
 
@@ -318,7 +322,7 @@ class PortalController extends Controller
             $result = $service->generateBoleto($invoice);
         }
 
-        if (!isset($result['success']) || !$result['success']) {
+        if (! isset($result['success']) || ! $result['success']) {
             return back()->with('error', $result['error'] ?? 'Erro ao gerar pagamento.');
         }
 
@@ -334,12 +338,14 @@ class PortalController extends Controller
             ->where('client_id', $client->id)
             ->findOrFail($id);
 
+        $company = Company::find($invoice->company_id) ?? TenantContext::company();
+
         $bankSettings = [
             'bank' => SystemSetting::get('bank_name', 'Banco do Brasil'),
             'agency' => SystemSetting::get('bank_agency', ''),
             'account' => SystemSetting::get('bank_account', ''),
-            'company' => SystemSetting::get('company_name', 'Minha ISP'),
-            'cnpj' => SystemSetting::get('company_document', ''),
+            'company' => $company?->legalName() ?: 'Minha ISP',
+            'cnpj' => $company?->fiscal('document') ?? '',
         ];
 
         $mpAccount = null;
@@ -365,21 +371,21 @@ class PortalController extends Controller
             'gateway_id' => 'required|exists:payment_gateways,id',
         ]);
 
-        $gateway = PaymentGateway::findOrFail($validated['gateway_id']);
+        $gateway = PaymentGateway::where('company_id', $invoice->company_id)->findOrFail($validated['gateway_id']);
 
-        if (!$gateway->supports_boleto) {
+        if (! $gateway->supports_boleto) {
             return back()->with('error', 'Este gateway nao suporta boleto.');
         }
 
-        $service = PaymentService::getGateway($gateway->slug);
-        if (!$service) {
+        $service = PaymentService::getGateway($gateway->slug, $invoice->company_id);
+        if (! $service) {
             return back()->with('error', 'Gateway de pagamento indisponivel.');
         }
 
         $invoice->update(['gateway_id' => $gateway->id]);
         $result = $service->generateBoleto($invoice);
 
-        if (!isset($result['success']) || !$result['success']) {
+        if (! isset($result['success']) || ! $result['success']) {
             return back()->with('error', $result['error'] ?? 'Erro ao gerar boleto.');
         }
 
@@ -402,21 +408,21 @@ class PortalController extends Controller
             'gateway_id' => 'required|exists:payment_gateways,id',
         ]);
 
-        $gateway = PaymentGateway::findOrFail($validated['gateway_id']);
+        $gateway = PaymentGateway::where('company_id', $invoice->company_id)->findOrFail($validated['gateway_id']);
 
-        if (!$gateway->supports_pix) {
+        if (! $gateway->supports_pix) {
             return back()->with('error', 'Este gateway nao suporta PIX.');
         }
 
-        $service = PaymentService::getGateway($gateway->slug);
-        if (!$service) {
+        $service = PaymentService::getGateway($gateway->slug, $invoice->company_id);
+        if (! $service) {
             return back()->with('error', 'Gateway de pagamento indisponivel.');
         }
 
         $invoice->update(['gateway_id' => $gateway->id]);
         $result = $service->generatePix($invoice);
 
-        if (!isset($result['success']) || !$result['success']) {
+        if (! isset($result['success']) || ! $result['success']) {
             return back()->with('error', $result['error'] ?? 'Erro ao gerar PIX.');
         }
 
@@ -436,14 +442,14 @@ class PortalController extends Controller
             return back()->with('error', 'Nao e possivel cancelar uma fatura ja paga.');
         }
 
-        if (!$invoice->gateway_id || !$invoice->boleto_numero) {
+        if (! $invoice->gateway_id || ! $invoice->boleto_numero) {
             return back()->with('error', 'Nenhum pagamento ativo para cancelar.');
         }
 
         $service = PaymentService::forInvoice($invoice);
         if ($service) {
             $result = $service->cancelPayment($invoice);
-            if (!$result) {
+            if (! $result) {
                 return back()->with('error', 'Erro ao cancelar pagamento no gateway.');
             }
         }
@@ -495,9 +501,11 @@ class PortalController extends Controller
     private function fetchMpAccountInfo($gateway): ?array
     {
         $token = $gateway->config['access_token'] ?? null;
-        if (!$token) return null;
+        if (! $token) {
+            return null;
+        }
 
-        $cacheKey = 'mp_account_' . md5($token);
+        $cacheKey = 'mp_account_'.md5($token);
         if (cache()->has($cacheKey)) {
             return cache()->get($cacheKey);
         }
@@ -507,24 +515,27 @@ class PortalController extends Controller
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 10,
             CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $token],
+            CURLOPT_HTTPHEADER => ['Authorization: Bearer '.$token],
         ]);
         $response = json_decode(curl_exec($ch), true);
         curl_close($ch);
 
-        if (!isset($response['id'])) return null;
+        if (! isset($response['id'])) {
+            return null;
+        }
 
         $info = [
-            'name' => trim(($response['first_name'] ?? '') . ' ' . ($response['last_name'] ?? '')),
+            'name' => trim(($response['first_name'] ?? '').' '.($response['last_name'] ?? '')),
             'document_number' => $response['identification']['number'] ?? null,
             'document_type' => $response['identification']['type'] ?? null,
             'email' => $response['email'] ?? null,
             'phone' => $response['phone']['number'] ?? null,
-            'address' => trim(($response['address']['address'] ?? '') . ' - ' . ($response['address']['city'] ?? '') . '/' . ($response['address']['state'] ?? '')),
+            'address' => trim(($response['address']['address'] ?? '').' - '.($response['address']['city'] ?? '').'/'.($response['address']['state'] ?? '')),
             'zip_code' => $response['address']['zip_code'] ?? null,
         ];
 
         cache()->put($cacheKey, $info, 3600);
+
         return $info;
     }
 }

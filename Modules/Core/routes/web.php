@@ -2,22 +2,27 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\Core\Http\Controllers\CoreController;
+use Modules\Core\Http\Controllers\Web\BranchController;
+use Modules\Core\Http\Controllers\Web\CompanyController;
+use Modules\Core\Http\Controllers\Web\ContextController;
+use Modules\Core\Http\Controllers\Web\LandingBannerController;
+use Modules\Core\Http\Controllers\Web\SystemSettingController;
 use Modules\Core\Http\Controllers\Web\UserController;
 use Modules\Core\Http\Controllers\Web\UserGroupController;
-use Modules\Core\Http\Controllers\Web\SystemSettingController;
-use Modules\Core\Http\Controllers\Web\LandingBannerController;
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('cores', CoreController::class)->names('core');
 
-    Route::prefix('configuracoes')->name('core.settings.')->group(function () {
+    Route::post('/contexto', [ContextController::class, 'switch'])->name('core.context.switch');
+
+    Route::prefix('configuracoes')->name('core.settings.')->middleware('group.permission:settings')->group(function () {
         Route::get('/', [SystemSettingController::class, 'index'])->name('index');
         Route::get('/criar', [SystemSettingController::class, 'create'])->name('create');
         Route::post('/', [SystemSettingController::class, 'store'])->name('store');
         Route::put('/', [SystemSettingController::class, 'update'])->name('update');
     });
 
-    Route::prefix('banners')->name('core.banners.')->group(function () {
+    Route::prefix('banners')->name('core.banners.')->middleware('group.permission:settings')->group(function () {
         Route::get('/', [LandingBannerController::class, 'index'])->name('index');
         Route::get('/criar', [LandingBannerController::class, 'create'])->name('create');
         Route::post('/', [LandingBannerController::class, 'store'])->name('store');
@@ -44,6 +49,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/{id}/editar', [UserGroupController::class, 'edit'])->name('edit');
             Route::put('/{id}', [UserGroupController::class, 'update'])->name('update');
             Route::delete('/{id}', [UserGroupController::class, 'destroy'])->name('destroy');
+        });
+
+        Route::prefix('companias')->name('core.companies.')->group(function () {
+            Route::get('/', [CompanyController::class, 'index'])->name('index');
+            Route::get('/criar', [CompanyController::class, 'create'])->name('create');
+            Route::post('/', [CompanyController::class, 'store'])->name('store');
+            Route::get('/{id}/editar', [CompanyController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [CompanyController::class, 'update'])->name('update');
+            Route::delete('/{id}', [CompanyController::class, 'destroy'])->name('destroy');
+            Route::get('/{company}/convidar-admin', [CompanyController::class, 'inviteAdminForm'])->name('admin.form');
+            Route::post('/{company}/convidar-admin', [CompanyController::class, 'inviteAdmin'])->name('admin.store');
+        });
+
+        Route::prefix('filiais')->name('core.branches.')->group(function () {
+            Route::get('/', [BranchController::class, 'index'])->name('index');
+            Route::get('/criar', [BranchController::class, 'create'])->name('create');
+            Route::post('/', [BranchController::class, 'store'])->name('store');
+            Route::get('/{id}/editar', [BranchController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [BranchController::class, 'update'])->name('update');
+            Route::delete('/{id}', [BranchController::class, 'destroy'])->name('destroy');
         });
     });
 });

@@ -5,14 +5,19 @@ namespace Modules\CRM\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Modules\CRM\Models\Plan;
 use Modules\Core\Models\Server;
+use Modules\Core\Services\TenantContext;
+use Modules\CRM\Models\Plan;
 
 class PlanController extends Controller
 {
     public function index(Request $request)
     {
         $query = Plan::query();
+
+        if (! TenantContext::isCrossTenant()) {
+            $query->forCompany(TenantContext::companyId());
+        }
 
         if ($search = $request->get('search')) {
             $query->where('name', 'like', "%{$search}%");
@@ -26,6 +31,7 @@ class PlanController extends Controller
     public function create()
     {
         $servers = Server::where('is_active', true)->orderBy('name')->get();
+
         return view('crm::plans.create', compact('servers'));
     }
 
@@ -34,6 +40,7 @@ class PlanController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'segment' => 'nullable|in:residencial,empresarial',
             'download_speed' => 'required|integer',
             'upload_speed' => 'required|integer',
             'price' => 'required|numeric',
@@ -67,6 +74,7 @@ class PlanController extends Controller
     {
         $plan = Plan::findOrFail($id);
         $servers = Server::where('is_active', true)->orderBy('name')->get();
+
         return view('crm::plans.edit', compact('plan', 'servers'));
     }
 
@@ -77,6 +85,7 @@ class PlanController extends Controller
         $validated = $request->validate([
             'name' => 'string|max:255',
             'description' => 'nullable|string',
+            'segment' => 'nullable|in:residencial,empresarial',
             'download_speed' => 'integer',
             'upload_speed' => 'integer',
             'price' => 'numeric',

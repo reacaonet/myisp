@@ -4,10 +4,14 @@ namespace Modules\Billing\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Modules\Core\Models\Concerns\BelongsToTenant;
 
 class CashBookEntry extends Model
 {
+    use BelongsToTenant;
+
     protected $fillable = [
+        'company_id', 'branch_id',
         'type', 'amount', 'description', 'category',
         'entry_date', 'reference', 'payment_method',
         'notes', 'invoice_id',

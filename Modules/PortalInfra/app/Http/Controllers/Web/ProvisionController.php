@@ -4,9 +4,10 @@ namespace Modules\PortalInfra\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Modules\CRM\Models\MikrotikServer;
+use Modules\Core\Services\TenantContext;
 use Modules\CRM\Models\Client;
 use Modules\CRM\Models\Contract;
+use Modules\CRM\Models\MikrotikServer;
 use Modules\CRM\Models\ProvisioningRecord;
 use Modules\CRM\Services\MikrotikService;
 
@@ -15,6 +16,12 @@ class ProvisionController extends Controller
     public function index(Request $request)
     {
         $query = ProvisioningRecord::with(['mikrotikServer', 'client']);
+
+        $servers = MikrotikServer::query();
+
+        if (! TenantContext::isCrossTenant()) {
+            $query->whereIn('mikrotik_server_id', (clone $servers)->where('company_id', TenantContext::companyId())->pluck('id'));
+        }
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -30,7 +37,7 @@ class ProvisionController extends Controller
         }
 
         $records = $query->latest()->paginate(20);
-        $servers = MikrotikServer::where('is_active', true)->orderBy('name')->get();
+        $servers = $servers->where('is_active', true)->orderBy('name')->get();
 
         return view('infra::provisioning.index', compact('records', 'servers'));
     }
@@ -57,12 +64,12 @@ class ProvisionController extends Controller
         ]);
 
         $server = MikrotikServer::findOrFail($validated['mikrotik_server_id']);
-        $service = new MikrotikService();
+        $service = new MikrotikService;
 
         $plan = null;
         $contract = null;
 
-        if (!empty($validated['client_id'])) {
+        if (! empty($validated['client_id'])) {
             $contract = Contract::with('plan')
                 ->where('client_id', $validated['client_id'])
                 ->where('status', 'active')
@@ -83,7 +90,7 @@ class ProvisionController extends Controller
                 if ($validated['type'] === 'pppoe') {
                     $pppoe = $service->resolvePppoePool();
                     $profile = $service->ensurePppoeProfile(
-                        $plan->slug ? 'plano-' . $plan->slug : 'plano-' . $plan->id,
+                        $plan->slug ? 'plano-'.$plan->slug : 'plano-'.$plan->id,
                         (int) $plan->download_speed,
                         (int) $plan->upload_speed,
                         $pppoe['pool'],
@@ -91,14 +98,14 @@ class ProvisionController extends Controller
                     );
                 } else {
                     $profile = $service->ensureHotspotUserProfile(
-                        $plan->slug ? 'plano-' . $plan->slug : 'plano-' . $plan->id,
+                        $plan->slug ? 'plano-'.$plan->slug : 'plano-'.$plan->id,
                         (int) $plan->download_speed,
                         (int) $plan->upload_speed
                     );
                 }
 
-                $planInfo = "{$plan->name} (" . round($plan->download_speed / 1000) . "M/" . round($plan->upload_speed / 1000) . "M)";
-            } elseif (!$profile) {
+                $planInfo = "{$plan->name} (".round($plan->download_speed / 1000).'M/'.round($plan->upload_speed / 1000).'M)';
+            } elseif (! $profile) {
                 $profiles = $validated['type'] === 'pppoe'
                     ? $service->getPppoeProfiles()
                     : $service->getHotspotUserProfiles();
@@ -177,7 +184,7 @@ class ProvisionController extends Controller
             }
 
             return back()->withInput()
-                ->with('error', "Erro ao provisionar: " . $e->getMessage());
+                ->with('error', 'Erro ao provisionar: '.$e->getMessage());
         }
     }
 
@@ -205,12 +212,12 @@ class ProvisionController extends Controller
         ]);
 
         $server = MikrotikServer::findOrFail($validated['mikrotik_server_id']);
-        $service = new MikrotikService();
+        $service = new MikrotikService;
 
         $plan = null;
         $contract = null;
 
-        if (!empty($validated['client_id'])) {
+        if (! empty($validated['client_id'])) {
             $contract = Contract::with('plan')
                 ->where('client_id', $validated['client_id'])
                 ->where('status', 'active')
@@ -229,7 +236,7 @@ class ProvisionController extends Controller
                 if ($validated['type'] === 'pppoe') {
                     $pppoe = $service->resolvePppoePool();
                     $profile = $service->ensurePppoeProfile(
-                        $plan->slug ? 'plano-' . $plan->slug : 'plano-' . $plan->id,
+                        $plan->slug ? 'plano-'.$plan->slug : 'plano-'.$plan->id,
                         (int) $plan->download_speed,
                         (int) $plan->upload_speed,
                         $pppoe['pool'],
@@ -237,7 +244,7 @@ class ProvisionController extends Controller
                     );
                 } else {
                     $profile = $service->ensureHotspotUserProfile(
-                        $plan->slug ? 'plano-' . $plan->slug : 'plano-' . $plan->id,
+                        $plan->slug ? 'plano-'.$plan->slug : 'plano-'.$plan->id,
                         (int) $plan->download_speed,
                         (int) $plan->upload_speed
                     );
@@ -268,7 +275,7 @@ class ProvisionController extends Controller
 
             $service->disconnect();
 
-            if (!$updated) {
+            if (! $updated) {
                 return back()->withInput()->with('error', "Usuario {$record->login} nao encontrado no {$server->name}.");
             }
 
@@ -298,7 +305,7 @@ class ProvisionController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
-            return back()->withInput()->with('error', "Erro ao atualizar: " . $e->getMessage());
+            return back()->withInput()->with('error', 'Erro ao atualizar: '.$e->getMessage());
         }
     }
 
@@ -319,7 +326,7 @@ class ProvisionController extends Controller
             ->latest()
             ->first();
 
-        if (!$contract || !$contract->plan) {
+        if (! $contract || ! $contract->plan) {
             return response()->json(['plan' => null, 'contract' => null]);
         }
 
@@ -333,11 +340,11 @@ class ProvisionController extends Controller
     {
         $record = ProvisioningRecord::findOrFail($id);
 
-        if (!$record->mikrotikServer) {
+        if (! $record->mikrotikServer) {
             return back()->with('error', 'Servidor MikroTik nao encontrado.');
         }
 
-        $service = new MikrotikService();
+        $service = new MikrotikService;
 
         try {
             $service->connect($record->mikrotikServer);
@@ -359,7 +366,8 @@ class ProvisionController extends Controller
 
         } catch (\Exception $e) {
             $service->disconnect();
-            return back()->with('error', "Erro ao remover: " . $e->getMessage());
+
+            return back()->with('error', 'Erro ao remover: '.$e->getMessage());
         }
     }
 
@@ -367,11 +375,11 @@ class ProvisionController extends Controller
     {
         $record = ProvisioningRecord::findOrFail($id);
 
-        if (!$record->mikrotikServer) {
+        if (! $record->mikrotikServer) {
             return back()->with('error', 'Servidor MikroTik nao encontrado.');
         }
 
-        $service = new MikrotikService();
+        $service = new MikrotikService;
 
         try {
             $service->connect($record->mikrotikServer);
@@ -388,14 +396,15 @@ class ProvisionController extends Controller
 
         } catch (\Exception $e) {
             $service->disconnect();
-            return back()->with('error', "Erro ao desconectar: " . $e->getMessage());
+
+            return back()->with('error', 'Erro ao desconectar: '.$e->getMessage());
         }
     }
 
     public function profiles($serverId)
     {
         $server = MikrotikServer::findOrFail($serverId);
-        $service = new MikrotikService();
+        $service = new MikrotikService;
 
         try {
             $service->connect($server);
@@ -412,6 +421,7 @@ class ProvisionController extends Controller
 
         } catch (\Exception $e) {
             $service->disconnect();
+
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -419,7 +429,7 @@ class ProvisionController extends Controller
     public function activeUsers($serverId)
     {
         $server = MikrotikServer::findOrFail($serverId);
-        $service = new MikrotikService();
+        $service = new MikrotikService;
 
         try {
             $service->connect($server);
@@ -430,6 +440,7 @@ class ProvisionController extends Controller
 
         } catch (\Exception $e) {
             $service->disconnect();
+
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }

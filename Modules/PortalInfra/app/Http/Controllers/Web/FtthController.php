@@ -4,40 +4,69 @@ namespace Modules\PortalInfra\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Modules\PortalInfra\Models\Cto;
+use Modules\Core\Services\TenantContext;
 use Modules\PortalInfra\Models\CaixaEmenda;
-use Modules\PortalInfra\Models\FtthProject;
+use Modules\PortalInfra\Models\Cto;
 use Modules\PortalInfra\Models\FtthFusion;
+use Modules\PortalInfra\Models\FtthProject;
 use Modules\PortalInfra\Services\KmlNetworkGenerator;
 
 class FtthController extends Controller
 {
     public function dashboard()
     {
+        $ctos = fn () => $this->applyProjectScope(Cto::query());
+        $caixas = fn () => $this->applyProjectScope(CaixaEmenda::query());
+
         $stats = [
-            'total_ctos' => Cto::count(),
-            'active_ctos' => Cto::where('status', 'active')->count(),
-            'total_caixas' => CaixaEmenda::count(),
-            'active_caixas' => CaixaEmenda::where('status', 'active')->count(),
-            'total_capacity' => Cto::sum('capacity'),
-            'total_used' => Cto::sum('used_ports'),
+            'total_ctos' => $ctos()->count(),
+            'active_ctos' => $ctos()->where('status', 'active')->count(),
+            'total_caixas' => $caixas()->count(),
+            'active_caixas' => $caixas()->where('status', 'active')->count(),
+            'total_capacity' => $ctos()->sum('capacity'),
+            'total_used' => $ctos()->sum('used_ports'),
         ];
 
-        $recentCtos = Cto::with('caixaEmenda')->latest()->take(10)->get();
-        $recentCaixas = CaixaEmenda::withCount('ctos')->latest()->take(10)->get();
+        $recentCtos = $ctos()->with('caixaEmenda')->latest()->take(10)->get();
+        $recentCaixas = $caixas()->withCount('ctos')->latest()->take(10)->get();
 
         return view('infra::dashboard', compact('stats', 'recentCtos', 'recentCaixas'));
     }
 
+    protected function applyProjectScope($query)
+    {
+        if (TenantContext::isCrossTenant()) {
+            return $query;
+        }
+
+        $projectIds = FtthProject::query()
+            ->where('company_id', TenantContext::companyId())
+            ->when(TenantContext::branchId(), fn ($query) => $query->where('branch_id', TenantContext::branchId()))
+            ->pluck('id');
+
+        return $query->whereIn('ftth_project_id', $projectIds);
+    }
+
+    protected function projectQuery()
+    {
+        $query = FtthProject::query();
+
+        if (! TenantContext::isCrossTenant()) {
+            $query->where('company_id', TenantContext::companyId());
+        }
+
+        return $query;
+    }
+
     public function indexCtos(Request $request)
     {
-        $query = Cto::with('caixaEmenda');
+        $query = $this->applyProjectScope(Cto::query())->with('caixaEmenda');
 
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('code', 'like', "%{$search}%")
-                  ->orWhere('street', 'like', "%{$search}%");
+                    ->orWhere('code', 'like', "%{$search}%")
+                    ->orWhere('street', 'like', "%{$search}%");
             });
         }
 
@@ -54,8 +83,8 @@ class FtthController extends Controller
         }
 
         $ctos = $query->orderBy('code')->paginate(20);
-        $cities = Cto::whereNotNull('city')->distinct()->pluck('city')->sort()->values();
-        $projects = FtthProject::orderBy('name')->get();
+        $cities = $this->applyProjectScope(Cto::query())->whereNotNull('city')->distinct()->pluck('city')->sort()->values();
+        $projects = $this->projectQuery()->orderBy('name')->get();
 
         return view('infra::ctos.index', compact('ctos', 'cities', 'projects'));
     }
@@ -63,6 +92,7 @@ class FtthController extends Controller
     public function createCto()
     {
         $caixas = CaixaEmenda::where('status', 'active')->orderBy('code')->get();
+
         return view('infra::ctos.create', compact('caixas'));
     }
 
@@ -98,6 +128,7 @@ class FtthController extends Controller
     public function showCto($id)
     {
         $cto = Cto::with(['caixaEmenda', 'fusions' => fn ($q) => $q->orderBy('fiber_number')])->findOrFail($id);
+
         return view('infra::ctos.show', compact('cto'));
     }
 
@@ -105,6 +136,7 @@ class FtthController extends Controller
     {
         $cto = Cto::findOrFail($id);
         $caixas = CaixaEmenda::where('status', 'active')->orderBy('code')->get();
+
         return view('infra::ctos.edit', compact('cto', 'caixas'));
     }
 
@@ -150,13 +182,13 @@ class FtthController extends Controller
 
     public function indexCaixas(Request $request)
     {
-        $query = CaixaEmenda::withCount('ctos');
+        $query = $this->applyProjectScope(CaixaEmenda::query())->withCount('ctos');
 
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('code', 'like', "%{$search}%")
-                  ->orWhere('street', 'like', "%{$search}%");
+                    ->orWhere('code', 'like', "%{$search}%")
+                    ->orWhere('street', 'like', "%{$search}%");
             });
         }
 
@@ -173,8 +205,8 @@ class FtthController extends Controller
         }
 
         $caixas = $query->orderBy('code')->paginate(20);
-        $cities = CaixaEmenda::whereNotNull('city')->distinct()->pluck('city')->sort()->values();
-        $projects = FtthProject::orderBy('name')->get();
+        $cities = $this->applyProjectScope(CaixaEmenda::query())->whereNotNull('city')->distinct()->pluck('city')->sort()->values();
+        $projects = $this->projectQuery()->orderBy('name')->get();
 
         return view('infra::caixas.index', compact('caixas', 'cities', 'projects'));
     }
@@ -214,12 +246,14 @@ class FtthController extends Controller
     public function showCaixa($id)
     {
         $caixa = CaixaEmenda::with(['ctos', 'fusions' => fn ($q) => $q->orderBy('fiber_number')])->withCount('ctos')->findOrFail($id);
+
         return view('infra::caixas.show', compact('caixa'));
     }
 
     public function editCaixa($id)
     {
         $caixa = CaixaEmenda::findOrFail($id);
+
         return view('infra::caixas.edit', compact('caixa'));
     }
 
@@ -327,7 +361,7 @@ class FtthController extends Controller
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('city', 'like', "%{$search}%");
+                    ->orWhere('city', 'like', "%{$search}%");
             });
         }
 
@@ -370,6 +404,7 @@ class FtthController extends Controller
     public function editProject($id)
     {
         $project = FtthProject::findOrFail($id);
+
         return view('infra::projects.edit', compact('project'));
     }
 
@@ -413,7 +448,7 @@ class FtthController extends Controller
         $count = $ctoIds->count() + $caixaIds->count();
 
         return redirect()->route('infra.ftth.projects.index')
-            ->with('success', "Projeto removido com sucesso." . ($count > 0 ? " {$count} CTO(s)/Caixa(s) excluida(s)." : ''));
+            ->with('success', 'Projeto removido com sucesso.'.($count > 0 ? " {$count} CTO(s)/Caixa(s) excluida(s)." : ''));
     }
 
     public function bulkDestroyCtos(Request $request)
@@ -427,7 +462,7 @@ class FtthController extends Controller
         Cto::whereIn('id', $ids)->delete();
 
         return redirect()->route('infra.ftth.ctos.index')
-            ->with('success', count($ids) . ' CTO(s) excluida(s) com sucesso.');
+            ->with('success', count($ids).' CTO(s) excluida(s) com sucesso.');
     }
 
     public function bulkDestroyCaixas(Request $request)
@@ -441,7 +476,7 @@ class FtthController extends Controller
         CaixaEmenda::whereIn('id', $ids)->delete();
 
         return redirect()->route('infra.ftth.caixas.index')
-            ->with('success', count($ids) . ' caixa(s) excluida(s) com sucesso.');
+            ->with('success', count($ids).' caixa(s) excluida(s) com sucesso.');
     }
 
     public function generateNetwork()
@@ -462,12 +497,14 @@ class FtthController extends Controller
     public function exportKml()
     {
         $cities = Cto::whereNotNull('city')->distinct()->pluck('city')->sort()->values();
+
         return view('infra::export-kml', compact('cities'));
     }
 
     public function map()
     {
         $cities = Cto::whereNotNull('city')->distinct()->pluck('city')->sort()->values();
+
         return view('infra::map', compact('cities'));
     }
 
@@ -481,7 +518,7 @@ class FtthController extends Controller
             $queryCaixa->where('city', $city);
         }
 
-        $ctos = $queryCto->orderBy('code')->get()->map(fn($c) => [
+        $ctos = $queryCto->orderBy('code')->get()->map(fn ($c) => [
             'type' => 'cto',
             'id' => $c->id,
             'code' => $c->code,
@@ -496,7 +533,7 @@ class FtthController extends Controller
             'caixa_id' => $c->caixa_emenda_id,
         ]);
 
-        $caixas = $queryCaixa->orderBy('code')->get()->map(fn($c) => [
+        $caixas = $queryCaixa->orderBy('code')->get()->map(fn ($c) => [
             'type' => 'caixa',
             'id' => $c->id,
             'code' => $c->code,
@@ -524,11 +561,11 @@ class FtthController extends Controller
 
         $xml = $this->buildKml($city, $ctos, $caixas);
 
-        $filename = 'FTTH_' . preg_replace('/[^a-zA-Z0-9]/', '_', $city) . '_' . date('Ymd_His') . '.kml';
+        $filename = 'FTTH_'.preg_replace('/[^a-zA-Z0-9]/', '_', $city).'_'.date('Ymd_His').'.kml';
 
         return response($xml, 200)
             ->header('Content-Type', 'application/vnd.google-earth.kml+xml')
-            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+            ->header('Content-Disposition', 'attachment; filename="'.$filename.'"');
     }
 
     public function exportCsvCtos(Request $request)
@@ -545,7 +582,7 @@ class FtthController extends Controller
             $query->where('status', $status);
         }
 
-        $filename = 'CTOs_' . date('Ymd_His') . '.csv';
+        $filename = 'CTOs_'.date('Ymd_His').'.csv';
 
         return response()->streamDownload(function () use ($query) {
             $out = fopen('php://output', 'w');
@@ -592,7 +629,7 @@ class FtthController extends Controller
             $query->where('status', $status);
         }
 
-        $filename = 'Caixas_' . date('Ymd_His') . '.csv';
+        $filename = 'Caixas_'.date('Ymd_His').'.csv';
 
         return response()->streamDownload(function () use ($query) {
             $out = fopen('php://output', 'w');
@@ -626,74 +663,74 @@ class FtthController extends Controller
 
     private function buildKml(string $city, $ctos, $caixas): string
     {
-        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
-        $xml .= '<kml xmlns="http://www.opengis.net/kml/2.2">' . "\n";
-        $xml .= '<Document>' . "\n";
-        $xml .= '  <name>FTTH - ' . htmlspecialchars($city) . '</name>' . "\n";
-        $xml .= '  <description>Rede FTTH gerada automaticamente para ' . htmlspecialchars($city) . '</description>' . "\n";
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>'."\n";
+        $xml .= '<kml xmlns="http://www.opengis.net/kml/2.2">'."\n";
+        $xml .= '<Document>'."\n";
+        $xml .= '  <name>FTTH - '.htmlspecialchars($city).'</name>'."\n";
+        $xml .= '  <description>Rede FTTH gerada automaticamente para '.htmlspecialchars($city).'</description>'."\n";
 
-        $xml .= '  <Style id="cto-style">' . "\n";
-        $xml .= '    <IconStyle>' . "\n";
-        $xml .= '      <color>ff0000ff</color>' . "\n";
-        $xml .= '      <scale>0.8</scale>' . "\n";
-        $xml .= '      <Icon><href>http://maps.google.com/mapfiles/kml/shapes/target.png</href></Icon>' . "\n";
-        $xml .= '    </IconStyle>' . "\n";
-        $xml .= '    <LabelStyle><scale>0.7</scale></LabelStyle>' . "\n";
-        $xml .= '  </Style>' . "\n";
+        $xml .= '  <Style id="cto-style">'."\n";
+        $xml .= '    <IconStyle>'."\n";
+        $xml .= '      <color>ff0000ff</color>'."\n";
+        $xml .= '      <scale>0.8</scale>'."\n";
+        $xml .= '      <Icon><href>http://maps.google.com/mapfiles/kml/shapes/target.png</href></Icon>'."\n";
+        $xml .= '    </IconStyle>'."\n";
+        $xml .= '    <LabelStyle><scale>0.7</scale></LabelStyle>'."\n";
+        $xml .= '  </Style>'."\n";
 
-        $xml .= '  <Style id="caixa-style">' . "\n";
-        $xml .= '    <IconStyle>' . "\n";
-        $xml .= '      <color>ff00ff00</color>' . "\n";
-        $xml .= '      <scale>1.0</scale>' . "\n";
-        $xml .= '      <Icon><href>http://maps.google.com/mapfiles/kml/shapes/square.png</href></Icon>' . "\n";
-        $xml .= '    </IconStyle>' . "\n";
-        $xml .= '    <LabelStyle><scale>0.8</scale></LabelStyle>' . "\n";
-        $xml .= '  </Style>' . "\n";
+        $xml .= '  <Style id="caixa-style">'."\n";
+        $xml .= '    <IconStyle>'."\n";
+        $xml .= '      <color>ff00ff00</color>'."\n";
+        $xml .= '      <scale>1.0</scale>'."\n";
+        $xml .= '      <Icon><href>http://maps.google.com/mapfiles/kml/shapes/square.png</href></Icon>'."\n";
+        $xml .= '    </IconStyle>'."\n";
+        $xml .= '    <LabelStyle><scale>0.8</scale></LabelStyle>'."\n";
+        $xml .= '  </Style>'."\n";
 
-        $xml .= '  <Folder>' . "\n";
-        $xml .= '    <name>Caixas de Emenda (' . $caixas->count() . ')</name>' . "\n";
+        $xml .= '  <Folder>'."\n";
+        $xml .= '    <name>Caixas de Emenda ('.$caixas->count().')</name>'."\n";
         foreach ($caixas as $caixa) {
-            $xml .= '    <Placemark>' . "\n";
-            $xml .= '      <name>' . htmlspecialchars($caixa->code) . ' - ' . htmlspecialchars($caixa->street ?? '') . '</name>' . "\n";
-            $xml .= '      <styleUrl>#caixa-style</styleUrl>' . "\n";
+            $xml .= '    <Placemark>'."\n";
+            $xml .= '      <name>'.htmlspecialchars($caixa->code).' - '.htmlspecialchars($caixa->street ?? '').'</name>'."\n";
+            $xml .= '      <styleUrl>#caixa-style</styleUrl>'."\n";
             $xml .= '      <description><![CDATA[';
-            $xml .= '<b>Codigo:</b> ' . htmlspecialchars($caixa->code) . '<br/>';
-            $xml .= '<b>Nome:</b> ' . htmlspecialchars($caixa->name) . '<br/>';
-            $xml .= '<b>Rua:</b> ' . htmlspecialchars($caixa->street ?? '-') . '<br/>';
-            $xml .= '<b>Cidade:</b> ' . htmlspecialchars($caixa->city ?? '-') . '<br/>';
-            $xml .= '<b>Capacidade:</b> ' . $caixa->capacity . '<br/>';
-            $xml .= '<b>Portas usadas:</b> ' . $caixa->used_ports . '<br/>';
-            $xml .= '<b>CTOs:</b> ' . $caixa->ctos_count . '<br/>';
-            $xml .= ']]></description>' . "\n";
-            $xml .= '      <Point><coordinates>' . $caixa->longitude . ',' . $caixa->latitude . ',0</coordinates></Point>' . "\n";
-            $xml .= '    </Placemark>' . "\n";
+            $xml .= '<b>Codigo:</b> '.htmlspecialchars($caixa->code).'<br/>';
+            $xml .= '<b>Nome:</b> '.htmlspecialchars($caixa->name).'<br/>';
+            $xml .= '<b>Rua:</b> '.htmlspecialchars($caixa->street ?? '-').'<br/>';
+            $xml .= '<b>Cidade:</b> '.htmlspecialchars($caixa->city ?? '-').'<br/>';
+            $xml .= '<b>Capacidade:</b> '.$caixa->capacity.'<br/>';
+            $xml .= '<b>Portas usadas:</b> '.$caixa->used_ports.'<br/>';
+            $xml .= '<b>CTOs:</b> '.$caixa->ctos_count.'<br/>';
+            $xml .= ']]></description>'."\n";
+            $xml .= '      <Point><coordinates>'.$caixa->longitude.','.$caixa->latitude.',0</coordinates></Point>'."\n";
+            $xml .= '    </Placemark>'."\n";
         }
-        $xml .= '  </Folder>' . "\n";
+        $xml .= '  </Folder>'."\n";
 
-        $xml .= '  <Folder>' . "\n";
-        $xml .= '    <name>CTOs (' . $ctos->count() . ')</name>' . "\n";
+        $xml .= '  <Folder>'."\n";
+        $xml .= '    <name>CTOs ('.$ctos->count().')</name>'."\n";
         foreach ($ctos as $cto) {
-            $xml .= '    <Placemark>' . "\n";
-            $xml .= '      <name>' . htmlspecialchars($cto->code) . ' - ' . htmlspecialchars($cto->street ?? '') . '</name>' . "\n";
-            $xml .= '      <styleUrl>#cto-style</styleUrl>' . "\n";
+            $xml .= '    <Placemark>'."\n";
+            $xml .= '      <name>'.htmlspecialchars($cto->code).' - '.htmlspecialchars($cto->street ?? '').'</name>'."\n";
+            $xml .= '      <styleUrl>#cto-style</styleUrl>'."\n";
             $xml .= '      <description><![CDATA[';
-            $xml .= '<b>Codigo:</b> ' . htmlspecialchars($cto->code) . '<br/>';
-            $xml .= '<b>Nome:</b> ' . htmlspecialchars($cto->name) . '<br/>';
-            $xml .= '<b>Rua:</b> ' . htmlspecialchars($cto->street ?? '-') . '<br/>';
-            $xml .= '<b>Cidade:</b> ' . htmlspecialchars($cto->city ?? '-') . '<br/>';
-            $xml .= '<b>Capacidade:</b> ' . $cto->capacity . '<br/>';
-            $xml .= '<b>Portas usadas:</b> ' . $cto->used_ports . '<br/>';
+            $xml .= '<b>Codigo:</b> '.htmlspecialchars($cto->code).'<br/>';
+            $xml .= '<b>Nome:</b> '.htmlspecialchars($cto->name).'<br/>';
+            $xml .= '<b>Rua:</b> '.htmlspecialchars($cto->street ?? '-').'<br/>';
+            $xml .= '<b>Cidade:</b> '.htmlspecialchars($cto->city ?? '-').'<br/>';
+            $xml .= '<b>Capacidade:</b> '.$cto->capacity.'<br/>';
+            $xml .= '<b>Portas usadas:</b> '.$cto->used_ports.'<br/>';
             if ($cto->caixaEmenda) {
-                $xml .= '<b>Caixa:</b> ' . htmlspecialchars($cto->caixaEmenda->code) . '<br/>';
+                $xml .= '<b>Caixa:</b> '.htmlspecialchars($cto->caixaEmenda->code).'<br/>';
             }
-            $xml .= '<b>Distancia:</b> ' . number_format($cto->distance_from_start ?? 0, 0) . 'm do inicio<br/>';
-            $xml .= ']]></description>' . "\n";
-            $xml .= '      <Point><coordinates>' . $cto->longitude . ',' . $cto->latitude . ',0</coordinates></Point>' . "\n";
-            $xml .= '    </Placemark>' . "\n";
+            $xml .= '<b>Distancia:</b> '.number_format($cto->distance_from_start ?? 0, 0).'m do inicio<br/>';
+            $xml .= ']]></description>'."\n";
+            $xml .= '      <Point><coordinates>'.$cto->longitude.','.$cto->latitude.',0</coordinates></Point>'."\n";
+            $xml .= '    </Placemark>'."\n";
         }
-        $xml .= '  </Folder>' . "\n";
+        $xml .= '  </Folder>'."\n";
 
-        $xml .= '</Document>' . "\n";
+        $xml .= '</Document>'."\n";
         $xml .= '</kml>';
 
         return $xml;
@@ -706,7 +743,7 @@ class FtthController extends Controller
         $hasBounds = $request->filled('south') && $request->filled('west') && $request->filled('north') && $request->filled('east');
         $hasMultipleCities = $request->has('city_name') && is_array($request->input('city_name'));
 
-        if (!$hasBounds && !$request->filled('city_name')) {
+        if (! $hasBounds && ! $request->filled('city_name')) {
             return back()->withErrors(['city_name' => 'Informe o nome da cidade ou as coordenadas de limite.']);
         }
 
@@ -720,7 +757,7 @@ class FtthController extends Controller
         }
 
         try {
-            $generator = new KmlNetworkGenerator();
+            $generator = new KmlNetworkGenerator;
 
             if ($hasBounds) {
                 $streets = $generator->fetchStreetsByBounds(
@@ -754,9 +791,9 @@ class FtthController extends Controller
 
             $cityLabel = $hasBounds
                 ? 'Regiao delimitada'
-                : $request->input('city_name') . ($state ? '/' . $state : '');
+                : $request->input('city_name').($state ? '/'.$state : '');
 
-            if (!$hasBounds) {
+            if (! $hasBounds) {
                 $project = $this->attachProject($cityName, $state, $prefix, $result, false);
 
                 return view('infra::generate-result', [
@@ -771,7 +808,7 @@ class FtthController extends Controller
                 'street_name' => $cityLabel,
             ]);
         } catch (\RuntimeException $e) {
-            return back()->withErrors(['city_name' => 'Erro ao consultar Overpass API: ' . $e->getMessage()]);
+            return back()->withErrors(['city_name' => 'Erro ao consultar Overpass API: '.$e->getMessage()]);
         }
     }
 
@@ -787,11 +824,12 @@ class FtthController extends Controller
 
         foreach ($cities as $city) {
             try {
-                $generator = new KmlNetworkGenerator();
+                $generator = new KmlNetworkGenerator;
                 $streets = $generator->fetchStreetsFromOverpass($city, $state);
 
                 if (empty($streets)) {
                     $errors[] = "{$city}: Nenhuma rua encontrada";
+
                     continue;
                 }
 
@@ -810,11 +848,11 @@ class FtthController extends Controller
                 $totalStreets += $result['stats']['total_streets'] ?? 0;
                 $totalDistance += $result['stats']['total_distance_km'];
             } catch (\RuntimeException $e) {
-                $errors[] = "{$city}: " . $e->getMessage();
+                $errors[] = "{$city}: ".$e->getMessage();
             }
         }
 
-        if (empty($allResults) && !empty($errors)) {
+        if (empty($allResults) && ! empty($errors)) {
             return back()->withErrors(['city_name' => implode("\n", $errors)]);
         }
 
@@ -834,7 +872,7 @@ class FtthController extends Controller
     private function attachProject(string $city, string $state, string $prefix, array $result, bool $hasBounds): FtthProject
     {
         $project = FtthProject::create([
-            'name' => 'Projeto ' . $city,
+            'name' => 'Projeto '.$city,
             'city' => $city,
             'state' => $state,
             'prefix' => $prefix,
@@ -847,12 +885,12 @@ class FtthController extends Controller
         ]);
 
         $ctoIds = collect($result['ctos'] ?? [])->pluck('id')->filter()->all();
-        if (!empty($ctoIds)) {
+        if (! empty($ctoIds)) {
             Cto::whereIn('id', $ctoIds)->update(['ftth_project_id' => $project->id]);
         }
 
         $caixaIds = collect($result['caixas'] ?? [])->pluck('id')->filter()->all();
-        if (!empty($caixaIds)) {
+        if (! empty($caixaIds)) {
             CaixaEmenda::whereIn('id', $caixaIds)->update(['ftth_project_id' => $project->id]);
         }
 
@@ -888,7 +926,7 @@ class FtthController extends Controller
             return back()->withErrors(['coordinates' => 'Insira pelo menos 2 coordenadas validas (lat, lng por linha).']);
         }
 
-        $generator = new KmlNetworkGenerator();
+        $generator = new KmlNetworkGenerator;
         $result = $generator->generateFromCoordinates(
             $coordinates,
             $request->input('street_name'),

@@ -55,7 +55,7 @@
                             </dl>
 
                             <h3 class="text-sm font-semibold text-gray-500 uppercase mb-3 mt-6">Endereco</h3>
-                            @php $addr = $client->addresses->first(); @endphp
+                            @php $addr = $client->addresses?->first(); @endphp
                             @if($addr)
                             <dl class="space-y-2 text-sm">
                                 <div class="flex justify-between"><dt class="text-gray-500">Logradouro</dt><dd class="text-gray-900">{{ $addr->street }}, {{ $addr->number }}</dd></div>
@@ -80,7 +80,7 @@
                             <div class="flex items-center justify-between">
                                 <div>
                                     <p class="font-medium text-gray-900">{{ $contract->plan?->name ?? '-' }}</p>
-                                    <p class="text-sm text-gray-500">Ativado em {{ $contract->activation_date->format('d/m/Y') }} &middot; Dia {{ $contract->due_day }} &middot; R$ {{ number_format(($contract->plan?->price ?? 0) - $contract->discount, 2, ',', '.') }}</p>
+                                    <p class="text-sm text-gray-500">Ativado em {{ $contract->activation_date?->format('d/m/Y') ?? '-' }} &middot; Dia {{ $contract->due_day }} &middot; R$ {{ number_format(($contract->plan?->price ?? 0) - $contract->discount, 2, ',', '.') }}</p>
                                 </div>
                                 @include('crm::clients._status_badge', ['status' => $contract->status])
                             </div>
@@ -135,7 +135,7 @@
                                     <p class="font-medium text-gray-900">{{ $os->codigo }} - {{ $os->servico ?? $os->tipo_servico }}</p>
                                     <p class="text-sm text-gray-500">
                                         {{ $os->emissao?->format('d/m/Y') ?? '-' }}
-                                        @if($os->technician) &middot; {{ $os->technician->name }} @endif
+                                        @if($os->technician) &middot; {{ $os->technician?->name }} @endif
                                         @if($os->preco > 0) &middot; R$ {{ number_format($os->preco, 2, ',', '.') }} @endif
                                     </p>
                                 </div>

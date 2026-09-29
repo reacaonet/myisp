@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contrato #{{ $contract->id }} - {{ $contract->client->name }}</title>
+    <title>Contrato #{{ $contract->id }} - {{ $contract->client?->name }}</title>
     <style>
-        @php $company = \Modules\Core\Models\SystemSetting::getGroup('company'); @endphp
+        @php $company = $company ?? \Modules\Core\Services\TenantContext::company(); @endphp
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #111; background: #f1f5f9; }
         .page { max-width: 820px; margin: 24px auto; background: #fff; padding: 48px 56px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
@@ -41,14 +41,14 @@
     <div class="page">
         <div class="header">
             <div class="provider">
-                <p>{{ $company['company_name'] ?? $company['company_fantasy'] ?? 'MyISP' }}</p>
-                @if($company['company_document'] ?? null)
-                <p>CNPJ: {{ $company['company_document'] }}</p>
+                <p>{{ $company?->legalName() ?? 'MyISP' }}</p>
+                @if($company?->fiscal('document'))
+                <p>CNPJ: {{ $company->fiscal('document') }}</p>
                 @endif
-                @if(($company['company_address'] ?? null) || ($company['company_city'] ?? null))
-                <p>{{ $company['company_address'] ?? '' }}{{ ($company['company_city'] ?? null) ? ' - ' . $company['company_city'] : '' }}/{{ $company['company_state'] ?? '' }}</p>
+                @if(($company?->fiscal('address')) || ($company?->fiscal('city')))
+                <p>{{ $company->fiscal('address') ?? '' }}{{ ($company->fiscal('city')) ? ' - ' . $company->fiscal('city') : '' }}/{{ $company->fiscal('state') ?? '' }}</p>
                 @endif
-                <p>{{ $company['company_phone'] ?? '' }}{{ $company['company_email'] ?? '' }}</p>
+                <p>{{ $company?->fiscal('phone') ?? '' }}{{ $company?->fiscal('email') ?? '' }}</p>
             </div>
             <div style="text-align:right;">
                 <p style="font-size:12px;color:#475569;">Contrato n&ordm; {{ str_pad($contract->id, 4, '0', STR_PAD_LEFT) }}</p>
@@ -66,10 +66,10 @@
             <table>
                 <tr><td class="k">Contratada (Provedor)</td><td class="v">{{ $company['company_name'] ?? $company['company_fantasy'] ?? 'MyISP' }}</td></tr>
                 <tr><td class="k">CNPJ</td><td class="v">{{ $company['company_document'] ?? '---' }}</td></tr>
-                <tr><td class="k">Contratante</td><td class="v">{{ $contract->client->name }}</td></tr>
-                <tr><td class="k">CPF/CNPJ</td><td class="v">{{ $contract->client->document }}</td></tr>
-                <tr><td class="k">Endereco</td><td class="v">{{ $contract->client->addresses->first()?->street ?? '' }}{{ $contract->client->addresses->first()?->number ? ', ' . $contract->client->addresses->first()->number : '' }} - {{ $contract->client->addresses->first()?->neighborhood ?? '' }}, {{ $contract->client->addresses->first()?->city ?? '' }}/{{ $contract->client->addresses->first()?->state ?? '' }}</td></tr>
-                <tr><td class="k">Telefone</td><td class="v">{{ $contract->client->phone }} {{ $contract->client->cellphone ?? '' }}</td></tr>
+                <tr><td class="k">Contratante</td><td class="v">{{ $contract->client?->name }}</td></tr>
+                <tr><td class="k">CPF/CNPJ</td><td class="v">{{ $contract->client?->document }}</td></tr>
+                <tr><td class="k">Endereco</td><td class="v">{{ $contract->client?->addresses?->first()?->street ?? '' }}{{ $contract->client?->addresses?->first()?->number ? ', ' . $contract->client?->addresses?->first()->number : '' }} - {{ $contract->client?->addresses?->first()?->neighborhood ?? '' }}, {{ $contract->client?->addresses?->first()?->city ?? '' }}/{{ $contract->client?->addresses?->first()?->state ?? '' }}</td></tr>
+                <tr><td class="k">Telefone</td><td class="v">{{ $contract->client?->phone }} {{ $contract->client?->cellphone ?? '' }}</td></tr>
             </table>
         </div>
 
@@ -121,11 +121,11 @@
         <div class="assinaturas">
             <div class="assinatura">
                 <div class="line"></div>
-                <p>{{ $company['company_name'] ?? $company['company_fantasy'] ?? 'MyISP' }}<br>Contratada (Provedor)</p>
+                <p>{{ $company?->legalName() ?? 'MyISP' }}<br>Contratada (Provedor)</p>
             </div>
             <div class="assinatura">
                 <div class="line"></div>
-                <p>{{ $contract->client->name }}<br>Contratante</p>
+                <p>{{ $contract->client?->name }}<br>Contratante</p>
             </div>
         </div>
 

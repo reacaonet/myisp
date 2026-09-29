@@ -4,7 +4,8 @@ namespace Modules\CRM\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Modules\Core\Services\TenantContext;
 use Modules\CRM\Models\Client;
 
 class ClientController extends Controller
@@ -13,12 +14,20 @@ class ClientController extends Controller
     {
         $query = Client::with('addresses');
 
+        if (! TenantContext::isCrossTenant()) {
+            $query->forCompany(TenantContext::companyId());
+
+            if (TenantContext::branchId()) {
+                $query->forBranch(TenantContext::branchId());
+            }
+        }
+
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('document', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('cellphone', 'like', "%{$search}%");
+                    ->orWhere('document', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('cellphone', 'like', "%{$search}%");
             });
         }
 
@@ -34,13 +43,15 @@ class ClientController extends Controller
 
     public function store(Request $request)
     {
+        $tenant = $this->tenantUniqueScope();
+
         $validated = $request->validate([
             'codigo' => 'nullable|string|max:20',
             'name' => 'required|string|max:255',
-            'document' => 'required|string|max:20|unique:clients,document',
+            'document' => ['required', 'string', 'max:20', Rule::unique('clients', 'document')->where($tenant)],
             'rg' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:255',
-            'login' => 'nullable|string|max:50|unique:clients,login',
+            'login' => ['nullable', 'string', 'max:50', Rule::unique('clients', 'login')->where($tenant)],
             'senha' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:20',
             'cellphone' => 'nullable|string|max:20',
@@ -73,7 +84,7 @@ class ClientController extends Controller
         $client = Client::create($validated);
 
         $addressData = array_filter($request->only(['street', 'number', 'complement', 'referencia', 'neighborhood', 'city', 'state', 'zipcode']));
-        if (!empty($addressData['street'])) {
+        if (! empty($addressData['street'])) {
             $client->addresses()->create($addressData);
         }
 
@@ -87,8 +98,8 @@ class ClientController extends Controller
             'addresses',
             'contracts.plan',
             'contracts.server',
-            'invoices' => fn($q) => $q->latest(),
-            'serviceOrders.technician' => fn($q) => $q->latest(),
+            'invoices' => fn ($q) => $q->latest(),
+            'serviceOrders.technician' => fn ($q) => $q->latest(),
         ])->findOrFail($id);
 
         return view('crm::clients.show', compact('client'));
@@ -97,6 +108,7 @@ class ClientController extends Controller
     public function edit($id)
     {
         $client = Client::with('addresses')->findOrFail($id);
+
         return view('crm::clients.edit', compact('client'));
     }
 
@@ -104,13 +116,15 @@ class ClientController extends Controller
     {
         $client = Client::findOrFail($id);
 
+        $tenant = $this->tenantUniqueScope($client);
+
         $validated = $request->validate([
             'codigo' => 'nullable|string|max:20',
             'name' => 'string|max:255',
-            'document' => 'string|max:20|unique:clients,document,' . $id,
+            'document' => ['string', 'max:20', Rule::unique('clients', 'document')->ignore($id)->where($tenant)],
             'rg' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:255',
-            'login' => 'nullable|string|max:50|unique:clients,login,' . $id,
+            'login' => ['nullable', 'string', 'max:50', Rule::unique('clients', 'login')->ignore($id)->where($tenant)],
             'senha' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:20',
             'cellphone' => 'nullable|string|max:20',
@@ -144,7 +158,7 @@ class ClientController extends Controller
 
         if ($client->addresses()->exists()) {
             $addressData = array_filter($request->only(['street', 'number', 'complement', 'referencia', 'neighborhood', 'city', 'state', 'zipcode']));
-            if (!empty($addressData['street'])) {
+            if (! empty($addressData['street'])) {
                 $client->addresses()->first()->update($addressData);
             }
         }
@@ -172,5 +186,16 @@ class ClientController extends Controller
 
         return redirect()->route('crm.clients.index')
             ->with('success', 'Cliente removido com sucesso.');
+    }
+
+    protected function tenantUniqueScope(?Client $client = null): callable
+    {
+        $companyId = $client?->company_id ?? TenantContext::companyId();
+        $branchId = $client?->branch_id ?? TenantContext::branchId();
+
+        return function ($query) use ($companyId, $branchId) {
+            $query->where('company_id', $companyId)
+                ->where('branch_id', $branchId);
+        };
     }
 }

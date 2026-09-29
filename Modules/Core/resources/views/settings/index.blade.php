@@ -75,8 +75,21 @@
                 'landing_section_faq_subtitle' => ['label' => 'Subtitulo da Secao Duvidas', 'placeholder' => 'Tire suas duvidas antes de contratar'],
                 'landing_section_contact_title' => ['label' => 'Titulo da Secao Contato', 'placeholder' => 'Fale Conosco'],
                 'landing_section_contact_subtitle' => ['label' => 'Subtitulo da Secao Contato', 'placeholder' => 'Estamos prontos para atender voce por qualquer canal'],
-                'landing_sac_title' => ['label' => 'Pagina SAC - Titulo', 'placeholder' => 'Central de Atendimento (SAC)'],
-                'landing_sac_subtitle' => ['label' => 'Pagina SAC - Subtitulo', 'placeholder' => 'Estamos aqui para ajudar...'],
+    'landing_sac_title' => ['label' => 'Pagina SAC - Titulo', 'placeholder' => 'Central de Atendimento (SAC)'],
+    'landing_sac_subtitle' => ['label' => 'Pagina SAC - Subtitulo', 'placeholder' => 'Estamos aqui para ajudar...'],
+    'landing_business_enabled' => ['label' => 'Exibir secao "Para Sua Empresa"', 'placeholder' => ''],
+    'landing_business_title' => ['label' => 'Empresas - Titulo', 'placeholder' => 'Internet para Empresas'],
+    'landing_business_subtitle' => ['label' => 'Empresas - Subtitulo', 'placeholder' => 'Link dedicado, IP fixo e suporte prioritario...'],
+    'landing_business_features' => ['label' => 'Empresas - Diferenciais (um por linha)', 'placeholder' => 'Internet dedicada com 99,9% de disponibilidade'],
+    'landing_business_cta_label' => ['label' => 'Empresas - Texto do botao', 'placeholder' => 'Falar com especialista'],
+    'landing_investors_enabled' => ['label' => 'Exibir menu/pagina de investidores', 'placeholder' => ''],
+    'landing_investors_title' => ['label' => 'Investidores - Titulo', 'placeholder' => 'Invista em uma franquia de internet'],
+    'landing_investors_subtitle' => ['label' => 'Investidores - Subtitulo', 'placeholder' => 'Alta margem recorrente, baixa operacao...'],
+    'landing_investors_benefits' => ['label' => 'Investidores - Vantagens (uma por linha)', 'placeholder' => 'Receita recorrente mensal de assinaturas'],
+    'landing_investors_numbers' => ['label' => 'Investidores - Indicadores (valor | rotulo)', 'placeholder' => '100% | Fibra optica'],
+    'landing_investors_steps' => ['label' => 'Investidores - Como virar investidor (um por linha, "Titulo - texto")', 'placeholder' => '1. Conversa inicial - um bate-papo com nosso time comercial'],
+    'landing_investors_cta_title' => ['label' => 'Investidores - Titulo do chamado', 'placeholder' => 'Quer saber mais?'],
+    'landing_investors_cta_text' => ['label' => 'Investidores - Texto do chamado', 'placeholder' => 'Fale com nosso time comercial...'],
                 'block_page_enabled' => ['label' => 'Pagina de Bloqueio Ativa', 'placeholder' => ''],
                 'block_page_url' => ['label' => 'URL Publica da Pagina de Bloqueio', 'placeholder' => 'http://portal.meuprovedor.com.br/bloqueio'],
                 'block_portal_url' => ['label' => 'Link do Portal do Cliente', 'placeholder' => 'Deixe vazio para usar o portal do sistema'],
@@ -130,10 +143,65 @@
                 @endif
             </div>
             <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                @if($group === 'company' && $company)
+                <div class="md:col-span-2 rounded-lg border border-blue-100 bg-blue-50/40 p-4">
+                    <div class="flex items-center gap-2 mb-1">
+                        <h4 class="font-semibold text-gray-900 text-sm">Dados da {{ $company->isRoot() ? 'Franqueadora' : 'Franquia' }}</h4>
+                        <span class="text-xs text-blue-700 bg-blue-100 rounded px-2 py-0.5">{{ $company->displayName() }}</span>
+                        <a href="{{ route('core.companies.edit', $company->id) }}" class="ml-auto text-xs text-blue-600 hover:underline">Ver ficha da companhia &#8599;</a>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-4">
+                        Campos vazios <strong>herdam da companhia acima na hierarquia</strong> (franquia &rarr; franqueadora), permitindo CNPJ unico para todas as filiais.
+                    </p>
+
+                    @php
+                        $companyFields = [
+                            'company_name' => ['Razao Social', '00.000.000/0001-00 LTDA', 'legal_name'],
+                            'company_fantasy' => ['Nome Fantasia', 'Minha ISP', 'fantasy_name'],
+                            'company_document' => ['CNPJ', '00.000.000/0001-00', 'document'],
+                            'company_state_registration' => ['Inscricao Estadual', 'IE ou ISENTO', 'state_registration'],
+                            'company_municipal_registration' => ['Inscricao Municipal', 'IM', 'municipal_registration'],
+                            'company_phone' => ['Telefone', '(00) 0000-0000', 'phone'],
+                            'company_cellphone' => ['Celular', '(00) 00000-0000', 'cellphone'],
+                            'company_email' => ['Email', 'contato@empresa.com.br', 'email'],
+                            'company_website' => ['Site', 'https://www.empresa.com.br', 'website'],
+                            'company_address' => ['Endereco', 'Rua, numero - Bairro', 'address'],
+                            'company_city' => ['Cidade', 'Sao Paulo', 'city'],
+                            'company_state' => ['Estado', 'SP', 'state'],
+                            'company_zip' => ['CEP', '00000-000', 'zip'],
+                        ];
+                    @endphp
+
+                    @foreach($companyFields as $key => [$label, $placeholder, $column])
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ $label }}</label>
+                        <input
+                            type="{{ $column === 'email' ? 'email' : 'text' }}"
+                            name="settings[{{ $key }}]"
+                            value="{{ old($key, $company->{$column}) }}"
+                            placeholder="{{ $placeholder }}"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        >
+                        @if(blank($company->{$column}) && $company->parent)
+                            <p class="mt-1 text-xs text-gray-400">Herdado: {{ $company->parent->{$column} ?? 'nao definido' }}</p>
+                        @endif
+                    </div>
+                    @endforeach
+                </div>
+                @endif
+
                 @foreach($items as $setting)
+                @continue(array_key_exists($setting->key, \Modules\Core\Http\Controllers\Web\SystemSettingController::COMPANY_FIELDS) && $company)
                 <div class="{{ in_array($setting->key, ['company_address', 'boleto_instrucoes', 'landing_hero_subtitle', 'landing_about', 'landing_cities', 'landing_faq', 'landing_map_embed', 'block_page_html', 'notice_page_html']) ? 'md:col-span-2' : '' }}">
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         {{ $labels[$setting->key]['label'] ?? ucfirst(str_replace('_', ' ', $setting->key)) }}
+                        @if($company && ! $company->isRoot())
+                            @if($setting->is_overridden)
+                                <span class="ml-1 text-[10px] uppercase tracking-wide text-blue-700 bg-blue-100 rounded px-1.5 py-0.5">customizado</span>
+                            @else
+                                <span class="ml-1 text-[10px] uppercase tracking-wide text-gray-500 bg-gray-100 rounded px-1.5 py-0.5">herdado da franqueadora</span>
+                            @endif
+                        @endif
                     </label>
                     @if($setting->key === 'landing_about')
                         <div id="about-editor-wrap" style="position:relative; overflow:hidden; border-radius:8px;">

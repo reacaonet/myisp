@@ -3,10 +3,13 @@
 namespace Modules\Billing\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Modules\Core\Models\SystemSetting;
+use Modules\Core\Services\TenantContext;
 
 class BillingSetting extends Model
 {
     protected $fillable = [
+        'company_id',
         'dias_bloqueio',
         'dias_geracao_fatura',
         'bloqueio_automatico',
@@ -27,11 +30,23 @@ class BillingSetting extends Model
         ];
     }
 
+    /**
+     * Regras de faturamento da compania do contexto; cai no template da raiz
+     * quando a franquia nao configurou as suas.
+     */
     public static function get(): static
     {
-        $settings = static::first();
-        if (!$settings) {
+        $companyId = TenantContext::companyId();
+
+        $settings = $companyId
+            ? static::query()->where('company_id', $companyId)->first()
+            : null;
+
+        $settings ??= static::query()->whereNull('company_id')->first();
+
+        if (! $settings) {
             $settings = static::create([
+                'company_id' => $companyId ?: null,
                 'dias_bloqueio' => 10,
                 'dias_geracao_fatura' => 5,
                 'bloqueio_automatico' => true,
@@ -41,7 +56,7 @@ class BillingSetting extends Model
             ]);
         }
 
-        $sys = \Modules\Core\Models\SystemSetting::getGroup('block');
+        $sys = SystemSetting::getGroup('block');
 
         if (array_key_exists('block_grace_days', $sys) && $sys['block_grace_days'] !== '' && $sys['block_grace_days'] !== null) {
             $settings->dias_bloqueio = (int) $sys['block_grace_days'];

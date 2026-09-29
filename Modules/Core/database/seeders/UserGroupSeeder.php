@@ -3,20 +3,14 @@
 namespace Modules\Core\Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Modules\Core\Models\UserGroup;
 use Modules\Core\Models\GroupPermission;
+use Modules\Core\Models\UserGroup;
 
 class UserGroupSeeder extends Seeder
 {
     public function run(): void
     {
-        $allPermissions = [
-            'dashboard', 'clients', 'plans', 'contracts', 'service_orders',
-            'technicians', 'equipment', 'manufacturers', 'suppliers',
-            'hotspot_coupons', 'mikrotik_servers', 'provisioning', 'uptime',
-            'network_monitor', 'tickets', 'invoices', 'cash_book', 'reports',
-            'boleto', 'newsletter', 'backups', 'site_blocking', 'settings', 'stock',
-        ];
+        $allPermissions = array_keys(GroupPermission::MENU_PERMISSIONS());
 
         $groupDefs = [
             'superadmin' => [
@@ -63,6 +57,8 @@ class UserGroupSeeder extends Seeder
                 'suppliers' => false,
                 'hotspot_coupons' => false,
                 'mikrotik_servers' => false,
+                'olts' => true,
+                'ftth' => true,
                 'provisioning' => false,
                 'uptime' => false,
                 'network_monitor' => false,
@@ -71,6 +67,7 @@ class UserGroupSeeder extends Seeder
                 'cash_book' => true,
                 'reports' => true,
                 'boleto' => true,
+                'gateways' => false,
                 'newsletter' => true,
                 'backups' => false,
                 'site_blocking' => false,
@@ -90,6 +87,8 @@ class UserGroupSeeder extends Seeder
                 'suppliers' => false,
                 'hotspot_coupons' => false,
                 'mikrotik_servers' => false,
+                'olts' => false,
+                'ftth' => true,
                 'provisioning' => false,
                 'uptime' => false,
                 'network_monitor' => false,
@@ -98,6 +97,7 @@ class UserGroupSeeder extends Seeder
                 'cash_book' => false,
                 'reports' => false,
                 'boleto' => false,
+                'gateways' => false,
                 'newsletter' => false,
                 'backups' => false,
                 'site_blocking' => false,
@@ -117,6 +117,8 @@ class UserGroupSeeder extends Seeder
                 'suppliers' => false,
                 'hotspot_coupons' => false,
                 'mikrotik_servers' => false,
+                'olts' => false,
+                'ftth' => true,
                 'provisioning' => false,
                 'uptime' => false,
                 'network_monitor' => false,
@@ -125,6 +127,7 @@ class UserGroupSeeder extends Seeder
                 'cash_book' => false,
                 'reports' => false,
                 'boleto' => false,
+                'gateways' => false,
                 'newsletter' => false,
                 'backups' => false,
                 'site_blocking' => false,

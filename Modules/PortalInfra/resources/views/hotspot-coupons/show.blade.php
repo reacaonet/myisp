@@ -54,7 +54,7 @@
             @if($coupon->client)
             <div>
                 <dt class="text-gray-500">Cliente</dt>
-                <dd>{{ $coupon->client->name }}</dd>
+                <dd>{{ $coupon->client?->name }}</dd>
             </div>
             @endif
         </dl>

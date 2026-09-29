@@ -32,8 +32,8 @@
         <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                 <h3 class="text-sm font-semibold text-gray-500 uppercase mb-3">Cliente</h3>
-                <p class="font-medium text-gray-900">{{ $order->client->name ?? 'N/D' }}</p>
-                <p class="text-sm text-gray-500">{{ $order->client->document ?? '' }}</p>
+                <p class="font-medium text-gray-900">{{ $order->client?->name ?? 'N/D' }}</p>
+                <p class="text-sm text-gray-500">{{ $order->client?->document ?? '' }}</p>
             </div>
             <div>
                 <h3 class="text-sm font-semibold text-gray-500 uppercase mb-3">Detalhes</h3>
@@ -48,7 +48,7 @@
                     </div>
                     <div class="flex justify-between">
                         <dt class="text-gray-500">Tecnico</dt>
-                        <dd class="text-gray-900">{{ $order->technician->name ?? '-' }}</dd>
+                        <dd class="text-gray-900">{{ $order->technician?->name ?? '-' }}</dd>
                     </div>
                     <div class="flex justify-between">
                         <dt class="text-gray-500">Valor</dt>

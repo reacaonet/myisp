@@ -3,10 +3,14 @@
 namespace Modules\Billing\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Modules\Core\Models\Concerns\BelongsToTenant;
 
 class PaymentGateway extends Model
 {
+    use BelongsToTenant;
+
     protected $fillable = [
+        'company_id',
         'name', 'slug', 'status', 'supports_boleto', 'supports_pix',
         'supports_credit_card', 'supports_recurrence', 'config', 'notes',
     ];

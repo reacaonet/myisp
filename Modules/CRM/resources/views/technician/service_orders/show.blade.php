@@ -9,7 +9,7 @@ OS - {{ $serviceOrder->codigo }}
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
         <div>
             <h2 class="text-xl font-bold text-gray-900">{{ $serviceOrder->codigo }} - {{ $serviceOrder->servico ?? $serviceOrder->tipo_servico }}</h2>
-            <p class="text-sm text-gray-500 mt-1">{{ $serviceOrder->client->name }} &middot; {{ $serviceOrder->client->document }}</p>
+            <p class="text-sm text-gray-500 mt-1">{{ $serviceOrder->client?->name }} &middot; {{ $serviceOrder->client?->document }}</p>
         </div>
         <div class="flex items-center gap-4 flex-wrap">
             <span class="px-3 py-1 rounded-full text-sm font-medium {{ $serviceOrder->situacao === 'O' ? 'bg-blue-100 text-blue-700' : ($serviceOrder->situacao === 'A' ? 'bg-yellow-100 text-yellow-700' : ($serviceOrder->situacao === 'F' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700')) }}">
@@ -38,7 +38,7 @@ OS - {{ $serviceOrder->codigo }}
         </div>
         <div>
             <p class="font-medium text-gray-500">Tecnico</p>
-            <p class="text-gray-900">{{ $serviceOrder->technician->name ?? 'Nao atribuido' }}</p>
+            <p class="text-gray-900">{{ $serviceOrder->technician?->name ?? 'Nao atribuido' }}</p>
         </div>
     </div>
 
@@ -81,12 +81,12 @@ OS - {{ $serviceOrder->codigo }}
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h3 class="text-lg font-semibold text-gray-800 mb-4">Informacoes do Cliente</h3>
         <dl class="space-y-3 text-sm">
-            <div class="flex justify-between"><dt class="text-gray-500">Nome</dt><dd class="font-medium text-gray-900">{{ $serviceOrder->client->name }}</dd></div>
-            <div class="flex justify-between"><dt class="text-gray-500">Documento</dt><dd class="font-medium text-gray-900">{{ $serviceOrder->client->document }}</dd></div>
-            <div class="flex justify-between"><dt class="text-gray-500">Telefone</dt><dd class="font-medium text-gray-900">{{ $serviceOrder->client->phone }}</dd></div>
-            <div class="flex justify-between"><dt class="text-gray-500">Celular</dt><dd class="font-medium text-gray-900">{{ $serviceOrder->client->cellphone }}</dd></div>
-            <div class="flex justify-between"><dt class="text-gray-500">Email</dt><dd class="font-medium text-gray-900">{{ $serviceOrder->client->email }}</dd></div>
-            <div class="flex justify-between"><dt class="text-gray-500">Endereco</dt><dd class="font-medium text-gray-900">{{ $serviceOrder->client->addresses->first()->full_address ?? 'N/A' }}</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-500">Nome</dt><dd class="font-medium text-gray-900">{{ $serviceOrder->client?->name }}</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-500">Documento</dt><dd class="font-medium text-gray-900">{{ $serviceOrder->client?->document }}</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-500">Telefone</dt><dd class="font-medium text-gray-900">{{ $serviceOrder->client?->phone }}</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-500">Celular</dt><dd class="font-medium text-gray-900">{{ $serviceOrder->client?->cellphone }}</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-500">Email</dt><dd class="font-medium text-gray-900">{{ $serviceOrder->client?->email }}</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-500">Endereco</dt><dd class="font-medium text-gray-900">{{ $serviceOrder->client?->addresses?->first()->full_address ?? 'N/A' }}</dd></div>
         </dl>
     </div>
 
@@ -94,7 +94,7 @@ OS - {{ $serviceOrder->codigo }}
         <h3 class="text-lg font-semibold text-gray-800 mb-4">Detalhes do Contrato</h3>
         @if($serviceOrder->contract)
         <dl class="space-y-3 text-sm">
-            <div class="flex justify-between"><dt class="text-gray-500">Plano</dt><dd class="font-medium text-gray-900">{{ $serviceOrder->contract->plan->name ?? 'N/A' }}</dd></div>
+            <div class="flex justify-between"><dt class="text-gray-500">Plano</dt><dd class="font-medium text-gray-900">{{ $serviceOrder->contract?->plan?->name ?? 'N/A' }}</dd></div>
             <div class="flex justify-between"><dt class="text-gray-500">Tipo Conexao</dt><dd class="font-medium text-gray-900">{{ $serviceOrder->contract->tipo_conexao ?? 'N/A' }}</dd></div>
             <div class="flex justify-between"><dt class="text-gray-500">PPPoE User</dt><dd class="font-medium text-gray-900 font-mono text-sm">{{ $serviceOrder->contract->provisionedLogin() ?? 'N/A' }}</dd></div>
             <div class="flex justify-between"><dt class="text-gray-500">IP</dt><dd class="font-medium text-gray-900">{{ $serviceOrder->contract->provisionedIp() ?? 'N/A' }}</dd></div>

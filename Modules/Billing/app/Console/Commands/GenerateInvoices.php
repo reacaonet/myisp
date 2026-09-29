@@ -3,13 +3,16 @@
 namespace Modules\Billing\Console\Commands;
 
 use Illuminate\Console\Command;
-use Modules\Billing\Models\Invoice;
 use Modules\Billing\Models\BillingSetting;
+use Modules\Billing\Models\Invoice;
+use Modules\Core\Services\TenantContext;
+use Modules\CRM\Models\Client;
 use Modules\CRM\Models\Contract;
 
 class GenerateInvoices extends Command
 {
     protected $signature = 'billing:generate-invoices';
+
     protected $description = 'Gerar faturas mensais para contratos ativos';
 
     public function handle(): int
@@ -24,7 +27,7 @@ class GenerateInvoices extends Command
             ->get();
 
         foreach ($contracts as $contract) {
-            if (!$contract->plan) {
+            if (! $contract->plan) {
                 continue;
             }
 
@@ -33,11 +36,11 @@ class GenerateInvoices extends Command
                 ->where('status', '!=', 'canceled')
                 ->where(function ($q) use ($today) {
                     $q->where('status', '!=', 'paid')
-                      ->orWhere(function ($q2) use ($today) {
-                          $q2->where('status', 'paid')
-                             ->whereYear('paid_date', $today->year)
-                             ->whereMonth('paid_date', $today->month);
-                      });
+                        ->orWhere(function ($q2) use ($today) {
+                            $q2->where('status', 'paid')
+                                ->whereYear('paid_date', $today->year)
+                                ->whereMonth('paid_date', $today->month);
+                        });
                 })
                 ->exists();
 
@@ -61,10 +64,12 @@ class GenerateInvoices extends Command
             $discount = $contract->discount ?? 0;
             $acrescimo = $contract->acrescimo ?? 0;
 
+            $companyId = Client::find($contract->client_id)?->company_id ?? TenantContext::companyId() ?? 0;
+
             Invoice::create([
                 'client_id' => $contract->client_id,
                 'contract_id' => $contract->id,
-                'invoice_number' => 'FAT-' . $dueDate->format('Ymd') . '-' . str_pad(Invoice::max('id') + 1, 4, '0', STR_PAD_LEFT),
+                'invoice_number' => Invoice::nextNumber($companyId, $dueDate->format('Y-m-d')),
                 'amount' => $amount,
                 'discount' => $discount,
                 'acrescimo' => $acrescimo,
@@ -78,6 +83,7 @@ class GenerateInvoices extends Command
         }
 
         $this->info("{$count} faturas geradas com sucesso.");
+
         return self::SUCCESS;
     }
 }

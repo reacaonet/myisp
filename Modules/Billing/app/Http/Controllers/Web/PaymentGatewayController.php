@@ -4,13 +4,22 @@ namespace Modules\Billing\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Modules\Billing\Models\PaymentGateway;
+use Modules\Core\Services\TenantContext;
 
 class PaymentGatewayController extends Controller
 {
     public function index()
     {
-        $gateways = PaymentGateway::orderBy('name')->get();
+        $query = PaymentGateway::orderBy('name');
+
+        if (! TenantContext::isCrossTenant()) {
+            $query->forCompany(TenantContext::companyId());
+        }
+
+        $gateways = $query->get();
+
         return view('billing::gateways.index', compact('gateways'));
     }
 
@@ -23,7 +32,7 @@ class PaymentGatewayController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'slug' => 'required|string|max:100|unique:payment_gateways,slug|in:mercado-pago,asaas,gerencianet',
+            'slug' => ['required', 'string', 'max:100', 'in:mercado-pago,asaas,gerencianet', Rule::unique('payment_gateways', 'slug')->where(fn ($query) => $query->where('company_id', TenantContext::companyId()))],
             'status' => 'required|in:active,inactive',
             'supports_boleto' => 'boolean',
             'supports_pix' => 'boolean',
@@ -54,6 +63,7 @@ class PaymentGatewayController extends Controller
     public function edit($id)
     {
         $gateway = PaymentGateway::findOrFail($id);
+
         return view('billing::gateways.edit', compact('gateway'));
     }
 
@@ -129,7 +139,7 @@ class PaymentGatewayController extends Controller
     private function testMercadoPago(PaymentGateway $gateway): array
     {
         $token = $gateway->config['access_token'] ?? '';
-        if (!$token) {
+        if (! $token) {
             return ['success' => false, 'message' => 'access_token nao configurado.'];
         }
 
@@ -140,7 +150,7 @@ class PaymentGatewayController extends Controller
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 15,
             CURLOPT_SSL_VERIFYPEER => $gateway->config['ssl_verify'] ?? false,
-            CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $token],
+            CURLOPT_HTTPHEADER => ['Authorization: Bearer '.$token],
         ]);
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -155,7 +165,8 @@ class PaymentGatewayController extends Controller
         }
         if ($httpCode >= 400) {
             $body = json_decode($response, true);
-            return ['success' => false, 'message' => "Erro HTTP {$httpCode}: " . ($body['message'] ?? substr($response, 0, 200))];
+
+            return ['success' => false, 'message' => "Erro HTTP {$httpCode}: ".($body['message'] ?? substr($response, 0, 200))];
         }
 
         return ['success' => true, 'message' => "Conexao OK (HTTP {$httpCode}). Token valido."];
@@ -164,7 +175,7 @@ class PaymentGatewayController extends Controller
     private function testAsaas(PaymentGateway $gateway): array
     {
         $apiKey = $gateway->config['api_key'] ?? '';
-        if (!$apiKey) {
+        if (! $apiKey) {
             return ['success' => false, 'message' => 'api_key nao configurado.'];
         }
 
@@ -174,11 +185,11 @@ class PaymentGatewayController extends Controller
 
         $ch = curl_init();
         curl_setopt_array($ch, [
-            CURLOPT_URL => $baseUrl . '?limit=1',
+            CURLOPT_URL => $baseUrl.'?limit=1',
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 15,
             CURLOPT_SSL_VERIFYPEER => $gateway->config['ssl_verify'] ?? false,
-            CURLOPT_HTTPHEADER => ['access_token: ' . $apiKey],
+            CURLOPT_HTTPHEADER => ['access_token: '.$apiKey],
         ]);
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -202,7 +213,7 @@ class PaymentGatewayController extends Controller
     {
         $clientId = $gateway->config['client_id'] ?? '';
         $clientSecret = $gateway->config['client_secret'] ?? '';
-        if (!$clientId || !$clientSecret) {
+        if (! $clientId || ! $clientSecret) {
             return ['success' => false, 'message' => 'client_id ou client_secret nao configurados.'];
         }
 
@@ -212,7 +223,7 @@ class PaymentGatewayController extends Controller
 
         $ch = curl_init();
         curl_setopt_array($ch, [
-            CURLOPT_URL => $baseUrl . '/oauth/token',
+            CURLOPT_URL => $baseUrl.'/oauth/token',
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 15,
             CURLOPT_SSL_VERIFYPEER => $gateway->config['ssl_verify'] ?? false,
@@ -220,7 +231,7 @@ class PaymentGatewayController extends Controller
             CURLOPT_POSTFIELDS => http_build_query([
                 'grant_type' => 'client_credentials',
             ]),
-            CURLOPT_USERPWD => $clientId . ':' . $clientSecret,
+            CURLOPT_USERPWD => $clientId.':'.$clientSecret,
         ]);
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -238,8 +249,8 @@ class PaymentGatewayController extends Controller
         }
 
         $body = json_decode($response, true);
-        if (!empty($body['access_token'])) {
-            return ['success' => true, 'message' => "Conexao OK. OAuth token obtido com sucesso."];
+        if (! empty($body['access_token'])) {
+            return ['success' => true, 'message' => 'Conexao OK. OAuth token obtido com sucesso.'];
         }
 
         return ['success' => false, 'message' => 'Resposta inesperada da API.'];
@@ -261,18 +272,19 @@ class PaymentGatewayController extends Controller
                 $config['ssl_verify'] = $request->boolean('config.ssl_verify');
             }
 
-            return array_filter($config, fn($value) => $value !== '' && $value !== null);
+            return array_filter($config, fn ($value) => $value !== '' && $value !== null);
         }
 
         $rawConfig = $request->input('config');
 
-        if (is_string($rawConfig) && !empty($rawConfig)) {
+        if (is_string($rawConfig) && ! empty($rawConfig)) {
             $decoded = json_decode($rawConfig, true);
+
             return is_array($decoded) ? $decoded : [];
         }
 
         if (is_array($rawConfig)) {
-            return array_filter($rawConfig, fn($value) => $value !== '' && $value !== null);
+            return array_filter($rawConfig, fn ($value) => $value !== '' && $value !== null);
         }
 
         return [];

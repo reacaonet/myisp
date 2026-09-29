@@ -5,10 +5,13 @@ namespace Modules\CRM\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Modules\Core\Models\Concerns\BelongsToTenant;
 
 class StockItem extends Model
 {
-    protected $fillable = ['category_id', 'sku', 'name', 'description', 'unit', 'min_stock'];
+    use BelongsToTenant;
+
+    protected $fillable = ['company_id', 'category_id', 'sku', 'name', 'description', 'unit', 'min_stock'];
 
     public function category(): BelongsTo
     {

@@ -3,15 +3,24 @@
 namespace Modules\CRM\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use Modules\CRM\Models\StockLocation;
 use App\Models\User;
+use Illuminate\Http\Request;
+use Modules\Core\Services\TenantContext;
+use Modules\CRM\Models\StockLocation;
 
 class StockLocationController extends Controller
 {
     public function index(Request $request)
     {
         $query = StockLocation::with('user');
+
+        if (! TenantContext::isCrossTenant()) {
+            $query->forCompany(TenantContext::companyId());
+
+            if (TenantContext::branchId()) {
+                $query->forBranch(TenantContext::branchId());
+            }
+        }
 
         if ($search = $request->get('search')) {
             $query->where('name', 'like', "%{$search}%");
@@ -29,6 +38,7 @@ class StockLocationController extends Controller
     public function create()
     {
         $technicians = User::whereHas('group', fn ($q) => $q->where('name', 'tecnico'))->orderBy('name')->get();
+
         return view('crm::stock.locations.create', compact('technicians'));
     }
 

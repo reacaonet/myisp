@@ -4,9 +4,10 @@ namespace Modules\CRM\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Modules\CRM\Models\StockItem;
+use Illuminate\Validation\Rule;
+use Modules\Core\Services\TenantContext;
 use Modules\CRM\Models\StockCategory;
-use Modules\CRM\Models\StockBalance;
+use Modules\CRM\Models\StockItem;
 
 class StockItemController extends Controller
 {
@@ -14,10 +15,14 @@ class StockItemController extends Controller
     {
         $query = StockItem::with('category', 'balances');
 
+        if (! TenantContext::isCrossTenant()) {
+            $query->forCompany(TenantContext::companyId());
+        }
+
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('sku', 'like', "%{$search}%");
+                    ->orWhere('sku', 'like', "%{$search}%");
             });
         }
 
@@ -34,14 +39,17 @@ class StockItemController extends Controller
     public function create()
     {
         $categories = StockCategory::orderBy('name')->get();
+
         return view('crm::stock.items.create', compact('categories'));
     }
 
     public function store(Request $request)
     {
+        $tenant = $this->tenantScope();
+
         $validated = $request->validate([
             'category_id' => 'required|exists:stock_categories,id',
-            'sku' => 'required|string|max:50|unique:stock_items,sku',
+            'sku' => ['required', 'string', 'max:50', Rule::unique('stock_items', 'sku')->where($tenant)],
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'unit' => 'required|string|max:20',
@@ -76,7 +84,7 @@ class StockItemController extends Controller
 
         $validated = $request->validate([
             'category_id' => 'required|exists:stock_categories,id',
-            'sku' => 'required|string|max:50|unique:stock_items,sku,' . $item->id,
+            'sku' => ['required', 'string', 'max:50', Rule::unique('stock_items', 'sku')->ignore($item->id)->where($this->tenantScope($item))],
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'unit' => 'required|string|max:20',
@@ -96,5 +104,12 @@ class StockItemController extends Controller
 
         return redirect()->route('crm.stock-items.index')
             ->with('success', 'Item removido com sucesso.');
+    }
+
+    protected function tenantScope(?StockItem $item = null): callable
+    {
+        $companyId = $item?->company_id ?? TenantContext::companyId();
+
+        return fn ($query) => $query->where('company_id', $companyId);
     }
 }

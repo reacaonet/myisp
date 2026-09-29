@@ -5,6 +5,7 @@ namespace Modules\Core\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Modules\Core\Models\SystemSetting;
+use Modules\Core\Services\TenantContext;
 
 class BlockPageController extends Controller
 {
@@ -13,9 +14,9 @@ class BlockPageController extends Controller
         $preview = $request->query('preview') === '1';
         $settings = SystemSetting::getGroup('block');
         $landing = SystemSetting::getGroup('landing');
-        $company = SystemSetting::getGroup('company');
+        $company = TenantContext::company();
 
-        if (!$preview && (string) ($settings['block_page_enabled'] ?? '') !== '1') {
+        if (! $preview && (string) ($settings['block_page_enabled'] ?? '') !== '1') {
             abort(404);
         }
 
@@ -24,41 +25,20 @@ class BlockPageController extends Controller
         $whatsapp = preg_replace('/\D/', '', $landing['landing_whatsapp'] ?? '');
         $portalUrl = $settings['block_portal_url'] ?: route('crm.portal.login');
         $supportUrl = $settings['block_support_url']
-            ?: ($whatsapp ? 'https://wa.me/' . $whatsapp : route('crm.portal.login'));
-        $brandMark = $settings['block_mark_text'] ?: $this->brandInitials($company);
+            ?: ($whatsapp ? 'https://wa.me/'.$whatsapp : route('crm.portal.login'));
+        $brandMark = $settings['block_mark_text'] ?: $company?->initials();
         $clientName = trim((string) $request->query('nome', 'cliente'));
-        $providerName = $company['company_fantasy'] ?? ($company['company_name'] ?? 'Provedor');
+        $providerName = $company?->displayName() ?: 'Provedor';
 
         $html = strtr($html, [
             '{{link_portal}}' => e($portalUrl),
             '{{link_suporte}}' => e($supportUrl),
-            '{{brand_mark}}' => e($brandMark),
+            '{{brand_mark}}' => e($brandMark ?: 'ISP'),
             '{{cliente_nome}}' => e($clientName !== '' ? $clientName : 'cliente'),
             '{{provider_name}}' => e($providerName),
         ]);
 
         return response($html, 200)->header('Content-Type', 'text/html; charset=UTF-8');
-    }
-
-    private function brandInitials(array $company): string
-    {
-        $name = $company['company_fantasy'] ?? ($company['company_name'] ?? '');
-
-        if (!$name) {
-            return 'ISP';
-        }
-
-        $initials = '';
-        foreach (preg_split('/\s+/', trim($name)) as $word) {
-            if ($word !== '') {
-                $initials .= mb_strtoupper(mb_substr($word, 0, 1));
-            }
-            if (mb_strlen($initials) >= 3) {
-                break;
-            }
-        }
-
-        return $initials !== '' ? $initials : 'ISP';
     }
 
     private function defaultHtml(): string

@@ -153,7 +153,11 @@
                 @forelse($recent_overdue as $inv)
                 <tr class="border-b border-gray-100">
                     <td class="py-2">
-                        <a href="{{ route('crm.clients.show', $inv->client) }}" class="text-blue-600 hover:underline">{{ $inv->client->name }}</a>
+                        @if($inv->client)
+                        <a href="{{ route('crm.clients.show', $inv->client) }}" class="text-blue-600 hover:underline">{{ $inv->client?->name }}</a>
+                        @else
+                        <span class="text-gray-400">Cliente removido</span>
+                        @endif
                     </td>
                     <td class="py-2">
                         <a href="{{ route('billing.invoices.show', $inv) }}" class="text-blue-600 hover:underline">{{ $inv->invoice_number }}</a>

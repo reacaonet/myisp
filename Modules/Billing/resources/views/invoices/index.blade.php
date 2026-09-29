@@ -63,7 +63,7 @@
                 <tr class="border-b border-gray-100 hover:bg-gray-50">
                     <td class="px-6 py-4 font-mono text-xs text-gray-600">{{ $invoice->invoice_number }}</td>
                     <td class="px-6 py-4">
-                        <a href="{{ route('billing.invoices.show', $invoice) }}" class="text-blue-600 hover:underline font-medium">{{ $invoice->client->name }}</a>
+                        <a href="{{ route('billing.invoices.show', $invoice) }}" class="text-blue-600 hover:underline font-medium">{{ $invoice->client?->name }}</a>
                     </td>
                     <td class="px-6 py-4 text-gray-900 font-medium">R$ {{ number_format($invoice->total, 2, ',', '.') }}</td>
                     <td class="px-6 py-4 text-gray-600">{{ $invoice->due_date->format('d/m/Y') }}</td>

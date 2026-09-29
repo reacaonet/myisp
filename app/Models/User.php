@@ -11,7 +11,10 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Modules\Core\Models\Branch;
+use Modules\Core\Models\Company;
 use Modules\Core\Models\UserGroup;
 
 #[Fillable(['name', 'email', 'password', 'phone', 'cargo', 'cellphone', 'city', 'state', 'role', 'user_group_id', 'is_active'])]
@@ -47,6 +50,21 @@ class User extends Authenticatable
     public function group(): BelongsTo
     {
         return $this->belongsTo(UserGroup::class, 'user_group_id');
+    }
+
+    public function companies(): BelongsToMany
+    {
+        return $this->belongsToMany(Company::class, 'company_user')->withTimestamps();
+    }
+
+    public function branches(): BelongsToMany
+    {
+        return $this->belongsToMany(Branch::class, 'branch_user')->withTimestamps();
+    }
+
+    public function isSuperadmin(): bool
+    {
+        return ($this->group?->slug ?? null) === 'superadmin';
     }
 
     public function serviceOrders(): HasMany

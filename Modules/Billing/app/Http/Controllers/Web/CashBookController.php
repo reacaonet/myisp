@@ -5,13 +5,17 @@ namespace Modules\Billing\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Modules\Billing\Models\CashBookEntry;
-use Modules\Billing\Models\Invoice;
+use Modules\Core\Services\TenantContext;
 
 class CashBookController extends Controller
 {
     public function index(Request $request)
     {
         $query = CashBookEntry::with('invoice');
+
+        if (! TenantContext::isCrossTenant()) {
+            $query->forCompany(TenantContext::companyId());
+        }
 
         if ($request->get('start_date')) {
             $query->where('entry_date', '>=', $request->start_date);
@@ -32,6 +36,7 @@ class CashBookController extends Controller
         $endDate = $request->get('end_date', now()->toDateString());
 
         $summary = CashBookEntry::query()
+            ->when(! TenantContext::isCrossTenant(), fn ($query) => $query->forCompany(TenantContext::companyId()))
             ->whereBetween('entry_date', [$startDate, $endDate]);
 
         $totalEntradas = (clone $summary)->where('type', 'entrada')->sum('amount');
@@ -84,12 +89,14 @@ class CashBookController extends Controller
     public function show($id)
     {
         $entry = CashBookEntry::with('invoice')->findOrFail($id);
+
         return view('billing::cash-book.show', compact('entry'));
     }
 
     public function edit($id)
     {
         $entry = CashBookEntry::findOrFail($id);
+
         return view('billing::cash-book.edit', compact('entry'));
     }
 

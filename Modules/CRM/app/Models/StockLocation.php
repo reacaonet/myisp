@@ -2,17 +2,21 @@
 
 namespace Modules\CRM\Models;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Modules\Core\Models\Concerns\BelongsToTenant;
 
 class StockLocation extends Model
 {
-    protected $fillable = ['name', 'type', 'user_id'];
+    use BelongsToTenant;
+
+    protected $fillable = ['company_id', 'branch_id', 'name', 'type', 'user_id'];
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\User::class);
+        return $this->belongsTo(User::class);
     }
 
     public function balances(): HasMany

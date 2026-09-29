@@ -18,6 +18,10 @@ class GroupPermission extends Model
         return $this->belongsTo(UserGroup::class, 'group_id');
     }
 
+    /**
+     * Catalogo canonico de permissoes (usado pelo CRUD de grupos, pelo
+     * seeder e pelo middleware `group.permission` das rotas).
+     */
     public static function MENU_PERMISSIONS(): array
     {
         return [
@@ -32,6 +36,8 @@ class GroupPermission extends Model
             'suppliers' => 'Fornecedores',
             'hotspot_coupons' => 'Cupons Hotspot',
             'mikrotik_servers' => 'Servidores MikroTik',
+            'olts' => 'OLTs',
+            'ftth' => 'FTTH (projetos, CTOs e caixas)',
             'provisioning' => 'Provisionamento',
             'uptime' => 'Uptime',
             'network_monitor' => 'Monitoramento de Rede',
@@ -40,6 +46,7 @@ class GroupPermission extends Model
             'cash_book' => 'Livro Caixa',
             'reports' => 'Relatorios',
             'boleto' => 'Boletos',
+            'gateways' => 'Gateways de Pagamento',
             'newsletter' => 'Mala Direta',
             'backups' => 'Backups MikroTik',
             'site_blocking' => 'Bloqueio de Sites',

@@ -4,21 +4,26 @@ namespace Modules\Billing\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Modules\Billing\Models\Invoice;
-use Modules\Billing\Models\Payment;
+use Illuminate\Support\Facades\Mail;
+use Modules\Billing\Mail\InvoiceGenerated;
+use Modules\Billing\Mail\PaymentConfirmed;
+use Modules\Billing\Models\BillingSetting;
 use Modules\Billing\Models\CashBookEntry;
+use Modules\Billing\Models\Invoice;
+use Modules\Core\Services\TenantContext;
 use Modules\CRM\Models\Client;
 use Modules\CRM\Models\Contract;
 use Modules\CRM\Services\MikrotikService;
-use Modules\Billing\Mail\PaymentConfirmed;
-use Modules\Billing\Mail\InvoiceGenerated;
-use Illuminate\Support\Facades\Mail;
 
 class InvoiceController extends Controller
 {
     public function index(Request $request)
     {
         $query = Invoice::with('client', 'contract.plan');
+
+        if (! TenantContext::isCrossTenant()) {
+            $query->forCompany(TenantContext::companyId());
+        }
 
         if ($search = $request->get('search')) {
             $query->whereHas('client', function ($q) use ($search) {
@@ -32,11 +37,16 @@ class InvoiceController extends Controller
 
         $invoices = $query->latest()->paginate(15);
 
+        $scoped = fn () => Invoice::query()->when(
+            ! TenantContext::isCrossTenant(),
+            fn ($q) => $q->forCompany(TenantContext::companyId())
+        );
+
         $stats = [
-            'pending' => Invoice::where('status', 'pending')->sum('total'),
-            'overdue' => Invoice::where('status', 'overdue')->sum('total'),
-            'paid' => Invoice::where('status', 'paid')->sum('total'),
-            'blocked' => Invoice::where('auto_blocked', true)->count(),
+            'pending' => $scoped()->where('status', 'pending')->sum('total'),
+            'overdue' => $scoped()->where('status', 'overdue')->sum('total'),
+            'paid' => $scoped()->where('status', 'paid')->sum('total'),
+            'blocked' => $scoped()->where('auto_blocked', true)->count(),
         ];
 
         return view('billing::invoices.index', compact('invoices', 'stats'));
@@ -44,7 +54,10 @@ class InvoiceController extends Controller
 
     public function create()
     {
-        $clients = Client::orderBy('name')->get();
+        $clients = Client::orderBy('name')
+            ->when(! TenantContext::isCrossTenant(), fn ($query) => $query->forCompany(TenantContext::companyId()))
+            ->get();
+
         return view('billing::invoices.create', compact('clients'));
     }
 
@@ -67,9 +80,11 @@ class InvoiceController extends Controller
         $validated['discount'] ??= 0;
         $validated['acrescimo'] ??= 0;
         $validated['total'] = $validated['amount'] - $validated['discount'] + $validated['acrescimo'];
-        $validated['invoice_number'] = 'FAT-' . date('Ymd') . '-' . str_pad(Invoice::max('id') + 1, 4, '0', STR_PAD_LEFT);
+        $client = isset($validated['client_id']) ? Client::find($validated['client_id']) : null;
+        $companyId = $client?->company_id ?? TenantContext::companyId() ?? 0;
+        $validated['invoice_number'] = Invoice::nextNumber($companyId, $validated['due_date'] ?? now());
 
-        if ($validated['status'] === 'paid' && !$validated['paid_date']) {
+        if ($validated['status'] === 'paid' && ! $validated['paid_date']) {
             $validated['paid_date'] = now();
         }
 
@@ -89,6 +104,7 @@ class InvoiceController extends Controller
     public function show($id)
     {
         $invoice = Invoice::with(['client.addresses', 'contract.plan', 'contract.server', 'payments'])->findOrFail($id);
+
         return view('billing::invoices.show', compact('invoice'));
     }
 
@@ -97,6 +113,7 @@ class InvoiceController extends Controller
         $invoice = Invoice::with('client', 'contract')->findOrFail($id);
         $clients = Client::orderBy('name')->get();
         $contracts = Contract::where('client_id', $invoice->client_id)->with('plan')->get();
+
         return view('billing::invoices.edit', compact('invoice', 'clients', 'contracts'));
     }
 
@@ -158,6 +175,8 @@ class InvoiceController extends Controller
         $payment = $invoice->payments()->create($validated);
 
         CashBookEntry::create([
+            'company_id' => $invoice->company_id,
+            'branch_id' => $invoice->branch_id,
             'type' => 'entrada',
             'amount' => $validated['amount'],
             'description' => "Pagamento fatura {$invoice->invoice_number}",
@@ -200,17 +219,17 @@ class InvoiceController extends Controller
 
         $mikrotikServer = $contract?->provisionedMikrotikServer();
 
-        if (!$contract || !$mikrotikServer) {
+        if (! $contract || ! $mikrotikServer) {
             return back()->with('error', 'Contrato ou servidor MikroTik nao encontrado.');
         }
 
         try {
-            $service = new MikrotikService();
+            $service = new MikrotikService;
             $service->connect($mikrotikServer);
 
             $login = $contract->provisionedLogin();
 
-            $settings = \Modules\Billing\Models\BillingSetting::get();
+            $settings = BillingSetting::get();
 
             $blockedIp = $contract->provisionedIp();
 
@@ -253,7 +272,7 @@ class InvoiceController extends Controller
             return back()->with('success', "Cliente {$contract->client?->name} bloqueado com sucesso.");
 
         } catch (\Exception $e) {
-            return back()->with('error', "Erro ao bloquear: " . $e->getMessage());
+            return back()->with('error', 'Erro ao bloquear: '.$e->getMessage());
         }
     }
 
@@ -262,7 +281,7 @@ class InvoiceController extends Controller
         $invoice = Invoice::findOrFail($id);
         $contract = $invoice->contract;
 
-        if (!$contract) {
+        if (! $contract) {
             return back()->with('error', 'Contrato nao encontrado.');
         }
 
@@ -282,7 +301,7 @@ class InvoiceController extends Controller
 
             if ($mikrotikServer) {
                 try {
-                    $service = new MikrotikService();
+                    $service = new MikrotikService;
                     $service->connect($mikrotikServer);
                     if ($blockedIp) {
                         $service->removeFirewallAddressList('myisp-blocked', $blockedIp);
@@ -322,7 +341,9 @@ class InvoiceController extends Controller
         $count = 0;
 
         foreach ($contracts as $contract) {
-            if (!$contract->plan) continue;
+            if (! $contract->plan) {
+                continue;
+            }
 
             $exists = Invoice::where('contract_id', $contract->id)
                 ->whereMonth('due_date', now()->month)
@@ -330,7 +351,9 @@ class InvoiceController extends Controller
                 ->where('avulso', false)
                 ->exists();
 
-            if ($exists) continue;
+            if ($exists) {
+                continue;
+            }
 
             $dueDay = min($contract->due_day, 28);
             $dueDate = now()->day($dueDay);
@@ -343,10 +366,12 @@ class InvoiceController extends Controller
             $discount = $contract->discount ?? 0;
             $acrescimo = $contract->acrescimo ?? 0;
 
+            $companyId = Client::find($contract->client_id)?->company_id ?? TenantContext::companyId() ?? 0;
+
             Invoice::create([
                 'client_id' => $contract->client_id,
                 'contract_id' => $contract->id,
-                'invoice_number' => 'FAT-' . $dueDate->format('Ymd') . '-' . str_pad(Invoice::max('id') + 1, 4, '0', STR_PAD_LEFT),
+                'invoice_number' => Invoice::nextNumber($companyId, $dueDate->format('Y-m-d')),
                 'amount' => $amount,
                 'discount' => $discount,
                 'acrescimo' => $acrescimo,
@@ -365,7 +390,9 @@ class InvoiceController extends Controller
     private function tryUnblockContract(Invoice $invoice): void
     {
         $contract = $invoice->contract;
-        if (!$contract) return;
+        if (! $contract) {
+            return;
+        }
 
         if ($contract->status === 'suspended') {
             $hasOtherOverdue = Invoice::where('contract_id', $contract->id)
@@ -373,7 +400,7 @@ class InvoiceController extends Controller
                 ->whereIn('status', ['pending', 'overdue'])
                 ->exists();
 
-            if (!$hasOtherOverdue) {
+            if (! $hasOtherOverdue) {
                 $contract->update(['status' => 'active']);
 
                 $mikrotikServer = $contract->provisionedMikrotikServer();
@@ -383,11 +410,11 @@ class InvoiceController extends Controller
 
                 if ($mikrotikServer) {
                     try {
-                        $service = new MikrotikService();
+                        $service = new MikrotikService;
                         $service->connect($mikrotikServer);
                         if ($blockedIp) {
                             $service->removeFirewallAddressList('myisp-blocked', $blockedIp);
-                        $service->removeFirewallAddressList('myisp-vencida', $blockedIp);
+                            $service->removeFirewallAddressList('myisp-vencida', $blockedIp);
                         }
                         if ($login && $profile) {
                             $service->restorePlanProfile(

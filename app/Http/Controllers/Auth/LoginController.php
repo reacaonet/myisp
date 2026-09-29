@@ -22,6 +22,11 @@ class LoginController extends Controller
 
         if (Auth::guard('web')->attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
+
+            if (Auth::guard('web')->user()->must_change_password) {
+                return redirect()->route('password.edit');
+            }
+
             return redirect()->intended(route('crm.dashboard'));
         }
 
@@ -33,6 +38,7 @@ class LoginController extends Controller
         Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
         return redirect('/login');
     }
 }

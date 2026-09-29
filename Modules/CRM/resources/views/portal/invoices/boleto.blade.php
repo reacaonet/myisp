@@ -107,11 +107,11 @@
                 @endif
                 <div>
                     <div class="label">Sacado (Pagador)</div>
-                    <div class="value">{{ $invoice->client->name ?? 'N/A' }}</div>
+                    <div class="value">{{ $invoice->client?->name ?? 'N/A' }}</div>
                 </div>
                 <div>
                     <div class="label">CPF/CNPJ</div>
-                    <div class="value">{{ $invoice->client->document ?? 'N/A' }}</div>
+                    <div class="value">{{ $invoice->client?->document ?? 'N/A' }}</div>
                 </div>
                 <div>
                     <div class="label">Data de Vencimento</div>

@@ -47,7 +47,7 @@
                 <tr class="border-b border-gray-100 hover:bg-gray-50">
                     <td class="px-6 py-4 font-mono text-xs text-gray-600">{{ $order->codigo }}</td>
                     <td class="px-6 py-4">
-                        <a href="{{ route('crm.service-orders.show', $order) }}" class="text-blue-600 hover:underline font-medium">{{ $order->client->name ?? 'N/D' }}</a>
+                        <a href="{{ route('crm.service-orders.show', $order) }}" class="text-blue-600 hover:underline font-medium">{{ $order->client?->name ?? 'N/D' }}</a>
                     </td>
                     <td class="px-6 py-4 text-gray-600">{{ $order->servico ?? '-' }}</td>
                     <td class="px-6 py-4">
@@ -59,7 +59,7 @@
                             {{ $sLabels[$order->situacao] ?? $order->situacao }}
                         </span>
                     </td>
-                    <td class="px-6 py-4 text-gray-600">{{ $order->technician->name ?? '-' }}</td>
+                    <td class="px-6 py-4 text-gray-600">{{ $order->technician?->name ?? '-' }}</td>
                     <td class="px-6 py-4 text-gray-600">{{ $order->emissao?->format('d/m/Y') ?? '-' }}</td>
                     <td class="px-6 py-4 text-right">
                         <div class="flex items-center justify-end gap-0.5">

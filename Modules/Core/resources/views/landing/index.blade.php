@@ -99,7 +99,7 @@
 </section>
 @endif
 
-<section class="features">
+<section class="features" id="para-voce">
     <div class="container">
         <div class="section-title">
             <h2>{{ $titles['features_title'] }} {{ $name }}?</h2>
@@ -177,7 +177,7 @@
 <section class="plans" id="planos">
     <div class="container">
         <div class="section-title">
-            <h2>{{ $titles['plans_title'] }}</h2>
+            <h2>Para Você: {{ $titles['plans_title'] }}</h2>
             <p>{{ $titles['plans_subtitle'] }}</p>
         </div>
         <div class="plans-grid">
@@ -204,6 +204,71 @@
             </div>
             @endforeach
         </div>
+    </div>
+</section>
+@endif
+
+@if(($business_enabled ?? false) && ($business_plans->count() || $business_features->count()))
+<style>
+    .business { padding: 78px 0; background: #0b1222; color: #e2e8f0; }
+    .business .section-title h2 { color: #fff; }
+    .business .section-title p { color: #94a3b8; }
+    .business-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 22px; margin-top: 34px; }
+    .business-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(148,163,184,0.18); border-radius: 20px; padding: 30px 26px; }
+    .business-card h3 { font-size: 1.12rem; font-weight: 800; color: #fff; margin-bottom: 8px; }
+    .business-card .desc { font-size: 0.88rem; color: #94a3b8; margin-bottom: 18px; }
+    .business-card .price { font-size: 1.7rem; font-weight: 900; color: #93c5fd; margin-bottom: 16px; }
+    .business-card .price small { font-size: 0.8rem; color: #94a3b8; font-weight: 600; }
+    .business-features { margin-top: 40px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+    .business-feature { display: flex; gap: 10px; align-items: flex-start; font-size: 0.9rem; color: #cbd5e1; }
+    .business-feature .tick { color: #34d399; font-weight: 800; }
+    .business-cta { margin-top: 38px; text-align: center; }
+</style>
+<section class="business" id="empresas">
+    <div class="container">
+        <div class="section-title">
+            <h2>🏢 {{ $business_title }}</h2>
+            <p>{{ $business_subtitle }}</p>
+        </div>
+
+        @if($business_plans->count())
+        <div class="business-grid">
+            @foreach($business_plans as $plan)
+                @php
+                    $bDown = number_format($plan->download_speed / 1024, 0);
+                    $bUp = number_format($plan->upload_speed / 1024, 0);
+                @endphp
+            <div class="business-card">
+                <h3>{{ $plan->name }}</h3>
+                @if($plan->description)
+                    <p class="desc">{{ $plan->description }}</p>
+                @endif
+                <div class="price">R$ {{ number_format((float) $plan->price, 2, ',', '.') }} <small>/mes</small></div>
+                <div class="speeds">
+                    <div><div class="lbl">Download</div><div class="val">{{ $bDown }} Mbps</div></div>
+                    <div><div class="lbl">Upload</div><div class="val">{{ $bUp }} Mbps</div></div>
+                </div>
+                @if($whatsapp)
+                    <a class="btn btn-primary plan-cta" target="_blank" href="https://wa.me/{{ preg_replace('/\D/', '', $whatsapp) }}?text=Tenho%20interesse%20no%20plano%20empresarial%20{{ $plan->name }}">{{ $business_cta_label }}</a>
+                @endif
+            </div>
+            @endforeach
+        </div>
+        @endif
+
+        @if($business_features->count())
+        <div class="business-features">
+            @foreach($business_features as $feature)
+                <div class="business-feature"><span class="tick">✔</span><span>{{ $feature }}</span></div>
+            @endforeach
+        </div>
+        @endif
+
+        @if($whatsapp)
+        <div class="business-cta">
+            <a class="btn btn-primary" href="https://wa.me/{{ preg_replace('/\D/', '', $whatsapp) }}?text=Quero%20internet%20para%20empresa">{{ $business_cta_label }}</a>
+        </div>
+        @endif
     </div>
 </section>
 @endif

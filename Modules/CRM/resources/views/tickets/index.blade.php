@@ -41,7 +41,7 @@
                     <td class="px-6 py-3">
                         <a href="{{ route('crm.tickets.show', $ticket) }}" class="font-mono text-blue-600 hover:underline">{{ $ticket->codigo }}</a>
                     </td>
-                    <td class="px-6 py-3 text-gray-900">{{ $ticket->client->name }}</td>
+                    <td class="px-6 py-3 text-gray-900">{{ $ticket->client?->name }}</td>
                     <td class="px-6 py-3 text-gray-900">{{ $ticket->subject }}</td>
                     <td class="px-6 py-3 text-gray-600">{{ $ticket->category ? ucfirst($ticket->category) : '-' }}</td>
                     <td class="px-6 py-3">

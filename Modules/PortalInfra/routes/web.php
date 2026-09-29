@@ -1,27 +1,27 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Modules\PortalInfra\Http\Controllers\Web\MikrotikServerController;
-use Modules\PortalInfra\Http\Controllers\Web\MikrotikController;
-use Modules\PortalInfra\Http\Controllers\Web\MikrotikScriptController;
-use Modules\PortalInfra\Http\Controllers\Web\MikrotikBackupController;
-use Modules\PortalInfra\Http\Controllers\Web\OltController;
-use Modules\PortalInfra\Http\Controllers\Web\IpPoolController;
-use Modules\PortalInfra\Http\Controllers\Web\FirewallController;
-use Modules\PortalInfra\Http\Controllers\Web\InterfaceController;
 use Modules\PortalInfra\Http\Controllers\Web\ArpController;
-use Modules\PortalInfra\Http\Controllers\Web\LogsController;
-use Modules\PortalInfra\Http\Controllers\Web\ProvisionController;
-use Modules\PortalInfra\Http\Controllers\Web\UptimeController;
-use Modules\PortalInfra\Http\Controllers\Web\NetworkMonitorController;
-use Modules\PortalInfra\Http\Controllers\Web\SiteBlockingController;
+use Modules\PortalInfra\Http\Controllers\Web\DashboardController;
 use Modules\PortalInfra\Http\Controllers\Web\EquipmentController;
-use Modules\PortalInfra\Http\Controllers\Web\ManufacturerController;
-use Modules\PortalInfra\Http\Controllers\Web\HotspotCouponController;
+use Modules\PortalInfra\Http\Controllers\Web\FirewallController;
 use Modules\PortalInfra\Http\Controllers\Web\FtthController;
 use Modules\PortalInfra\Http\Controllers\Web\FtthEditorController;
+use Modules\PortalInfra\Http\Controllers\Web\HotspotCouponController;
 use Modules\PortalInfra\Http\Controllers\Web\InfraLoginController;
-use Modules\PortalInfra\Http\Controllers\Web\DashboardController;
+use Modules\PortalInfra\Http\Controllers\Web\InterfaceController;
+use Modules\PortalInfra\Http\Controllers\Web\IpPoolController;
+use Modules\PortalInfra\Http\Controllers\Web\LogsController;
+use Modules\PortalInfra\Http\Controllers\Web\ManufacturerController;
+use Modules\PortalInfra\Http\Controllers\Web\MikrotikBackupController;
+use Modules\PortalInfra\Http\Controllers\Web\MikrotikController;
+use Modules\PortalInfra\Http\Controllers\Web\MikrotikScriptController;
+use Modules\PortalInfra\Http\Controllers\Web\MikrotikServerController;
+use Modules\PortalInfra\Http\Controllers\Web\NetworkMonitorController;
+use Modules\PortalInfra\Http\Controllers\Web\OltController;
+use Modules\PortalInfra\Http\Controllers\Web\ProvisionController;
+use Modules\PortalInfra\Http\Controllers\Web\SiteBlockingController;
+use Modules\PortalInfra\Http\Controllers\Web\UptimeController;
 
 Route::prefix('infra')->name('infra.')->group(function () {
 
@@ -35,163 +35,177 @@ Route::prefix('infra')->name('infra.')->group(function () {
     // Protected routes
     Route::middleware(['auth', 'verified'])->group(function () {
 
-    Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+        Route::get('/', [DashboardController::class, 'index'])
+            ->middleware('group.permission:dashboard')
+            ->name('dashboard');
 
-    // ==================== OLT ====================
+        // ==================== OLT ====================
 
-    Route::resource('olts', OltController::class)
-        ->names('olts');
+        Route::middleware('group.permission:olts')->group(function () {
+            Route::resource('olts', OltController::class)
+                ->names('olts');
+        });
 
-    // ==================== MikroTik ====================
+        // ==================== MikroTik ====================
 
-    Route::resource('mikrotik-servers', MikrotikServerController::class)
-        ->names('mikrotik-servers');
-    Route::post('mikrotik-servers/{mikrotik_server}/test', [MikrotikServerController::class, 'testConnection'])
-        ->name('mikrotik-servers.test');
+        Route::middleware('group.permission:mikrotik_servers')->group(function () {
+            Route::resource('mikrotik-servers', MikrotikServerController::class)
+                ->names('mikrotik-servers');
+            Route::post('mikrotik-servers/{mikrotik_server}/test', [MikrotikServerController::class, 'testConnection'])
+                ->name('mikrotik-servers.test');
+        });
 
-    Route::prefix('mikrotik')->name('mikrotik.')->group(function () {
-        Route::get('/pppoe-ativos', [MikrotikController::class, 'pppoeActive'])->name('pppoe-active');
-        Route::post('/pppoe-ativos/{serverId}/kick', [MikrotikController::class, 'kickPppoe'])->name('kick-pppoe');
-        Route::get('/hotspot-ativos', [MikrotikController::class, 'hotspotActive'])->name('hotspot-active');
-        Route::post('/hotspot-ativos/{serverId}/kick', [MikrotikController::class, 'kickHotspot'])->name('kick-hotspot');
-        Route::get('/ip-pools', [IpPoolController::class, 'index'])->name('ip-pools');
-        Route::post('/ip-pools', [IpPoolController::class, 'store'])->name('ip-pools.store');
-        Route::delete('/ip-pools/{serverId}', [IpPoolController::class, 'destroy'])->name('ip-pools.destroy');
-        Route::get('/nat-rules', [FirewallController::class, 'natRules'])->name('nat-rules');
-        Route::get('/address-list', [FirewallController::class, 'addressList'])->name('address-list');
-        Route::get('/logs', [LogsController::class, 'index'])->name('logs');
-        Route::get('/interfaces', [InterfaceController::class, 'index'])->name('interfaces');
-        Route::get('/arp', [ArpController::class, 'index'])->name('arp');
-        Route::get('/scripts', [MikrotikScriptController::class, 'index'])->name('scripts');
-        Route::post('/scripts/gerar', [MikrotikScriptController::class, 'generate'])->name('scripts.generate');
-    });
+        Route::prefix('mikrotik')->name('mikrotik.')->middleware('group.permission:mikrotik_servers')->group(function () {
+            Route::get('/pppoe-ativos', [MikrotikController::class, 'pppoeActive'])->name('pppoe-active');
+            Route::post('/pppoe-ativos/{serverId}/kick', [MikrotikController::class, 'kickPppoe'])->name('kick-pppoe');
+            Route::get('/hotspot-ativos', [MikrotikController::class, 'hotspotActive'])->name('hotspot-active');
+            Route::post('/hotspot-ativos/{serverId}/kick', [MikrotikController::class, 'kickHotspot'])->name('kick-hotspot');
+            Route::get('/ip-pools', [IpPoolController::class, 'index'])->name('ip-pools');
+            Route::post('/ip-pools', [IpPoolController::class, 'store'])->name('ip-pools.store');
+            Route::delete('/ip-pools/{serverId}', [IpPoolController::class, 'destroy'])->name('ip-pools.destroy');
+            Route::get('/nat-rules', [FirewallController::class, 'natRules'])->name('nat-rules');
+            Route::get('/address-list', [FirewallController::class, 'addressList'])->name('address-list');
+            Route::get('/logs', [LogsController::class, 'index'])->name('logs');
+            Route::get('/interfaces', [InterfaceController::class, 'index'])->name('interfaces');
+            Route::get('/arp', [ArpController::class, 'index'])->name('arp');
+            Route::get('/scripts', [MikrotikScriptController::class, 'index'])->name('scripts');
+            Route::post('/scripts/gerar', [MikrotikScriptController::class, 'generate'])->name('scripts.generate');
+        });
 
-    Route::resource('mikrotik-backups', MikrotikBackupController::class)
-        ->names('mikrotik-backups');
-    Route::get('mikrotik-backups/{backup}/download', [MikrotikBackupController::class, 'download'])
-        ->name('mikrotik-backups.download');
+        Route::middleware('group.permission:backups')->group(function () {
+            Route::resource('mikrotik-backups', MikrotikBackupController::class)
+                ->names('mikrotik-backups');
+            Route::get('mikrotik-backups/{backup}/download', [MikrotikBackupController::class, 'download'])
+                ->name('mikrotik-backups.download');
+        });
 
-    Route::prefix('provisioning')->name('provisioning.')->group(function () {
-        Route::get('/', [ProvisionController::class, 'index'])->name('index');
-        Route::get('/create', [ProvisionController::class, 'create'])->name('create');
-        Route::post('/', [ProvisionController::class, 'store'])->name('store');
-        Route::get('/client-plan/{client_id}', [ProvisionController::class, 'clientPlan'])->name('client-plan');
-        Route::get('/{id}/edit', [ProvisionController::class, 'edit'])->name('edit');
-        Route::put('/{id}', [ProvisionController::class, 'update'])->name('update');
-        Route::delete('/{id}', [ProvisionController::class, 'destroy'])->name('destroy');
-        Route::post('/{id}/block', [ProvisionController::class, 'block'])->name('block');
-        Route::get('/profiles/{server_id}', [ProvisionController::class, 'profiles'])->name('profiles');
-        Route::get('/active-users/{server_id}', [ProvisionController::class, 'activeUsers'])->name('active-users');
-    });
+        Route::prefix('provisioning')->name('provisioning.')->middleware('group.permission:provisioning')->group(function () {
+            Route::get('/', [ProvisionController::class, 'index'])->name('index');
+            Route::get('/create', [ProvisionController::class, 'create'])->name('create');
+            Route::post('/', [ProvisionController::class, 'store'])->name('store');
+            Route::get('/client-plan/{client_id}', [ProvisionController::class, 'clientPlan'])->name('client-plan');
+            Route::get('/{id}/edit', [ProvisionController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [ProvisionController::class, 'update'])->name('update');
+            Route::delete('/{id}', [ProvisionController::class, 'destroy'])->name('destroy');
+            Route::post('/{id}/block', [ProvisionController::class, 'block'])->name('block');
+            Route::get('/profiles/{server_id}', [ProvisionController::class, 'profiles'])->name('profiles');
+            Route::get('/active-users/{server_id}', [ProvisionController::class, 'activeUsers'])->name('active-users');
+        });
 
-    Route::resource('hotspot-coupons', HotspotCouponController::class)
-        ->names('hotspot-coupons');
-    Route::post('hotspot-coupons/generate-batch', [HotspotCouponController::class, 'generateBatch'])
-        ->name('hotspot-coupons.generate-batch');
+        Route::middleware('group.permission:hotspot_coupons')->group(function () {
+            Route::resource('hotspot-coupons', HotspotCouponController::class)
+                ->names('hotspot-coupons');
+            Route::post('hotspot-coupons/generate-batch', [HotspotCouponController::class, 'generateBatch'])
+                ->name('hotspot-coupons.generate-batch');
+        });
 
-    // ==================== Monitoramento ====================
+        // ==================== Monitoramento ====================
 
-    Route::prefix('uptime')->name('uptime.')->group(function () {
-        Route::get('/', [UptimeController::class, 'index'])->name('index');
-        Route::get('/create', [UptimeController::class, 'create'])->name('create');
-        Route::post('/', [UptimeController::class, 'store'])->name('store');
-        Route::get('/{monitor}', [UptimeController::class, 'show'])->name('show');
-        Route::get('/{monitor}/edit', [UptimeController::class, 'edit'])->name('edit');
-        Route::put('/{monitor}', [UptimeController::class, 'update'])->name('update');
-        Route::delete('/{monitor}', [UptimeController::class, 'destroy'])->name('destroy');
-        Route::post('/{monitor}/check', [UptimeController::class, 'check'])->name('check');
-        Route::post('/check-all', [UptimeController::class, 'checkAll'])->name('check-all');
-    });
+        Route::prefix('uptime')->name('uptime.')->middleware('group.permission:uptime')->group(function () {
+            Route::get('/', [UptimeController::class, 'index'])->name('index');
+            Route::get('/create', [UptimeController::class, 'create'])->name('create');
+            Route::post('/', [UptimeController::class, 'store'])->name('store');
+            Route::get('/{monitor}', [UptimeController::class, 'show'])->name('show');
+            Route::get('/{monitor}/edit', [UptimeController::class, 'edit'])->name('edit');
+            Route::put('/{monitor}', [UptimeController::class, 'update'])->name('update');
+            Route::delete('/{monitor}', [UptimeController::class, 'destroy'])->name('destroy');
+            Route::post('/{monitor}/check', [UptimeController::class, 'check'])->name('check');
+            Route::post('/check-all', [UptimeController::class, 'checkAll'])->name('check-all');
+        });
 
-    Route::prefix('network-monitor')->name('network-monitor.')->group(function () {
-        Route::get('/', [NetworkMonitorController::class, 'index'])->name('index');
-        Route::get('/{id}', [NetworkMonitorController::class, 'show'])->name('show');
-        Route::get('/{id}/active-users', [NetworkMonitorController::class, 'activeUsers'])->name('active-users');
-        Route::get('/{id}/refresh', [NetworkMonitorController::class, 'refreshStats'])->name('refresh');
-    });
+        Route::prefix('network-monitor')->name('network-monitor.')->middleware('group.permission:network_monitor')->group(function () {
+            Route::get('/', [NetworkMonitorController::class, 'index'])->name('index');
+            Route::get('/{id}', [NetworkMonitorController::class, 'show'])->name('show');
+            Route::get('/{id}/active-users', [NetworkMonitorController::class, 'activeUsers'])->name('active-users');
+            Route::get('/{id}/refresh', [NetworkMonitorController::class, 'refreshStats'])->name('refresh');
+        });
 
-    Route::prefix('site-blocking')->name('site-blocking.')->group(function () {
-        Route::get('/', [SiteBlockingController::class, 'index'])->name('index');
-        Route::post('/block', [SiteBlockingController::class, 'block'])->name('block');
-        Route::post('/unblock', [SiteBlockingController::class, 'unblock'])->name('unblock');
-    });
+        Route::prefix('site-blocking')->name('site-blocking.')->middleware('group.permission:site_blocking')->group(function () {
+            Route::get('/', [SiteBlockingController::class, 'index'])->name('index');
+            Route::post('/block', [SiteBlockingController::class, 'block'])->name('block');
+            Route::post('/unblock', [SiteBlockingController::class, 'unblock'])->name('unblock');
+        });
 
-    // ==================== Equipamentos ====================
+        // ==================== Equipamentos ====================
 
-    Route::resource('equipment', EquipmentController::class)
-        ->names('equipment');
+        Route::middleware('group.permission:equipment')->group(function () {
+            Route::resource('equipment', EquipmentController::class)
+                ->names('equipment');
+        });
 
-    Route::resource('manufacturers', ManufacturerController::class)
-        ->names('manufacturers')
-        ->except('show');
+        Route::middleware('group.permission:manufacturers')->group(function () {
+            Route::resource('manufacturers', ManufacturerController::class)
+                ->names('manufacturers')
+                ->except('show');
+        });
 
-    // ==================== FTTH ====================
+        // ==================== FTTH ====================
 
-    Route::prefix('ftth')->name('ftth.')->group(function () {
-        Route::redirect('/', '/infra')->name('dashboard');
+        Route::prefix('ftth')->name('ftth.')->middleware('group.permission:ftth')->group(function () {
+            Route::redirect('/', '/infra')->name('dashboard');
 
-        Route::get('/projetos', [FtthController::class, 'indexProjects'])->name('projects.index');
-        Route::get('/projetos/criar', [FtthController::class, 'createProject'])->name('projects.create');
-        Route::post('/projetos', [FtthController::class, 'storeProject'])->name('projects.store');
-        Route::get('/projetos/{id}', [FtthController::class, 'showProject'])->name('projects.show');
-        Route::get('/projetos/{id}/editar', [FtthController::class, 'editProject'])->name('projects.edit');
-        Route::put('/projetos/{id}', [FtthController::class, 'updateProject'])->name('projects.update');
-        Route::delete('/projetos/{id}', [FtthController::class, 'destroyProject'])->name('projects.destroy');
+            Route::get('/projetos', [FtthController::class, 'indexProjects'])->name('projects.index');
+            Route::get('/projetos/criar', [FtthController::class, 'createProject'])->name('projects.create');
+            Route::post('/projetos', [FtthController::class, 'storeProject'])->name('projects.store');
+            Route::get('/projetos/{id}', [FtthController::class, 'showProject'])->name('projects.show');
+            Route::get('/projetos/{id}/editar', [FtthController::class, 'editProject'])->name('projects.edit');
+            Route::put('/projetos/{id}', [FtthController::class, 'updateProject'])->name('projects.update');
+            Route::delete('/projetos/{id}', [FtthController::class, 'destroyProject'])->name('projects.destroy');
 
-        Route::get('/ctos', [FtthController::class, 'indexCtos'])->name('ctos.index');
-        Route::get('/ctos/criar', [FtthController::class, 'createCto'])->name('ctos.create');
-        Route::post('/ctos', [FtthController::class, 'storeCto'])->name('ctos.store');
-        Route::post('/ctos/excluir-em-massa', [FtthController::class, 'bulkDestroyCtos'])->name('ctos.bulk-destroy');
-        Route::get('/ctos/{id}', [FtthController::class, 'showCto'])->name('ctos.show');
-        Route::get('/ctos/{id}/editar', [FtthController::class, 'editCto'])->name('ctos.edit');
-        Route::put('/ctos/{id}', [FtthController::class, 'updateCto'])->name('ctos.update');
-        Route::delete('/ctos/{id}', [FtthController::class, 'destroyCto'])->name('ctos.destroy');
+            Route::get('/ctos', [FtthController::class, 'indexCtos'])->name('ctos.index');
+            Route::get('/ctos/criar', [FtthController::class, 'createCto'])->name('ctos.create');
+            Route::post('/ctos', [FtthController::class, 'storeCto'])->name('ctos.store');
+            Route::post('/ctos/excluir-em-massa', [FtthController::class, 'bulkDestroyCtos'])->name('ctos.bulk-destroy');
+            Route::get('/ctos/{id}', [FtthController::class, 'showCto'])->name('ctos.show');
+            Route::get('/ctos/{id}/editar', [FtthController::class, 'editCto'])->name('ctos.edit');
+            Route::put('/ctos/{id}', [FtthController::class, 'updateCto'])->name('ctos.update');
+            Route::delete('/ctos/{id}', [FtthController::class, 'destroyCto'])->name('ctos.destroy');
 
-        Route::get('/caixas', [FtthController::class, 'indexCaixas'])->name('caixas.index');
-        Route::get('/caixas/criar', [FtthController::class, 'createCaixa'])->name('caixas.create');
-        Route::post('/caixas', [FtthController::class, 'storeCaixa'])->name('caixas.store');
-        Route::post('/caixas/excluir-em-massa', [FtthController::class, 'bulkDestroyCaixas'])->name('caixas.bulk-destroy');
-        Route::get('/caixas/{id}', [FtthController::class, 'showCaixa'])->name('caixas.show');
-        Route::get('/caixas/{id}/editar', [FtthController::class, 'editCaixa'])->name('caixas.edit');
-        Route::put('/caixas/{id}', [FtthController::class, 'updateCaixa'])->name('caixas.update');
-        Route::delete('/caixas/{id}', [FtthController::class, 'destroyCaixa'])->name('caixas.destroy');
+            Route::get('/caixas', [FtthController::class, 'indexCaixas'])->name('caixas.index');
+            Route::get('/caixas/criar', [FtthController::class, 'createCaixa'])->name('caixas.create');
+            Route::post('/caixas', [FtthController::class, 'storeCaixa'])->name('caixas.store');
+            Route::post('/caixas/excluir-em-massa', [FtthController::class, 'bulkDestroyCaixas'])->name('caixas.bulk-destroy');
+            Route::get('/caixas/{id}', [FtthController::class, 'showCaixa'])->name('caixas.show');
+            Route::get('/caixas/{id}/editar', [FtthController::class, 'editCaixa'])->name('caixas.edit');
+            Route::put('/caixas/{id}', [FtthController::class, 'updateCaixa'])->name('caixas.update');
+            Route::delete('/caixas/{id}', [FtthController::class, 'destroyCaixa'])->name('caixas.destroy');
 
-        Route::get('/gerar', [FtthController::class, 'generateNetwork'])->name('generate');
-        Route::post('/gerar', [FtthController::class, 'runGenerate'])->name('generate.run');
+            Route::get('/gerar', [FtthController::class, 'generateNetwork'])->name('generate');
+            Route::post('/gerar', [FtthController::class, 'runGenerate'])->name('generate.run');
 
-        Route::get('/gerar-cidade', [FtthController::class, 'generateCity'])->name('generate.city');
-        Route::post('/gerar-cidade', [FtthController::class, 'runGenerateCity'])->name('generate.city.run');
+            Route::get('/gerar-cidade', [FtthController::class, 'generateCity'])->name('generate.city');
+            Route::post('/gerar-cidade', [FtthController::class, 'runGenerateCity'])->name('generate.city.run');
 
-        Route::get('/gerar-cidades', [FtthController::class, 'generateCities'])->name('generate.cities');
+            Route::get('/gerar-cidades', [FtthController::class, 'generateCities'])->name('generate.cities');
 
-        Route::get('/exportar-kml', [FtthController::class, 'exportKml'])->name('export.kml');
-        Route::get('/exportar-kml/{city}', [FtthController::class, 'downloadKml'])->name('export.kml.download');
+            Route::get('/exportar-kml', [FtthController::class, 'exportKml'])->name('export.kml');
+            Route::get('/exportar-kml/{city}', [FtthController::class, 'downloadKml'])->name('export.kml.download');
 
-        Route::get('/exportar-csv/ctos', [FtthController::class, 'exportCsvCtos'])->name('export.csv.ctos');
-        Route::get('/exportar-csv/caixas', [FtthController::class, 'exportCsvCaixas'])->name('export.csv.caixas');
+            Route::get('/exportar-csv/ctos', [FtthController::class, 'exportCsvCtos'])->name('export.csv.ctos');
+            Route::get('/exportar-csv/caixas', [FtthController::class, 'exportCsvCaixas'])->name('export.csv.caixas');
 
-        Route::get('/mapa', [FtthController::class, 'map'])->name('map');
-        Route::get('/api/map-data', [FtthController::class, 'mapData'])->name('api.map-data');
+            Route::get('/mapa', [FtthController::class, 'map'])->name('map');
+            Route::get('/api/map-data', [FtthController::class, 'mapData'])->name('api.map-data');
 
-        Route::get('/editor', [FtthEditorController::class, 'index'])->name('editor.index');
-        Route::get('/editor/api/data', [FtthEditorController::class, 'data'])->name('editor.data');
-        Route::put('/editor/api/mover/{type}/{id}', [FtthEditorController::class, 'move'])->name('editor.move');
-        Route::post('/editor/api/fibras', [FtthEditorController::class, 'storeFiber'])->name('editor.fibers.store');
-        Route::put('/editor/api/fibras/{id}', [FtthEditorController::class, 'updateFiber'])->name('editor.fibers.update');
-        Route::delete('/editor/api/fibras/{id}', [FtthEditorController::class, 'destroyFiber'])->name('editor.fibers.destroy');
-        Route::post('/editor/api/splitters', [FtthEditorController::class, 'storeSplitter'])->name('editor.splitters.store');
-        Route::delete('/editor/api/splitters/{id}', [FtthEditorController::class, 'destroySplitter'])->name('editor.splitters.destroy');
-        Route::post('/editor/api/conexoes', [FtthEditorController::class, 'storeConnection'])->name('editor.connections.store');
-        Route::delete('/editor/api/conexoes/{id}', [FtthEditorController::class, 'destroyConnection'])->name('editor.connections.destroy');
-        Route::get('/editor/api/relatorio/{city}', [FtthEditorController::class, 'report'])->name('editor.report');
-        Route::get('/editor/api/validar/{city}', [FtthEditorController::class, 'validate'])->name('editor.validate');
-        Route::get('/editor/exportar-kml/{city}', [FtthEditorController::class, 'exportKml'])->name('editor.export.kml');
-        Route::get('/editor/exportar-csv/{city}', [FtthEditorController::class, 'exportCsv'])->name('editor.export.csv');
-        Route::get('/editor/exportar-csv/{city}', [FtthEditorController::class, 'exportCsv'])->name('editor.export.csv');
+            Route::get('/editor', [FtthEditorController::class, 'index'])->name('editor.index');
+            Route::get('/editor/api/data', [FtthEditorController::class, 'data'])->name('editor.data');
+            Route::put('/editor/api/mover/{type}/{id}', [FtthEditorController::class, 'move'])->name('editor.move');
+            Route::post('/editor/api/fibras', [FtthEditorController::class, 'storeFiber'])->name('editor.fibers.store');
+            Route::put('/editor/api/fibras/{id}', [FtthEditorController::class, 'updateFiber'])->name('editor.fibers.update');
+            Route::delete('/editor/api/fibras/{id}', [FtthEditorController::class, 'destroyFiber'])->name('editor.fibers.destroy');
+            Route::post('/editor/api/splitters', [FtthEditorController::class, 'storeSplitter'])->name('editor.splitters.store');
+            Route::delete('/editor/api/splitters/{id}', [FtthEditorController::class, 'destroySplitter'])->name('editor.splitters.destroy');
+            Route::post('/editor/api/conexoes', [FtthEditorController::class, 'storeConnection'])->name('editor.connections.store');
+            Route::delete('/editor/api/conexoes/{id}', [FtthEditorController::class, 'destroyConnection'])->name('editor.connections.destroy');
+            Route::get('/editor/api/relatorio/{city}', [FtthEditorController::class, 'report'])->name('editor.report');
+            Route::get('/editor/api/validar/{city}', [FtthEditorController::class, 'validate'])->name('editor.validate');
+            Route::get('/editor/exportar-kml/{city}', [FtthEditorController::class, 'exportKml'])->name('editor.export.kml');
+            Route::get('/editor/exportar-csv/{city}', [FtthEditorController::class, 'exportCsv'])->name('editor.export.csv');
+            Route::get('/editor/exportar-csv/{city}', [FtthEditorController::class, 'exportCsv'])->name('editor.export.csv');
 
-        Route::post('/fusoes', [FtthController::class, 'storeFusion'])->name('fusions.store');
-        Route::put('/fusoes/{id}', [FtthController::class, 'updateFusion'])->name('fusions.update');
-        Route::delete('/fusoes/{id}', [FtthController::class, 'destroyFusion'])->name('fusions.destroy');
-    });
+            Route::post('/fusoes', [FtthController::class, 'storeFusion'])->name('fusions.store');
+            Route::put('/fusoes/{id}', [FtthController::class, 'updateFusion'])->name('fusions.update');
+            Route::delete('/fusoes/{id}', [FtthController::class, 'destroyFusion'])->name('fusions.destroy');
+        });
     });
 });

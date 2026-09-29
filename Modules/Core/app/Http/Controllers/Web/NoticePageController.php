@@ -5,6 +5,7 @@ namespace Modules\Core\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Modules\Core\Models\SystemSetting;
+use Modules\Core\Services\TenantContext;
 
 class NoticePageController extends Controller
 {
@@ -14,9 +15,9 @@ class NoticePageController extends Controller
         $settings = SystemSetting::getGroup('aviso');
         $block = SystemSetting::getGroup('block');
         $landing = SystemSetting::getGroup('landing');
-        $company = SystemSetting::getGroup('company');
+        $company = TenantContext::company();
 
-        if (!$preview && (string) ($settings['notice_page_enabled'] ?? '') !== '1') {
+        if (! $preview && (string) ($settings['notice_page_enabled'] ?? '') !== '1') {
             abort(404);
         }
 
@@ -25,8 +26,8 @@ class NoticePageController extends Controller
         $whatsapp = preg_replace('/\D/', '', $landing['landing_whatsapp'] ?? '');
         $portalUrl = $block['block_portal_url'] ?: route('crm.portal.login');
         $supportUrl = $block['block_support_url']
-            ?: ($whatsapp ? 'https://wa.me/' . $whatsapp : route('crm.portal.login'));
-        $brandMark = $settings['notice_mark_text'] ?: $this->brandInitials($company);
+            ?: ($whatsapp ? 'https://wa.me/'.$whatsapp : route('crm.portal.login'));
+        $brandMark = $settings['notice_mark_text'] ?: $company?->initials();
         $clientName = trim((string) $request->query('nome', 'cliente'));
         $vencimento = trim((string) $request->query('vencimento', ''));
         $dias = trim((string) $request->query('dias', ''));
@@ -34,34 +35,13 @@ class NoticePageController extends Controller
         $html = strtr($html, [
             '{{link_portal}}' => e($portalUrl),
             '{{link_suporte}}' => e($supportUrl),
-            '{{brand_mark}}' => e($brandMark),
+            '{{brand_mark}}' => e($brandMark ?: 'ISP'),
             '{{cliente_nome}}' => e($clientName !== '' ? $clientName : 'cliente'),
             '{{vencimento}}' => e($vencimento),
             '{{dias}}' => e($dias !== '' ? $dias : '10'),
         ]);
 
         return response($html, 200)->header('Content-Type', 'text/html; charset=UTF-8');
-    }
-
-    private function brandInitials(array $company): string
-    {
-        $name = $company['company_fantasy'] ?? ($company['company_name'] ?? '');
-
-        if (!$name) {
-            return 'ISP';
-        }
-
-        $initials = '';
-        foreach (preg_split('/\s+/', trim($name)) as $word) {
-            if ($word !== '') {
-                $initials .= mb_strtoupper(mb_substr($word, 0, 1));
-            }
-            if (mb_strlen($initials) >= 3) {
-                break;
-            }
-        }
-
-        return $initials !== '' ? $initials : 'ISP';
     }
 
     private function defaultHtml(): string

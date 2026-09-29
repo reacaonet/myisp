@@ -119,7 +119,7 @@
                 @endif
 
                 {{-- Financeiro --}}
-                @if($user && ($user->hasPermission('invoices') || $user->hasPermission('cash_book') || $user->hasPermission('reports') || $user->hasPermission('boleto')))
+                @if($user && ($user->hasPermission('invoices') || $user->hasPermission('cash_book') || $user->hasPermission('reports') || $user->hasPermission('boleto') || $user->hasPermission('gateways')))
                 <p class="text-xs font-semibold uppercase text-gray-500 px-3 mt-6 mb-2">Financeiro</p>
                 @if($user->hasPermission('invoices'))
                 <a href="{{ route('billing.invoices.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('billing.invoices.*') && !request()->get('status') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
@@ -149,10 +149,12 @@
                     Boletos
                 </a>
                 @endif
+                @if($user->hasPermission('gateways'))
                 <a href="{{ route('billing.gateways.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('billing.gateways.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
                     Gateways
                 </a>
+                @endif
                 @endif
 
                 {{-- Sistema --}}
@@ -169,6 +171,14 @@
                 <a href="{{ route('core.settings.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('core.settings.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                     Configuracoes
+                </a>
+                <a href="{{ route('core.companies.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('core.companies.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                    Companias / Franquias
+                </a>
+                <a href="{{ route('core.branches.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('core.branches.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                    Filiais
                 </a>
                 <a href="{{ route('core.banners.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('core.banners.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
@@ -197,6 +207,48 @@
         <div class="flex-1 flex flex-col overflow-hidden">
             <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
                 <h1 class="text-lg font-semibold text-gray-800">@yield('title', 'Dashboard')</h1>
+                @php
+                    $contextCompanies = $user->companies()->orderBy('name')->get();
+                    if ($contextCompanies->isEmpty()) {
+                        $contextCompanies = collect([\Modules\Core\Models\Company::orderBy('id')->first()])->filter();
+                    }
+                    $currentCompanyId = (int) session('current_company_id');
+                    $currentBranchId = (int) session('current_branch_id');
+                    $currentCompany = $contextCompanies->first();
+                    $contextBranches = collect();
+                    if ($currentCompany) {
+                        if ($currentCompanyId) {
+                            $currentCompany = $contextCompanies->firstWhere('id', $currentCompanyId) ?: $contextCompanies->first();
+                        }
+                        $contextBranches = $currentCompany ? $currentCompany->branches()->orderBy('name')->get() : collect();
+                        $currentBranch = $contextBranches->first();
+                        if ($currentBranchId) {
+                            $currentBranch = $contextBranches->firstWhere('id', $currentBranchId) ?: $contextBranches->first();
+                        }
+                    }
+                @endphp
+                @if($contextCompanies->isNotEmpty())
+                <div class="flex items-center gap-3 text-sm">
+                    @if(!$currentCompany->isRoot() && $currentCompany->parent)
+                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-700">{{ $currentCompany->parent->name }}</span>
+                    @endif
+                    <form method="POST" action="{{ route('core.context.switch') }}" class="flex items-center gap-2">
+                        @csrf
+                        <select name="company_id" onchange="this.form.submit()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white max-w-xs">
+                            @foreach($contextCompanies as $c)
+                                <option value="{{ $c->id }}" {{ $currentCompany && $currentCompany->id === $c->id ? 'selected' : '' }}>{{ $c->name }}</option>
+                            @endforeach
+                        </select>
+                        @if($contextBranches->isNotEmpty())
+                        <select name="branch_id" onchange="this.form.submit()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white max-w-xs">
+                            @foreach($contextBranches as $b)
+                                <option value="{{ $b->id }}" {{ $currentBranch && $currentBranch->id === $b->id ? 'selected' : '' }}>{{ $b->name }}</option>
+                            @endforeach
+                        </select>
+                        @endif
+                    </form>
+                </div>
+                @endif
                 <div class="flex items-center gap-4 text-sm text-gray-500">
                     <span id="clock"></span>
                 </div>

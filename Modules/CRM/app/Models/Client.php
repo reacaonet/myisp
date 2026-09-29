@@ -2,16 +2,19 @@
 
 namespace Modules\CRM\Models;
 
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\SoftDeletes;
+use Modules\Billing\Models\Invoice;
 use Modules\Core\Models\Address;
+use Modules\Core\Models\Concerns\BelongsToTenant;
 
 class Client extends Authenticatable
 {
-    use SoftDeletes, Notifiable;
+    use BelongsToTenant, Notifiable, SoftDeletes;
 
     protected $fillable = [
+        'company_id', 'branch_id',
         'codigo', 'name', 'document', 'rg', 'email', 'login', 'senha',
         'phone', 'cellphone', 'birth_date', 'estado_civil', 'naturalidade',
         'data_entrada', 'vcto_contrato', 'pai', 'mae',
@@ -57,7 +60,7 @@ class Client extends Authenticatable
 
     public function invoices()
     {
-        return $this->hasMany(\Modules\Billing\Models\Invoice::class);
+        return $this->hasMany(Invoice::class);
     }
 
     public function serviceOrders()

@@ -3,39 +3,45 @@
 namespace Modules\CRM\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Database\Eloquent\Builder;
+use Modules\Billing\Models\Invoice;
+use Modules\Core\Services\TenantContext;
 use Modules\CRM\Models\Client;
 use Modules\CRM\Models\Contract;
-use Modules\CRM\Models\Plan;
 use Modules\CRM\Models\MikrotikServer;
+use Modules\CRM\Models\Plan;
 use Modules\CRM\Services\MikrotikService;
-use Modules\Billing\Models\Invoice;
 
 class DashboardController extends Controller
 {
     public function index()
     {
+        $scope = fn (Builder $query, bool $withBranch = true) => $this->applyScope($query, $withBranch);
+
         $stats = [
-            'active_clients' => Client::where('status', 'active')->count(),
+            'active_clients' => $scope(Client::query()->where('status', 'active'))->count(),
             'total_clients' => Client::count(),
-            'active_contracts' => Contract::where('status', 'active')->count(),
-            'total_plans' => Plan::count(),
-            'recent_clients' => Client::latest()->take(5)->get(),
+            'active_contracts' => Contract::where('status', 'active')->whereHas('client', fn ($q) => $this->applyScope($q))->count(),
+            'total_plans' => $scope(Plan::query())->count(),
+            'recent_clients' => $scope(Client::query())->latest()->take(5)->get(),
         ];
 
-        $stats['total_pending'] = Invoice::where('status', 'pending')->count();
-        $stats['total_overdue'] = Invoice::where('status', 'overdue')->count();
-        $stats['total_paid'] = Invoice::where('status', 'paid')->count();
-        $stats['pending_amount'] = Invoice::where('status', 'pending')->sum('total');
-        $stats['overdue_amount'] = Invoice::where('status', 'overdue')->sum('total');
-        $stats['paid_amount'] = Invoice::where('status', 'paid')->sum('total');
+        $invoices = fn () => $this->applyScope(Invoice::query());
 
-        $stats['recent_overdue'] = Invoice::with('client')
+        $stats['total_pending'] = $invoices()->where('status', 'pending')->count();
+        $stats['total_overdue'] = $invoices()->where('status', 'overdue')->count();
+        $stats['total_paid'] = $invoices()->where('status', 'paid')->count();
+        $stats['pending_amount'] = $invoices()->where('status', 'pending')->sum('total');
+        $stats['overdue_amount'] = $invoices()->where('status', 'overdue')->sum('total');
+        $stats['paid_amount'] = $invoices()->where('status', 'paid')->sum('total');
+
+        $stats['recent_overdue'] = $invoices()->with('client')
             ->where('status', 'overdue')
             ->latest('due_date')
             ->take(5)
             ->get();
 
-        $stats['monthly_revenue'] = Invoice::selectRaw("to_char(due_date, 'YYYY-MM') as month, sum(total) as total")
+        $stats['monthly_revenue'] = $invoices()->selectRaw("to_char(due_date, 'YYYY-MM') as month, sum(total) as total")
             ->where('status', 'paid')
             ->where('due_date', '>=', now()->subMonths(6))
             ->groupBy('month')
@@ -44,7 +50,7 @@ class DashboardController extends Controller
             ->pluck('total', 'month')
             ->toArray();
 
-        $invStatus = \Modules\Billing\Models\Invoice::selectRaw('status, count(*) as total')
+        $invStatus = $invoices()->selectRaw('status, count(*) as total')
             ->whereIn('status', ['paid', 'pending', 'overdue'])
             ->groupBy('status')->pluck('total', 'status');
         $stats['invoice_status'] = [
@@ -53,7 +59,7 @@ class DashboardController extends Controller
             'overdue' => $invStatus['overdue'] ?? 0,
         ];
 
-        $cliStatus = \Modules\CRM\Models\Client::selectRaw('status, count(*) as total')
+        $cliStatus = $this->applyScope(Client::query())->selectRaw('status, count(*) as total')
             ->groupBy('status')->pluck('total', 'status');
         $stats['client_status'] = [
             'active' => $cliStatus['active'] ?? 0,
@@ -62,7 +68,8 @@ class DashboardController extends Controller
             'inactive' => $cliStatus['inactive'] ?? 0,
         ];
 
-        $conStatus = \Modules\CRM\Models\Contract::selectRaw('status, count(*) as total')
+        $conStatus = Contract::selectRaw('status, count(*) as total')
+            ->whereHas('client', fn ($q) => $this->applyScope($q))
             ->groupBy('status')->pluck('total', 'status');
         $stats['contract_status'] = [
             'active' => $conStatus['active'] ?? 0,
@@ -70,11 +77,11 @@ class DashboardController extends Controller
             'canceled' => $conStatus['canceled'] ?? 0,
         ];
 
-        $mikrotikServers = MikrotikServer::where('is_active', true)->get();
+        $mikrotikServers = $this->applyScope(MikrotikServer::query())->where('is_active', true)->get();
         $mikrotikStatus = [];
         foreach ($mikrotikServers as $mk) {
             try {
-                $service = new MikrotikService();
+                $service = new MikrotikService;
                 $service->connect($mk);
                 $resources = $service->getSystemResources();
                 $active = $service->getActiveUsers();
@@ -102,5 +109,20 @@ class DashboardController extends Controller
         $stats['mikrotik_status'] = $mikrotikStatus;
 
         return view('crm::dashboard.index', $stats);
+    }
+
+    protected function applyScope(Builder $query, bool $withBranch = true): Builder
+    {
+        if (TenantContext::isCrossTenant()) {
+            return $query;
+        }
+
+        $query->where('company_id', TenantContext::companyId());
+
+        if ($withBranch && TenantContext::branchId()) {
+            $query->where('branch_id', TenantContext::branchId());
+        }
+
+        return $query;
     }
 }

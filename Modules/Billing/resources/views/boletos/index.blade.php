@@ -70,7 +70,7 @@
             <tbody class="divide-y divide-gray-100">
                 @forelse($invoices as $invoice)
                 <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3 font-medium">{{ $invoice->client->name ?? 'N/A' }}</td>
+                    <td class="px-4 py-3 font-medium">{{ $invoice->client?->name ?? 'N/A' }}</td>
                     <td class="px-4 py-3 font-mono text-xs">{{ $invoice->invoice_number }}</td>
                     <td class="px-4 py-3">{{ \Carbon\Carbon::parse($invoice->due_date)->format('d/m/Y') }}</td>
                     <td class="px-4 py-3 font-medium">R$ {{ number_format($invoice->total, 2, ',', '.') }}</td>
@@ -88,7 +88,7 @@
                     </td>
                     <td class="px-4 py-3">
                         @if($invoice->gateway)
-                            <span class="text-xs text-gray-600">{{ $invoice->gateway->name }}</span>
+                            <span class="text-xs text-gray-600">{{ $invoice->gateway?->name }}</span>
                         @else
                             <span class="text-xs text-gray-400">-</span>
                         @endif

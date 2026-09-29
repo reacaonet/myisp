@@ -31,6 +31,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'must_change_password' => 'boolean',
         ];
     }
 
@@ -44,9 +45,19 @@ class User extends Authenticatable
         return $this->belongsTo(UserGroup::class, 'user_group_id');
     }
 
+    public function companies()
+    {
+        return $this->belongsToMany(Company::class, 'company_user')->withTimestamps();
+    }
+
+    public function branches()
+    {
+        return $this->belongsToMany(Branch::class, 'branch_user')->withTimestamps();
+    }
+
     public function hasPermission(string $key): bool
     {
-        if (!$this->group) {
+        if (! $this->group) {
             return false;
         }
 
@@ -64,6 +75,7 @@ class User extends Authenticatable
             $this->user_group_id = $group->id;
             $this->role = $group->slug;
         }
+
         return $this;
     }
 }

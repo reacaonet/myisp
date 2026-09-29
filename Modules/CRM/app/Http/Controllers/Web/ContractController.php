@@ -4,8 +4,10 @@ namespace Modules\CRM\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Modules\CRM\Models\Contract;
+use Modules\Core\Models\Company;
+use Modules\Core\Services\TenantContext;
 use Modules\CRM\Models\Client;
+use Modules\CRM\Models\Contract;
 use Modules\CRM\Models\Plan;
 
 class ContractController extends Controller
@@ -14,10 +16,16 @@ class ContractController extends Controller
     {
         $query = Contract::with(['client', 'plan', 'server', 'mikrotikServer']);
 
+        if (! TenantContext::isCrossTenant()) {
+            $query->whereHas('client', fn ($q) => $q
+                ->where('company_id', TenantContext::companyId())
+                ->when(TenantContext::branchId(), fn ($query) => $query->where('branch_id', TenantContext::branchId())));
+        }
+
         if ($search = $request->get('search')) {
             $query->whereHas('client', function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('document', 'like', "%{$search}%");
+                    ->orWhere('document', 'like', "%{$search}%");
             });
         }
 
@@ -28,9 +36,16 @@ class ContractController extends Controller
 
     public function create(Request $request)
     {
-        $clients = Client::where('status', 'active')->orderBy('name')->get();
-        $plans = Plan::where('is_active', true)->orderBy('name')->get();
+        $clients = Client::where('status', 'active')
+            ->when(! TenantContext::isCrossTenant(), fn ($query) => $query->where('company_id', TenantContext::companyId()))
+            ->orderBy('name')
+            ->get();
+        $plans = Plan::where('is_active', true)
+            ->when(! TenantContext::isCrossTenant(), fn ($query) => $query->where('company_id', TenantContext::companyId()))
+            ->orderBy('name')
+            ->get();
         $selectedClientId = $request->get('client_id');
+
         return view('crm::contracts.create', compact('clients', 'plans', 'selectedClientId'));
     }
 
@@ -66,7 +81,7 @@ class ContractController extends Controller
         $validated['autobloqueio'] = $request->boolean('autobloqueio');
         $validated['alterar_senha'] = $request->boolean('alterar_senha');
 
-        $validated['pedido'] = $validated['pedido'] ?: 'PED-' . str_pad(Contract::max('id') + 1, 6, '0', STR_PAD_LEFT);
+        $validated['pedido'] = $validated['pedido'] ?: 'PED-'.str_pad(Contract::max('id') + 1, 6, '0', STR_PAD_LEFT);
 
         $contract = Contract::create($validated);
 
@@ -74,16 +89,20 @@ class ContractController extends Controller
             ->with('success', 'Contrato criado com sucesso.');
     }
 
-public function show($id)
+    public function show($id)
     {
         $contract = Contract::with('client', 'plan', 'invoices')->findOrFail($id);
+
         return view('crm::contracts.show', compact('contract'));
     }
 
     public function printContract($id)
     {
         $contract = Contract::with(['client.addresses', 'plan', 'server'])->findOrFail($id);
-        return view('crm::contracts.print', compact('contract'));
+
+        $company = Company::find($contract->client?->company_id) ?? TenantContext::company();
+
+        return view('crm::contracts.print', compact('contract', 'company'));
     }
 
     public function edit($id)
@@ -91,6 +110,7 @@ public function show($id)
         $contract = Contract::with('client', 'plan')->findOrFail($id);
         $clients = Client::where('status', 'active')->orderBy('name')->get();
         $plans = Plan::where('is_active', true)->orderBy('name')->get();
+
         return view('crm::contracts.edit', compact('contract', 'clients', 'plans'));
     }
 

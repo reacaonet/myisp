@@ -115,7 +115,7 @@
                 </div>
             </div>
 
-            @php $addr = $client->addresses->first(); @endphp
+            @php $addr = $client->addresses?->first(); @endphp
             <h3 class="text-md font-semibold text-gray-800 border-b pb-2">Endereco</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="md:col-span-2">

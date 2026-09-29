@@ -4,6 +4,7 @@ namespace Modules\PortalInfra\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Modules\Core\Services\TenantContext;
 use Modules\CRM\Models\MikrotikServer;
 use Modules\CRM\Services\MikrotikService;
 
@@ -11,7 +12,14 @@ class MikrotikServerController extends Controller
 {
     public function index()
     {
-        $servers = MikrotikServer::latest()->paginate(15);
+        $query = MikrotikServer::query();
+
+        if (! TenantContext::isCrossTenant()) {
+            $query->forCompany(TenantContext::companyId());
+        }
+
+        $servers = $query->latest()->paginate(15);
+
         return view('infra::mikrotik-servers.index', compact('servers'));
     }
 
@@ -48,6 +56,7 @@ class MikrotikServerController extends Controller
     public function edit($id)
     {
         $server = MikrotikServer::findOrFail($id);
+
         return view('infra::mikrotik-servers.edit', compact('server'));
     }
 
@@ -89,7 +98,7 @@ class MikrotikServerController extends Controller
     public function testConnection($id)
     {
         $server = MikrotikServer::findOrFail($id);
-        $service = new MikrotikService();
+        $service = new MikrotikService;
         $result = $service->testConnection($server);
 
         if ($result['success']) {

@@ -1,14 +1,14 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Modules\Billing\Http\Controllers\Web\InvoiceController;
-use Modules\Billing\Http\Controllers\Web\CashBookController;
-use Modules\Billing\Http\Controllers\Web\ReportController;
 use Modules\Billing\Http\Controllers\Web\BoletoController;
+use Modules\Billing\Http\Controllers\Web\CashBookController;
+use Modules\Billing\Http\Controllers\Web\InvoiceController;
 use Modules\Billing\Http\Controllers\Web\PaymentGatewayController;
+use Modules\Billing\Http\Controllers\Web\ReportController;
 use Modules\Billing\Http\Controllers\Web\WebhookController;
 
-Route::prefix('faturas')->name('billing.invoices.')->middleware('auth')->group(function () {
+Route::prefix('faturas')->name('billing.invoices.')->middleware(['auth', 'group.permission:invoices'])->group(function () {
     Route::get('/', [InvoiceController::class, 'index'])->name('index');
     Route::get('/create', [InvoiceController::class, 'create'])->name('create');
     Route::post('/', [InvoiceController::class, 'store'])->name('store');
@@ -23,7 +23,7 @@ Route::prefix('faturas')->name('billing.invoices.')->middleware('auth')->group(f
     Route::post('/{invoice}/unblock', [InvoiceController::class, 'unblock'])->name('unblock');
 });
 
-Route::prefix('livro-caixa')->name('billing.cash-book.')->middleware('auth')->group(function () {
+Route::prefix('livro-caixa')->name('billing.cash-book.')->middleware(['auth', 'group.permission:cash_book'])->group(function () {
     Route::get('/', [CashBookController::class, 'index'])->name('index');
     Route::get('/create', [CashBookController::class, 'create'])->name('create');
     Route::post('/', [CashBookController::class, 'store'])->name('store');
@@ -33,7 +33,7 @@ Route::prefix('livro-caixa')->name('billing.cash-book.')->middleware('auth')->gr
     Route::delete('/{entry}', [CashBookController::class, 'destroy'])->name('destroy');
 });
 
-Route::prefix('relatorios')->name('billing.reports.')->middleware('auth')->group(function () {
+Route::prefix('relatorios')->name('billing.reports.')->middleware(['auth', 'group.permission:reports'])->group(function () {
     Route::get('/', [ReportController::class, 'index'])->name('index');
     Route::get('/faturas-vencimento', [ReportController::class, 'invoicesByDueDate'])->name('invoices-by-due-date');
     Route::get('/faturas-status', [ReportController::class, 'invoicesByStatus'])->name('invoices-by-status');
@@ -42,7 +42,7 @@ Route::prefix('relatorios')->name('billing.reports.')->middleware('auth')->group
     Route::get('/movimento-caixa', [ReportController::class, 'cashFlow'])->name('cash-flow');
 });
 
-Route::prefix('boletos')->name('billing.boleto.')->middleware('auth')->group(function () {
+Route::prefix('boletos')->name('billing.boleto.')->middleware(['auth', 'group.permission:boleto'])->group(function () {
     Route::get('/', [BoletoController::class, 'index'])->name('index');
     Route::get('/{invoice}/imprimir', [BoletoController::class, 'print'])->name('print');
     Route::post('/{invoice}/gerar-boleto', [BoletoController::class, 'generateBoleto'])->name('generate-boleto');
@@ -52,7 +52,7 @@ Route::prefix('boletos')->name('billing.boleto.')->middleware('auth')->group(fun
     Route::post('/{invoice}/excluir-pagamento', [BoletoController::class, 'deletePayment'])->name('delete-payment');
 });
 
-Route::prefix('gateways')->name('billing.gateways.')->middleware('auth')->group(function () {
+Route::prefix('gateways')->name('billing.gateways.')->middleware(['auth', 'group.permission:gateways'])->group(function () {
     Route::get('/', [PaymentGatewayController::class, 'index'])->name('index');
     Route::get('/criar', [PaymentGatewayController::class, 'create'])->name('create');
     Route::post('/', [PaymentGatewayController::class, 'store'])->name('store');

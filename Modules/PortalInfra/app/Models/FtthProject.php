@@ -3,16 +3,18 @@
 namespace Modules\PortalInfra\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Modules\Core\Models\Concerns\BelongsToTenant;
 
 class FtthProject extends Model
 {
-    use SoftDeletes;
+    use BelongsToTenant, SoftDeletes;
 
     protected $table = 'ftth_projects';
 
     protected $fillable = [
+        'company_id', 'branch_id',
         'name',
         'city',
         'state',

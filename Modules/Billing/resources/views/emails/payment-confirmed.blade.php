@@ -19,7 +19,7 @@
                         <td style="padding:32px;">
                             <h2 style="color:#1f2937;margin:0 0 16px;font-size:18px;">Pagamento Confirmado</h2>
                             <p style="color:#4b5563;line-height:1.6;margin:0 0 16px;">
-                                Olá <strong>{{ $invoice->client->name ?? 'Cliente' }}</strong>,
+                                Olá <strong>{{ $invoice->client?->name ?? 'Cliente' }}</strong>,
                             </p>
                             <p style="color:#4b5563;line-height:1.6;margin:0 0 24px;">
                                 Seu pagamento foi confirmado com sucesso!

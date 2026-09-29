@@ -36,10 +36,18 @@
                 @forelse($contracts as $contract)
                 <tr class="border-b border-gray-100 hover:bg-gray-50">
                     <td class="px-6 py-4">
+                        @if($contract->client)
+                        @if($contract->client)
                         <a href="{{ route('crm.clients.show', $contract->client) }}" class="text-blue-600 hover:underline font-medium">{{ $contract->client->name }}</a>
+                        @else
+                        <span class="text-gray-400 font-medium">Cliente removido</span>
+                        @endif
+                        @else
+                        <span class="text-gray-400 font-medium">Cliente removido</span>
+                        @endif
                     </td>
                     <td class="px-6 py-4 text-gray-600">{{ $contract->plan?->name ?? '-' }}</td>
-                    <td class="px-6 py-4 text-gray-600">{{ $contract->activation_date->format('d/m/Y') }}</td>
+                    <td class="px-6 py-4 text-gray-600">{{ $contract->activation_date?->format('d/m/Y') ?? '-' }}</td>
                     <td class="px-6 py-4 text-gray-600">Dia {{ $contract->due_day }}</td>
                     <td class="px-6 py-4 text-gray-900 font-medium">R$ {{ number_format(($contract->plan?->price ?? 0) - $contract->discount + $contract->acrescimo, 2, ',', '.') }}</td>
                     <td class="px-6 py-4 text-gray-600">{{ $contract->provisionedMikrotikServer()?->name ?? '-' }}</td>

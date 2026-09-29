@@ -4,13 +4,20 @@ namespace Modules\PortalInfra\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Modules\Core\Services\TenantContext;
 use Modules\CRM\Models\Olt;
 
 class OltController extends Controller
 {
     public function index()
     {
-        $olts = Olt::latest()->paginate(15);
+        $query = Olt::query();
+
+        if (! TenantContext::isCrossTenant()) {
+            $query->forCompany(TenantContext::companyId());
+        }
+
+        $olts = $query->latest()->paginate(15);
 
         return view('infra::olts.index', compact('olts'));
     }

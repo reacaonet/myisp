@@ -10,11 +10,18 @@
             @endif
         </a>
         <nav class="site">
+            
+            @if($about ?? false)
+                <a class="nav-link {{ request()->routeIs('landing.index') ? 'active' : '' }}" href="{{ route('landing.index') }}#sobre">Sobre</a>
+            @endif
+            @if($investors_enabled ?? true)
+                <a class="nav-link {{ request()->routeIs('landing.investors') ? 'active' : '' }}" href="{{ route('landing.investors') }}">Investidores</a>
+            @endif
+            
+            <a class="nav-link {{ request()->routeIs('landing.index') ? 'active' : '' }}" href="{{ route('landing.index') }}#para-voce">Para Voce</a>
+            <a class="nav-link {{ request()->routeIs('landing.index') ? 'active' : '' }}" href="{{ route('landing.index') }}#empresas">Para Sua Empresa</a>
+            <a class="nav-link {{ request()->routeIs('landing.index') ? 'active' : '' }}" href="{{ route('landing.index') }}#planos">Planos</a>
             <a class="nav-link {{ request()->routeIs('landing.sac') ? 'active' : '' }}" href="{{ route('landing.sac') }}">SAC</a>
-            <a class="nav-link" href="{{ route('landing.index') }}#planos">Planos</a>
-            <a class="nav-link" href="{{ route('landing.index') }}#vod">VOD Stream</a>
-            <a class="nav-link" href="{{ route('landing.index') }}#cobertura">Cobertura</a>
-            <a class="nav-link" href="{{ route('landing.index') }}#sobre">Sobre</a>
             <a class="btn btn-primary" href="{{ route('crm.portal.login') }}">Area do Cliente</a>
         </nav>
     </div>

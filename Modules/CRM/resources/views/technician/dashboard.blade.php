@@ -83,7 +83,7 @@
                 </div>
                 <div>
                     <p class="font-medium text-gray-900">{{ $os->codigo }}</p>
-                    <p class="text-sm text-gray-500">{{ $os->client->name }} - {{ $os->servico ?? $os->tipo_servico }}</p>
+                    <p class="text-sm text-gray-500">{{ $os->client?->name }} - {{ $os->servico ?? $os->tipo_servico }}</p>
                 </div>
             </div>
             <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
@@ -105,7 +105,7 @@
                 </div>
                 <div>
                     <p class="font-medium text-gray-900">{{ $os->codigo }} @if($os->hora_agendamento) <span class="text-sm text-gray-500">as {{ $os->hora_agendamento }}</span> @endif</p>
-                    <p class="text-sm text-gray-500">{{ $os->client->name }} - {{ $os->servico ?? $os->tipo_servico }}</p>
+                    <p class="text-sm text-gray-500">{{ $os->client?->name }} - {{ $os->servico ?? $os->tipo_servico }}</p>
                 </div>
             </div>
             <span class="px-2 py-0.5 rounded-full text-xs font-medium {{ $os->situacao === 'O' ? 'bg-blue-100 text-blue-700' : ($os->situacao === 'A' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700') }}">
@@ -139,7 +139,7 @@
                     @foreach($serviceOrders as $os)
                     <tr class="hover:bg-gray-50">
                         <td class="py-3 text-sm font-medium text-gray-900">{{ $os->codigo }}</td>
-                        <td class="py-3 text-sm text-gray-600">{{ $os->client->name }}</td>
+                        <td class="py-3 text-sm text-gray-600">{{ $os->client?->name }}</td>
                         <td class="py-3 text-sm text-gray-600">{{ $os->servico ?? $os->tipo_servico }}</td>
                         <td class="py-3 text-sm text-gray-600">
                             {{ $os->data_agendamento?->format('d/m/Y') }}

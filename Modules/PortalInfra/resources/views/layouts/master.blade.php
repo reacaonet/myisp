@@ -28,10 +28,12 @@
             </div>
             <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
 
+                @if($user && $user->hasPermission('dashboard'))
                 <a href="{{ route('infra.dashboard') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('infra.dashboard') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
                     Dashboard
                 </a>
+                @endif
 
                 {{-- MikroTik --}}
                 @if($user && $user->hasPermission('mikrotik_servers'))
@@ -50,7 +52,7 @@
                 </a>
                 @endif
 
-                @if($user && $user->hasPermission('olt_view'))
+                @if($user && $user->hasPermission('olts'))
                 <p class="text-xs font-semibold uppercase text-gray-500 px-3 mt-4 mb-2">OLT</p>
                 <a href="{{ route('infra.olts.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('infra.olts.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h16v6H4zM4 14h16v6H4zM2 7h2v2H2zm0 8h2v2H2zm18-8h2v2h-2zm0 8h2v2h-2z"/></svg>
@@ -123,6 +125,7 @@
                 @endif
                 @endif
 
+                @if($user && $user->hasPermission('ftth'))
                 {{-- FTTH --}}
                 <p class="text-xs font-semibold uppercase text-gray-500 px-3 mt-4 mb-2">FTTH</p>
                 <a href="{{ route('infra.ftth.projects.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('infra.ftth.projects.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
@@ -157,6 +160,7 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     Exportar KML
                 </a>
+                @endif
 
                 {{-- Links --}}
                 <p class="text-xs font-semibold uppercase text-gray-500 px-3 mt-6 mb-2">Links</p>

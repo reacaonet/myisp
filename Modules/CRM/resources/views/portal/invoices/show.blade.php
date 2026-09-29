@@ -31,8 +31,8 @@
             <dl class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div>
                     <dt class="text-gray-500">Cliente</dt>
-                    <dd class="font-medium text-gray-900">{{ $invoice->client->name }}</dd>
-                    <dd class="text-gray-500">{{ $invoice->client->document }}</dd>
+                    <dd class="font-medium text-gray-900">{{ $invoice->client?->name }}</dd>
+                    <dd class="text-gray-500">{{ $invoice->client?->document }}</dd>
                 </div>
                 <div>
                     <dt class="text-gray-500">Contrato</dt>
@@ -106,7 +106,7 @@
             </div>
             @if($invoice->gateway)
             <div class="mb-3">
-                <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">{{ $invoice->gateway->name }}</span>
+                <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">{{ $invoice->gateway?->name }}</span>
                 @if($invoice->boleto_numero)
                 <span class="text-xs text-gray-500 ml-2">ID: {{ $invoice->boleto_numero }}</span>
                 @endif

@@ -1,60 +1,74 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Modules\CRM\Http\Controllers\Web\DashboardController;
 use Modules\CRM\Http\Controllers\Web\ClientController;
-use Modules\CRM\Http\Controllers\Web\PlanController;
 use Modules\CRM\Http\Controllers\Web\ContractController;
-use Modules\CRM\Http\Controllers\Web\ServiceOrderController;
-use Modules\CRM\Http\Controllers\Web\TechnicianController;
-use Modules\CRM\Http\Controllers\Web\PortalController;
-use Modules\CRM\Http\Controllers\Web\TicketController;
-use Modules\CRM\Http\Controllers\Web\TechnicianPortalController;
-use Modules\CRM\Http\Controllers\Web\SupplierController;
+use Modules\CRM\Http\Controllers\Web\DashboardController;
 use Modules\CRM\Http\Controllers\Web\NewsletterController;
-use Modules\CRM\Http\Controllers\Web\StockController;
+use Modules\CRM\Http\Controllers\Web\PlanController;
+use Modules\CRM\Http\Controllers\Web\PortalController;
+use Modules\CRM\Http\Controllers\Web\ServiceOrderController;
 use Modules\CRM\Http\Controllers\Web\StockCategoryController;
+use Modules\CRM\Http\Controllers\Web\StockController;
 use Modules\CRM\Http\Controllers\Web\StockItemController;
 use Modules\CRM\Http\Controllers\Web\StockLocationController;
 use Modules\CRM\Http\Controllers\Web\StockMovementController;
+use Modules\CRM\Http\Controllers\Web\SupplierController;
+use Modules\CRM\Http\Controllers\Web\TechnicianController;
+use Modules\CRM\Http\Controllers\Web\TechnicianPortalController;
+use Modules\CRM\Http\Controllers\Web\TicketController;
 
 Route::prefix('crm')->middleware('auth')->group(function () {
-    Route::get('/', [DashboardController::class, 'index'])->name('crm.dashboard');
+    Route::get('/', [DashboardController::class, 'index'])
+        ->middleware('group.permission:dashboard')
+        ->name('crm.dashboard');
 
-    Route::resource('clients', ClientController::class)
-        ->names('crm.clients')
-        ->except('show');
+    Route::middleware('group.permission:clients')->group(function () {
+        Route::resource('clients', ClientController::class)
+            ->names('crm.clients')
+            ->except('show');
 
-    Route::get('clients/{client}', [ClientController::class, 'show'])->name('crm.clients.show');
-    Route::get('clients/{client}/history', [ClientController::class, 'history'])->name('crm.clients.history');
+        Route::get('clients/{client}', [ClientController::class, 'show'])->name('crm.clients.show');
+        Route::get('clients/{client}/history', [ClientController::class, 'history'])->name('crm.clients.history');
+    });
 
-    Route::resource('plans', PlanController::class)
-        ->names('crm.plans')
-        ->except('show');
+    Route::middleware('group.permission:plans')->group(function () {
+        Route::resource('plans', PlanController::class)
+            ->names('crm.plans')
+            ->except('show');
+    });
 
-    Route::resource('contracts', ContractController::class)
-        ->names('crm.contracts')
-        ->except('show');
+    Route::middleware('group.permission:contracts')->group(function () {
+        Route::resource('contracts', ContractController::class)
+            ->names('crm.contracts')
+            ->except('show');
 
-    Route::get('contracts/{contract}', [ContractController::class, 'show'])->name('crm.contracts.show');
-    Route::get('contracts/{contract}/print', [ContractController::class, 'printContract'])->name('crm.contracts.print');
+        Route::get('contracts/{contract}', [ContractController::class, 'show'])->name('crm.contracts.show');
+        Route::get('contracts/{contract}/print', [ContractController::class, 'printContract'])->name('crm.contracts.print');
+    });
 
-    Route::resource('service-orders', ServiceOrderController::class)
-        ->names('crm.service-orders')
-        ->except('show');
+    Route::middleware('group.permission:service_orders')->group(function () {
+        Route::resource('service-orders', ServiceOrderController::class)
+            ->names('crm.service-orders')
+            ->except('show');
 
-    Route::get('service-orders/{service_order}', [ServiceOrderController::class, 'show'])->name('crm.service-orders.show');
-    Route::post('service-orders/{service_order}/iniciar', [ServiceOrderController::class, 'start'])->name('crm.service-orders.start');
-    Route::post('service-orders/{service_order}/concluir', [ServiceOrderController::class, 'complete'])->name('crm.service-orders.complete');
-    Route::post('service-orders/{service_order}/atribuir', [ServiceOrderController::class, 'assign'])->name('crm.service-orders.assign');
+        Route::get('service-orders/{service_order}', [ServiceOrderController::class, 'show'])->name('crm.service-orders.show');
+        Route::post('service-orders/{service_order}/iniciar', [ServiceOrderController::class, 'start'])->name('crm.service-orders.start');
+        Route::post('service-orders/{service_order}/concluir', [ServiceOrderController::class, 'complete'])->name('crm.service-orders.complete');
+        Route::post('service-orders/{service_order}/atribuir', [ServiceOrderController::class, 'assign'])->name('crm.service-orders.assign');
+    });
 
-    Route::resource('technicians', TechnicianController::class)
-        ->names('crm.technicians');
+    Route::middleware('group.permission:technicians')->group(function () {
+        Route::resource('technicians', TechnicianController::class)
+            ->names('crm.technicians');
+    });
 
-    Route::resource('suppliers', SupplierController::class)
-        ->names('crm.suppliers');
+    Route::middleware('group.permission:suppliers')->group(function () {
+        Route::resource('suppliers', SupplierController::class)
+            ->names('crm.suppliers');
+    });
 
-    Route::prefix('tickets')->name('crm.tickets.')->group(function () {
+    Route::prefix('tickets')->name('crm.tickets.')->middleware('group.permission:tickets')->group(function () {
         Route::get('/', [TicketController::class, 'index'])->name('index');
         Route::get('/{ticket}', [TicketController::class, 'show'])->name('show');
         Route::post('/{ticket}/status', [TicketController::class, 'updateStatus'])->name('status');
@@ -62,16 +76,18 @@ Route::prefix('crm')->middleware('auth')->group(function () {
         Route::delete('/{ticket}', [TicketController::class, 'destroy'])->name('destroy');
     });
 
-    Route::prefix('newsletter')->name('crm.newsletter.')->group(function () {
+    Route::prefix('newsletter')->name('crm.newsletter.')->middleware('group.permission:newsletter')->group(function () {
         Route::get('/', [NewsletterController::class, 'index'])->name('index');
         Route::post('/send', [NewsletterController::class, 'send'])->name('send');
     });
 
-    Route::get('estoque', [StockController::class, 'dashboard'])->name('crm.stock.dashboard');
-    Route::resource('estoque/categorias', StockCategoryController::class)->names('crm.stock-categories')->except('show');
-    Route::resource('estoque/itens', StockItemController::class)->names('crm.stock-items');
-    Route::resource('estoque/locais', StockLocationController::class)->names('crm.stock-locations')->except('show');
-    Route::resource('estoque/movimentacoes', StockMovementController::class)->names('crm.stock-movements')->except(['edit', 'update']);
+    Route::middleware('group.permission:stock')->group(function () {
+        Route::get('estoque', [StockController::class, 'dashboard'])->name('crm.stock.dashboard');
+        Route::resource('estoque/categorias', StockCategoryController::class)->names('crm.stock-categories')->except('show');
+        Route::resource('estoque/itens', StockItemController::class)->names('crm.stock-items');
+        Route::resource('estoque/locais', StockLocationController::class)->names('crm.stock-locations')->except('show');
+        Route::resource('estoque/movimentacoes', StockMovementController::class)->names('crm.stock-movements')->except(['edit', 'update']);
+    });
 });
 
 Route::prefix('crm/portal')->name('crm.portal.')->group(function () {

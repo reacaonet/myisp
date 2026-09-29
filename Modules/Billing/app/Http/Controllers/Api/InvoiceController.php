@@ -5,6 +5,8 @@ namespace Modules\Billing\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Modules\Billing\Models\Invoice;
+use Modules\Core\Services\TenantContext;
+use Modules\CRM\Models\Client;
 
 class InvoiceController extends Controller
 {
@@ -30,7 +32,9 @@ class InvoiceController extends Controller
 
         $validated['discount'] ??= 0;
         $validated['total'] = $validated['amount'] - $validated['discount'];
-        $validated['invoice_number'] = 'FAT-' . date('Ymd') . '-' . str_pad(Invoice::max('id') + 1, 4, '0', STR_PAD_LEFT);
+        $client = isset($validated['client_id']) ? Client::find($validated['client_id']) : null;
+        $companyId = $client?->company_id ?? TenantContext::companyId() ?? 0;
+        $validated['invoice_number'] = Invoice::nextNumber($companyId, $validated['due_date'] ?? now());
 
         $invoice = Invoice::create($validated);
 

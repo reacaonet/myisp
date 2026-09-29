@@ -43,11 +43,11 @@
         <div class="title">Recibo de Pagamento</div>
 
         <div class="info">
-            <p><span class="label">Cliente:</span> {{ $invoice->client->name }}</p>
-            <p><span class="label">Documento:</span> {{ $invoice->client->document }}</p>
-            <p><span class="label">Endereco:</span> {{ $invoice->client->addresses->first()?->street ?? '' }}, {{ $invoice->client->addresses->first()?->number ?? '' }}</p>
-            <p><span class="label">Bairro:</span> {{ $invoice->client->addresses->first()?->neighborhood ?? '' }}</p>
-            <p><span class="label">Cidade:</span> {{ $invoice->client->addresses->first()?->city ?? '' }}/{{ $invoice->client->addresses->first()?->state ?? '' }}</p>
+            <p><span class="label">Cliente:</span> {{ $invoice->client?->name }}</p>
+            <p><span class="label">Documento:</span> {{ $invoice->client?->document }}</p>
+            <p><span class="label">Endereco:</span> {{ $invoice->client?->addresses?->first()?->street ?? '' }}, {{ $invoice->client?->addresses?->first()?->number ?? '' }}</p>
+            <p><span class="label">Bairro:</span> {{ $invoice->client?->addresses?->first()?->neighborhood ?? '' }}</p>
+            <p><span class="label">Cidade:</span> {{ $invoice->client?->addresses?->first()?->city ?? '' }}/{{ $invoice->client?->addresses?->first()?->state ?? '' }}</p>
         </div>
 
         <div class="line"></div>

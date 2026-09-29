@@ -4,12 +4,14 @@ namespace Modules\CRM\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Modules\Core\Models\Concerns\BelongsToTenant;
 
 class Olt extends Model
 {
-    use SoftDeletes;
+    use BelongsToTenant, SoftDeletes;
 
     protected $fillable = [
+        'company_id', 'branch_id',
         'name',
         'brand',
         'model',

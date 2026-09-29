@@ -1,6 +1,6 @@
 @extends('core::layouts.master')
 
-@section('title', 'Contrato - ' . ($contract->client->name ?? ''))
+@section('title', 'Contrato - ' . ($contract->client?->name ?? ''))
 
 @section('content')
 <div class="max-w-4xl mx-auto">
@@ -23,9 +23,13 @@
         <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                 <h3 class="text-sm font-semibold text-gray-500 uppercase mb-3">Cliente</h3>
-                <p class="font-medium text-gray-900">{{ $contract->client->name }}</p>
-                <p class="text-sm text-gray-500">{{ $contract->client->document }}</p>
+                @if($contract->client)
+                <p class="font-medium text-gray-900">{{ $contract->client?->name }}</p>
+                <p class="text-sm text-gray-500">{{ $contract->client?->document }}</p>
                 <a href="{{ route('crm.clients.show', $contract->client) }}" class="text-sm text-blue-600 hover:underline mt-2 inline-flex items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Ver cliente</a>
+                @else
+                <p class="font-medium text-gray-400">Cliente removido</p>
+                @endif
             </div>
 
             <div>

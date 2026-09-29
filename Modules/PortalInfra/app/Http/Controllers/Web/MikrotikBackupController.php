@@ -4,6 +4,7 @@ namespace Modules\PortalInfra\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Modules\Core\Services\TenantContext;
 use Modules\CRM\Models\MikrotikBackup;
 use Modules\CRM\Models\MikrotikServer;
 use Modules\CRM\Services\MikrotikService;
@@ -14,12 +15,18 @@ class MikrotikBackupController extends Controller
     {
         $query = MikrotikBackup::with('server');
 
+        $servers = MikrotikServer::query();
+
+        if (! TenantContext::isCrossTenant()) {
+            $query->whereIn('server_id', (clone $servers)->where('company_id', TenantContext::companyId())->pluck('id'));
+        }
+
         if ($serverId = $request->get('server_id')) {
             $query->where('server_id', $serverId);
         }
 
         $backups = $query->orderByDesc('created_at')->paginate(20);
-        $servers = MikrotikServer::orderBy('name')->get();
+        $servers = $servers->orderBy('name')->get();
 
         return view('infra::mikrotik-backups.index', compact('backups', 'servers'));
     }
@@ -27,6 +34,7 @@ class MikrotikBackupController extends Controller
     public function create()
     {
         $servers = MikrotikServer::orderBy('name')->get();
+
         return view('infra::mikrotik-backups.create', compact('servers'));
     }
 
@@ -39,14 +47,14 @@ class MikrotikBackupController extends Controller
         $server = MikrotikServer::findOrFail($validated['server_id']);
 
         try {
-            $service = new MikrotikService();
+            $service = new MikrotikService;
             $service->connect($server);
 
-            $filename = 'backup_' . $server->name . '_' . now()->format('Ymd_His') . '.rsc';
+            $filename = 'backup_'.$server->name.'_'.now()->format('Ymd_His').'.rsc';
 
             $commands = [
-                '/system backup save name=' . $filename,
-                '/export file=' . str_replace('.rsc', '', $filename),
+                '/system backup save name='.$filename,
+                '/export file='.str_replace('.rsc', '', $filename),
             ];
 
             $output = [];
@@ -68,13 +76,14 @@ class MikrotikBackupController extends Controller
                 ->with('success', "Backup de {$server->name} criado com sucesso.");
 
         } catch (\Exception $e) {
-            return back()->with('error', "Erro ao criar backup: " . $e->getMessage());
+            return back()->with('error', 'Erro ao criar backup: '.$e->getMessage());
         }
     }
 
     public function show($id)
     {
         $backup = MikrotikBackup::with('server')->findOrFail($id);
+
         return view('infra::mikrotik-backups.show', compact('backup'));
     }
 
@@ -93,7 +102,7 @@ class MikrotikBackupController extends Controller
 
         return response($backup->content, 200, [
             'Content-Type' => 'application/octet-stream',
-            'Content-Disposition' => 'attachment; filename="' . $backup->filename . '"',
+            'Content-Disposition' => 'attachment; filename="'.$backup->filename.'"',
         ]);
     }
 }

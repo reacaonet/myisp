@@ -4,6 +4,8 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Modules\Core\Http\Middleware\CheckGroupPermission;
+use Modules\Core\Http\Middleware\ForcePasswordChange;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -14,7 +16,12 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
-            'group.permission' => \Modules\Core\Http\Middleware\CheckGroupPermission::class,
+            'group.permission' => CheckGroupPermission::class,
+            'password.change' => ForcePasswordChange::class,
+        ]);
+
+        $middleware->web(append: [
+            ForcePasswordChange::class,
         ]);
 
         $middleware->redirectGuestsTo(function (Request $request) {
@@ -30,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
             if (str_starts_with($request->path(), 'crm/portal')) {
                 return route('crm.portal.login');
             }
+
             return '/login';
         });
     })

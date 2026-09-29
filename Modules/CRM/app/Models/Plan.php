@@ -4,13 +4,16 @@ namespace Modules\CRM\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Modules\Core\Models\Concerns\BelongsToTenant;
+use Modules\Core\Models\Server;
 
 class Plan extends Model
 {
-    use SoftDeletes;
+    use BelongsToTenant, SoftDeletes;
 
     protected $fillable = [
-        'name', 'slug', 'description',
+        'company_id', 'branch_id',
+        'name', 'slug', 'description', 'segment',
         'download_speed', 'upload_speed',
         'price', 'setup_fee', 'billing_cycle',
         'max_simultaneous', 'max_session_time',
@@ -41,6 +44,6 @@ class Plan extends Model
 
     public function server()
     {
-        return $this->belongsTo(\Modules\Core\Models\Server::class);
+        return $this->belongsTo(Server::class);
     }
 }

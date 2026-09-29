@@ -12,7 +12,7 @@
                     <span class="font-mono text-xs text-gray-500">{{ $ticket->codigo }}</span>
                 </div>
                 <p class="text-sm text-gray-500 mt-1">
-                    Cliente: {{ $ticket->client->name }} &middot; Aberto em {{ $ticket->created_at->format('d/m/Y H:i') }}
+                    Cliente: {{ $ticket->client?->name }} &middot; Aberto em {{ $ticket->created_at->format('d/m/Y H:i') }}
                 </p>
             </div>
             <div class="flex items-center gap-2">
@@ -63,7 +63,7 @@
                 @if($ticket->contract)
                 <div>
                     <dt class="text-gray-500">Contrato</dt>
-                    <dd class="font-medium text-gray-900">{{ $ticket->contract->plan?->name ?? '-' }}</dd>
+                    <dd class="font-medium text-gray-900">{{ $ticket->contract?->plan?->name ?? '-' }}</dd>
                 </div>
                 @endif
             </dl>
@@ -81,7 +81,7 @@
                 <div class="max-w-xs lg:max-w-md px-4 py-3 rounded-lg text-sm
                     {{ $msg->sender_type === 'admin' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800' }}">
                     <p class="text-xs font-medium mb-1 {{ $msg->sender_type === 'admin' ? 'text-blue-200' : 'text-gray-500' }}">
-                        {{ $msg->sender_type === 'admin' ? 'Suporte' : $ticket->client->name }} &middot; {{ $msg->created_at->format('d/m/Y H:i') }}
+                        {{ $msg->sender_type === 'admin' ? 'Suporte' : $ticket->client?->name }} &middot; {{ $msg->created_at->format('d/m/Y H:i') }}
                     </p>
                     <p class="whitespace-pre-wrap">{{ $msg->message }}</p>
                 </div>

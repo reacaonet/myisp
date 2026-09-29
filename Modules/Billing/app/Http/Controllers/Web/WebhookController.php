@@ -3,10 +3,10 @@
 namespace Modules\Billing\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Modules\Billing\Models\Invoice;
-use Modules\Billing\Models\Payment;
 use Modules\Billing\Models\CashBookEntry;
+use Modules\Billing\Models\Invoice;
 use Modules\Billing\Models\PaymentGateway;
 use Modules\CRM\Services\MikrotikService;
 
@@ -14,25 +14,35 @@ class WebhookController extends Controller
 {
     public function mercadoPago(Request $request)
     {
-        $gateway = PaymentGateway::where('slug', 'mercado-pago')->where('status', 'active')->first();
-        if (!$gateway) {
+        $paymentId = $request->input('data.id') ?? $request->input('payment_id');
+
+        $invoice = $paymentId
+            ? Invoice::where('boleto_numero', (string) $paymentId)->first()
+            : null;
+
+        $gateways = PaymentGateway::where('slug', 'mercado-pago')
+            ->where('status', 'active')
+            ->when($invoice, fn ($query) => $query->where('company_id', $invoice->company_id))
+            ->get();
+
+        $authorizationHeader = $request->header('Authorization');
+
+        $gateway = $gateways->first(
+            fn ($item) => 'Bearer '.$item->getConfigValue('access_token') === $authorizationHeader
+        );
+
+        if (! $gateway) {
             return response()->json(['error' => 'Gateway not found'], 404);
         }
 
         $accessToken = $gateway->getConfigValue('access_token');
-        $authorizationHeader = $request->header('Authorization');
 
-        if ($authorizationHeader !== 'Bearer ' . $accessToken) {
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
-
-        $paymentId = $request->input('data.id') ?? $request->input('payment_id');
-        if (!$paymentId) {
+        if (! $paymentId) {
             return response()->ok();
         }
 
         $response = $this->fetchPaymentFromMP($paymentId, $accessToken);
-        if (!$response || isset($response['error'])) {
+        if (! $response || isset($response['error'])) {
             return response()->ok();
         }
 
@@ -40,10 +50,10 @@ class WebhookController extends Controller
         $paymentIdStr = (string) ($response['id'] ?? $paymentId);
 
         if ($mpStatus === 'approved') {
-            $invoice = Invoice::where('boleto_numero', $paymentIdStr)->first();
+            $invoice = $invoice ?: Invoice::where('boleto_numero', $paymentIdStr)->first();
             if ($invoice && $invoice->status !== 'paid') {
                 $totalPaid = $invoice->payments()->sum('amount') + ($response['transaction_amount'] ?? $invoice->total);
-                $paymentDate = isset($response['date_approved']) ? \Carbon\Carbon::parse($response['date_approved'])->toDateString() : now()->toDateString();
+                $paymentDate = isset($response['date_approved']) ? Carbon::parse($response['date_approved'])->toDateString() : now()->toDateString();
 
                 $invoice->payments()->create([
                     'amount' => $response['transaction_amount'] ?? $invoice->total,
@@ -54,6 +64,8 @@ class WebhookController extends Controller
                 ]);
 
                 CashBookEntry::create([
+                    'company_id' => $invoice->company_id,
+                    'branch_id' => $invoice->branch_id,
                     'type' => 'entrada',
                     'amount' => $response['transaction_amount'] ?? $invoice->total,
                     'description' => "Pagamento fatura {$invoice->invoice_number}",
@@ -102,7 +114,7 @@ class WebhookController extends Controller
             CURLOPT_SSL_VERIFYPEER => false,
             CURLOPT_HTTPHEADER => [
                 'Content-Type: application/json',
-                'Authorization: Bearer ' . $accessToken,
+                'Authorization: Bearer '.$accessToken,
             ],
             CURLOPT_CUSTOMREQUEST => 'GET',
         ]);
@@ -116,7 +128,9 @@ class WebhookController extends Controller
     private function tryUnblockContract(Invoice $invoice): void
     {
         $contract = $invoice->contract;
-        if (!$contract) return;
+        if (! $contract) {
+            return;
+        }
 
         if ($contract->status === 'suspended') {
             $hasOtherOverdue = Invoice::where('contract_id', $contract->id)
@@ -124,7 +138,7 @@ class WebhookController extends Controller
                 ->whereIn('status', ['pending', 'overdue'])
                 ->exists();
 
-            if (!$hasOtherOverdue) {
+            if (! $hasOtherOverdue) {
                 $contract->update(['status' => 'active']);
 
                 $mikrotikServer = $contract->provisionedMikrotikServer();
@@ -134,7 +148,7 @@ class WebhookController extends Controller
 
                 if ($mikrotikServer) {
                     try {
-                        $service = new MikrotikService();
+                        $service = new MikrotikService;
                         $service->connect($mikrotikServer);
                         if ($blockedIp) {
                             $service->removeFirewallAddressList('myisp-blocked', $blockedIp);

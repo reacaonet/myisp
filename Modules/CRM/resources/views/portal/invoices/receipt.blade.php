@@ -38,8 +38,8 @@
         <div class="title">Recibo de Pagamento</div>
 
         <div class="info">
-            <p><span class="label">Cliente:</span> {{ $invoice->client->name }}</p>
-            <p><span class="label">Documento:</span> {{ $invoice->client->document }}</p>
+            <p><span class="label">Cliente:</span> {{ $invoice->client?->name }}</p>
+            <p><span class="label">Documento:</span> {{ $invoice->client?->document }}</p>
         </div>
 
         <div class="line"></div>

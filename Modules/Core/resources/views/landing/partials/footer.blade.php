@@ -41,7 +41,7 @@
             </div>
         </div>
         <div class="footer-bottom">
-            © {{ date('Y') }} {{ $name }}. Todos os direitos reservados. CNPJ {{ \Modules\Core\Models\SystemSetting::get('company_document', '') }}
+            © {{ date('Y') }} {{ $name }}. Todos os direitos reservados. CNPJ {{ \Modules\Core\Services\TenantContext::company()?->fiscal('document') ?? '' }}
         </div>
     </div>
 </footer>

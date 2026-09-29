@@ -65,7 +65,7 @@
 
                     <div class="md:col-span-2">
                         <h3 class="text-sm font-semibold text-gray-500 uppercase mb-3">Endereco</h3>
-                        @php $addr = $client->addresses->first(); @endphp
+                        @php $addr = $client->addresses?->first(); @endphp
                         @if($addr)
                         <dl class="grid grid-cols-2 gap-4 text-sm">
                             <div class="flex justify-between"><dt class="text-gray-500">Logradouro</dt><dd class="text-gray-900">{{ $addr->street }}, {{ $addr->number }}</dd></div>

@@ -33,6 +33,10 @@
                 <input type="text" name="slug" value="{{ old('slug') }}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="ex: franquia-campinas">
             </div>
             <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Dominio publico</label>
+                <input type="text" name="domain" value="{{ old('domain') }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="franquia.exemplo.com.br">
+            </div>
+            <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Codigo</label>
                 <input type="text" name="code" value="{{ old('code') }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="ex: FR001">
             </div>
@@ -156,6 +160,37 @@
                 <input type="password" name="admin_password" autocomplete="new-password" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
             </div>
         </div>
+
+        <fieldset class="mt-6 border border-gray-200 rounded-xl p-4">
+            <legend class="px-2 text-sm font-medium text-gray-700">Assinatura (apenas para franquias)</legend>
+            <p class="mb-4 text-xs text-gray-500">A matriz nao cobra assinatura: os campos sao ignorados para a raiz.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Plano</label>
+                    <input type="text" name="plan_slug" value="{{ old('plan_slug') }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="ex.: gold">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Situacao</label>
+                    <select name="subscription_status" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        @foreach(['trial' => 'Em teste', 'active' => 'Ativa', 'overdue' => 'Em atraso', 'canceled' => 'Cancelada'] as $value => $label)
+                            <option value="{{ $value }}" {{ old('subscription_status', 'trial') === $value ? 'selected' : '' }}>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Fim do teste</label>
+                    <input type="date" name="trial_ends_at" value="{{ old('trial_ends_at') }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Vencimento da assinatura</label>
+                    <input type="date" name="subscription_ends_at" value="{{ old('subscription_ends_at') }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Observacoes</label>
+                    <textarea name="subscription_notes" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">{{ old('subscription_notes') }}</textarea>
+                </div>
+            </div>
+        </fieldset>
 
         <div class="flex justify-end mt-6">
             <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Salvar Compania</button>

@@ -11,20 +11,20 @@ class FirewallController extends Controller
 {
     public function natRules(Request $request)
     {
-        $servers = MikrotikServer::where('is_active', true)->orderBy('name')->get();
+        $servers = MikrotikServer::scoped()->where('is_active', true)->orderBy('name')->get();
         $selectedServer = null;
         $natRules = [];
 
         if ($serverId = $request->get('server_id')) {
-            $selectedServer = MikrotikServer::find($serverId);
+            $selectedServer = MikrotikServer::findScoped($serverId);
             if ($selectedServer) {
                 try {
-                    $service = new MikrotikService();
+                    $service = new MikrotikService;
                     $service->connect($selectedServer);
                     $natRules = $service->getFirewallNat();
                     $service->disconnect();
                 } catch (\Exception $e) {
-                    return back()->with('error', "Erro ao conectar: " . $e->getMessage());
+                    return back()->with('error', 'Erro ao conectar: '.$e->getMessage());
                 }
             }
         }
@@ -34,21 +34,21 @@ class FirewallController extends Controller
 
     public function addressList(Request $request)
     {
-        $servers = MikrotikServer::where('is_active', true)->orderBy('name')->get();
+        $servers = MikrotikServer::scoped()->where('is_active', true)->orderBy('name')->get();
         $selectedServer = null;
         $addressList = [];
         $listName = $request->get('list_name', 'blocked_sites');
 
         if ($serverId = $request->get('server_id')) {
-            $selectedServer = MikrotikServer::find($serverId);
+            $selectedServer = MikrotikServer::findScoped($serverId);
             if ($selectedServer) {
                 try {
-                    $service = new MikrotikService();
+                    $service = new MikrotikService;
                     $service->connect($selectedServer);
                     $addressList = $service->getFirewallAddressList($listName);
                     $service->disconnect();
                 } catch (\Exception $e) {
-                    return back()->with('error', "Erro ao conectar: " . $e->getMessage());
+                    return back()->with('error', 'Erro ao conectar: '.$e->getMessage());
                 }
             }
         }

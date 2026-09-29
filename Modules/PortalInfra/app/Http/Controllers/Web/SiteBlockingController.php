@@ -11,21 +11,21 @@ class SiteBlockingController extends Controller
 {
     public function index(Request $request)
     {
-        $servers = MikrotikServer::orderBy('name')->get();
+        $servers = MikrotikServer::scoped()->orderBy('name')->get();
         $selectedServer = null;
         $blockedSites = [];
 
         if ($serverId = $request->get('server_id')) {
-            $selectedServer = MikrotikServer::find($serverId);
+            $selectedServer = MikrotikServer::findScoped($serverId);
 
             if ($selectedServer) {
                 try {
-                    $service = new MikrotikService();
+                    $service = new MikrotikService;
                     $service->connect($selectedServer);
                     $blockedSites = $service->getFirewallAddressList('blocked_sites');
                     $service->disconnect();
                 } catch (\Exception $e) {
-                    return back()->with('error', "Erro ao conectar: " . $e->getMessage());
+                    return back()->with('error', 'Erro ao conectar: '.$e->getMessage());
                 }
             }
         }
@@ -41,11 +41,11 @@ class SiteBlockingController extends Controller
             'list_name' => 'nullable|string|max:100',
         ]);
 
-        $server = MikrotikServer::findOrFail($validated['server_id']);
+        $server = MikrotikServer::findScopedOrFail($validated['server_id']);
         $listName = $validated['list_name'] ?? 'blocked_sites';
 
         try {
-            $service = new MikrotikService();
+            $service = new MikrotikService;
             $service->connect($server);
             $service->addFirewallAddressList($listName, $validated['address']);
             $service->disconnect();
@@ -53,7 +53,7 @@ class SiteBlockingController extends Controller
             return back()->with('success', "Site {$validated['address']} bloqueado com sucesso na lista {$listName}.");
 
         } catch (\Exception $e) {
-            return back()->with('error', "Erro ao bloquear: " . $e->getMessage());
+            return back()->with('error', 'Erro ao bloquear: '.$e->getMessage());
         }
     }
 
@@ -65,11 +65,11 @@ class SiteBlockingController extends Controller
             'list_name' => 'nullable|string|max:100',
         ]);
 
-        $server = MikrotikServer::findOrFail($validated['server_id']);
+        $server = MikrotikServer::findScopedOrFail($validated['server_id']);
         $listName = $validated['list_name'] ?? 'blocked_sites';
 
         try {
-            $service = new MikrotikService();
+            $service = new MikrotikService;
             $service->connect($server);
             $service->removeFirewallAddressList($listName, $validated['address']);
             $service->disconnect();
@@ -77,7 +77,7 @@ class SiteBlockingController extends Controller
             return back()->with('success', "Site {$validated['address']} desbloqueado com sucesso da lista {$listName}.");
 
         } catch (\Exception $e) {
-            return back()->with('error', "Erro ao desbloquear: " . $e->getMessage());
+            return back()->with('error', 'Erro ao desbloquear: '.$e->getMessage());
         }
     }
 }

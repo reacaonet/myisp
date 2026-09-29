@@ -2,16 +2,16 @@
 
 namespace Modules\CRM\Database\Seeders;
 
-use Illuminate\Database\Seeder;
+use App\Models\User;
 use Faker\Factory as Faker;
-use Modules\CRM\Models\Plan;
+use Illuminate\Database\Seeder;
+use Modules\Core\Models\Company;
+use Modules\Core\Models\UserGroup;
 use Modules\CRM\Models\Client;
 use Modules\CRM\Models\Contract;
+use Modules\CRM\Models\MikrotikServer;
+use Modules\CRM\Models\Plan;
 use Modules\CRM\Models\ServiceOrder;
-use Modules\Core\Models\Server;
-use Modules\Core\Models\Address;
-use Modules\Core\Models\UserGroup;
-use App\Models\User;
 
 class CRMDatabaseSeeder extends Seeder
 {
@@ -19,8 +19,16 @@ class CRMDatabaseSeeder extends Seeder
     {
         $faker = Faker::create('pt_BR');
 
-        Server::create(['name' => 'Mikrotik Principal', 'ip' => '10.0.0.1', 'username' => 'admin', 'password' => 'mikrotik123', 'interface' => 'ether1', 'tipo' => 'mikrotik', 'porta_api' => 8728, 'porta_ssh' => 22, 'is_active' => true]);
-        Server::create(['name' => 'Mikrotik Backup', 'ip' => '10.0.0.2', 'username' => 'admin', 'password' => 'mikrotik456', 'interface' => 'ether1', 'tipo' => 'mikrotik', 'porta_api' => 8728, 'porta_ssh' => 22, 'is_active' => false]);
+        $rootCompanyId = Company::whereNull('parent_id')->orderBy('id')->value('id');
+
+        MikrotikServer::firstOrCreate(
+            ['name' => 'Mikrotik Principal'],
+            ['company_id' => $rootCompanyId, 'ip' => '10.0.0.1', 'port' => 8728, 'login' => 'admin', 'senha' => 'mikrotik123', 'type' => 'both', 'is_active' => true]
+        );
+        MikrotikServer::firstOrCreate(
+            ['name' => 'Mikrotik Backup'],
+            ['company_id' => $rootCompanyId, 'ip' => '10.0.0.2', 'port' => 8728, 'login' => 'admin', 'senha' => 'mikrotik456', 'type' => 'both', 'is_active' => false]
+        );
 
         $plans = [
             ['name' => 'Básico 10M', 'slug' => 'basico-10m', 'download_speed' => 10240, 'upload_speed' => 5120, 'price' => 79.90, 'billing_cycle' => 'monthly', 'has_pppoe' => true, 'has_hotspot' => false, 'is_active' => true],
@@ -122,7 +130,7 @@ class CRMDatabaseSeeder extends Seeder
                 $client->addresses()->create([
                     'street' => $faker->streetName,
                     'number' => (string) $faker->buildingNumber,
-                    'complement' => 'Sala ' . $faker->randomNumber(2),
+                    'complement' => 'Sala '.$faker->randomNumber(2),
                     'neighborhood' => $faker->citySuffix,
                     'city' => $faker->city,
                     'state' => 'SP',
@@ -139,7 +147,7 @@ class CRMDatabaseSeeder extends Seeder
                 $status = $faker->randomElement(['active', 'active', 'active', 'active', 'suspended', 'canceled']);
 
                 Contract::create([
-                    'pedido' => 'PED-' . str_pad($faker->unique()->numberBetween(1000, 9999), 4, '0', STR_PAD_LEFT),
+                    'pedido' => 'PED-'.str_pad($faker->unique()->numberBetween(1000, 9999), 4, '0', STR_PAD_LEFT),
                     'client_id' => $client->id,
                     'plan_id' => $planId,
                     'activation_date' => $activationDate->format('Y-m-d'),
@@ -148,7 +156,7 @@ class CRMDatabaseSeeder extends Seeder
                     'status' => $status,
                     'situacao' => $status === 'active' ? 'A' : ($status === 'suspended' ? 'S' : 'C'),
                     'billing_type' => $faker->randomElement($billingTypes),
-                    'pppoe_user' => $client->login . ($i > 0 ? ($i + 1) : ''),
+                    'pppoe_user' => $client->login.($i > 0 ? ($i + 1) : ''),
                     'pppoe_password' => $faker->password(8, 12),
                     'ip_address' => $faker->boolean(80) ? $faker->localIpv4() : null,
                     'route_ip' => $faker->boolean(30) ? $faker->localIpv4() : null,
@@ -176,14 +184,14 @@ class CRMDatabaseSeeder extends Seeder
         for ($i = 0; $i < 15; $i++) {
             $clientId = $faker->randomElement($clientIds);
             $clientContracts = Contract::where('client_id', $clientId)->pluck('id')->toArray();
-            $contractId = !empty($clientContracts) ? $faker->randomElement($clientContracts) : null;
+            $contractId = ! empty($clientContracts) ? $faker->randomElement($clientContracts) : null;
             $planId = $contractId ? Contract::find($contractId)->plan_id : $faker->randomElement($planIds);
             $emissao = $faker->dateTimeBetween('-6 months', 'now');
             $encerrado = $faker->boolean(60);
             $situacao = $encerrado ? 'F' : $faker->randomElement(['O', 'A']);
 
             ServiceOrder::create([
-                'codigo' => 'OS-' . str_pad($i + 1, 4, '0', STR_PAD_LEFT),
+                'codigo' => 'OS-'.str_pad($i + 1, 4, '0', STR_PAD_LEFT),
                 'client_id' => $clientId,
                 'contract_id' => $contractId,
                 'plan_id' => $planId,

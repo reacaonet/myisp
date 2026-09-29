@@ -12,9 +12,15 @@ class Company extends Model
         'legal_name',
         'fantasy_name',
         'slug',
+        'domain',
         'code',
         'is_active',
         'is_franchise',
+        'plan_slug',
+        'subscription_status',
+        'trial_ends_at',
+        'subscription_ends_at',
+        'subscription_notes',
         'document',
         'state_registration',
         'municipal_registration',
@@ -33,6 +39,8 @@ class Company extends Model
         return [
             'is_active' => 'boolean',
             'is_franchise' => 'boolean',
+            'trial_ends_at' => 'datetime',
+            'subscription_ends_at' => 'datetime',
         ];
     }
 
@@ -76,6 +84,56 @@ class Company extends Model
     public function legalName(): string
     {
         return $this->fiscal('legal_name') ?: $this->name;
+    }
+
+    /**
+     * Estado da assinatura da franquia. Ainda nao ha cobranca automatica:
+     * os campos apenas descrevem o plano vigente e o vencimento.
+     */
+    public function subscriptionStatus(): string
+    {
+        if ($this->isRoot()) {
+            return 'unlimited';
+        }
+
+        return (string) ($this->subscription_status ?: 'trial');
+    }
+
+    public function onTrial(): bool
+    {
+        return $this->subscriptionStatus() === 'trial';
+    }
+
+    public function isSubscriptionActive(): bool
+    {
+        return in_array($this->subscriptionStatus(), ['active', 'unlimited'], true);
+    }
+
+    public function isSubscriptionExpired(): bool
+    {
+        if ($this->isSubscriptionActive()) {
+            return false;
+        }
+
+        $endsAt = $this->onTrial() ? $this->trial_ends_at : $this->subscription_ends_at;
+
+        return $endsAt !== null && $endsAt->isPast();
+    }
+
+    /** Dias restantes da assinatura; null quando nao ha prazo definido. */
+    public function subscriptionDaysRemaining(): ?int
+    {
+        if ($this->isSubscriptionActive()) {
+            return null;
+        }
+
+        $endsAt = $this->onTrial() ? $this->trial_ends_at : $this->subscription_ends_at;
+
+        if ($endsAt === null) {
+            return null;
+        }
+
+        return (int) now()->startOfDay()->diffInDays($endsAt->startOfDay(), false);
     }
 
     /** Nome fantasia com heranca; cai no nome cadastrado. */

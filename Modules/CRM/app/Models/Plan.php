@@ -2,10 +2,11 @@
 
 namespace Modules\CRM\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Modules\Core\Models\Concerns\BelongsToTenant;
-use Modules\Core\Models\Server;
+use Modules\Core\Services\TenantContext;
 
 class Plan extends Model
 {
@@ -44,6 +45,30 @@ class Plan extends Model
 
     public function server()
     {
-        return $this->belongsTo(Server::class);
+        return $this->belongsTo(MikrotikServer::class);
+    }
+
+    /**
+     * Query sempre ancorada na empresa atual, salvo navegacao cross-tenant.
+     */
+    public static function scoped(?Builder $query = null): Builder
+    {
+        $query ??= static::query();
+
+        if (! TenantContext::isCrossTenant()) {
+            $query->forCompany(TenantContext::companyId());
+        }
+
+        return $query;
+    }
+
+    public static function findScoped(int $id): ?self
+    {
+        return static::scoped()->find($id);
+    }
+
+    public static function findScopedOrFail(int $id): self
+    {
+        return static::scoped()->findOrFail($id);
     }
 }

@@ -4,8 +4,7 @@ namespace Modules\CRM\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Modules\CRM\Models\ProvisioningRecord;
-use Modules\CRM\Models\MikrotikServer;
+use Modules\Billing\Models\Invoice;
 
 class Contract extends Model
 {
@@ -48,7 +47,7 @@ class Contract extends Model
 
     public function server()
     {
-        return $this->belongsTo(\Modules\Core\Models\Server::class);
+        return $this->belongsTo(MikrotikServer::class);
     }
 
     public function mikrotikServer()
@@ -58,12 +57,12 @@ class Contract extends Model
 
     public function invoices()
     {
-        return $this->hasMany(\Modules\Billing\Models\Invoice::class);
+        return $this->hasMany(Invoice::class);
     }
 
     public function activeInvoices()
     {
-        return $this->hasMany(\Modules\Billing\Models\Invoice::class)
+        return $this->hasMany(Invoice::class)
             ->whereIn('status', ['pending', 'overdue']);
     }
 
@@ -73,7 +72,7 @@ class Contract extends Model
             ->where('client_id', $this->client_id)
             ->where('success', true)
             ->where('action', '!=', 'remove')
-            ->when($this->tipo_conexao, fn($q) => $q->where('type', $this->tipo_conexao))
+            ->when($this->tipo_conexao, fn ($q) => $q->where('type', $this->tipo_conexao))
             ->latest()
             ->first();
     }
@@ -106,11 +105,11 @@ class Contract extends Model
 
     public function planProfileName(): ?string
     {
-        if (!$this->plan) {
+        if (! $this->plan) {
             return null;
         }
 
-        return $this->plan->slug ? 'plano-' . $this->plan->slug : 'plano-' . $this->plan->id;
+        return $this->plan->slug ? 'plano-'.$this->plan->slug : 'plano-'.$this->plan->id;
     }
 
     public function provisionedMikrotikServer(): ?MikrotikServer

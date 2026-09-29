@@ -41,6 +41,7 @@
                     <th class="text-left px-4 py-3 font-medium text-gray-500">CNPJ</th>
                     <th class="text-center px-4 py-3 font-medium text-gray-500">Filiais</th>
                     <th class="text-center px-4 py-3 font-medium text-gray-500">Usuarios</th>
+                    <th class="text-center px-4 py-3 font-medium text-gray-500">Assinatura</th>
                     <th class="text-center px-4 py-3 font-medium text-gray-500">Status</th>
                     <th class="text-center px-4 py-3 font-medium text-gray-500">Acoes</th>
                 </tr>
@@ -65,6 +66,27 @@
                     <td class="px-4 py-3 text-gray-500">{{ $company->fiscal('document') ?: '—' }}</td>
                     <td class="px-4 py-3 text-center text-gray-500">{{ $company->branches_count }}</td>
                     <td class="px-4 py-3 text-center text-gray-500">{{ $company->users_count }}</td>
+                    <td class="px-4 py-3 text-center">
+                        @if($company->isRoot())
+                            <span class="text-xs text-gray-400">Ilimitada</span>
+                        @elseif($company->isSubscriptionExpired())
+                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">
+                                {{ $company->onTrial() ? 'Teste vencido' : 'Vencida' }}
+                            </span>
+                        @elseif($company->onTrial())
+                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700">
+                                Em teste{{ $company->subscriptionDaysRemaining() !== null ? ' · '.$company->subscriptionDaysRemaining().'d' : '' }}
+                            </span>
+                        @elseif($company->isSubscriptionActive())
+                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
+                                {{ $company->plan_slug ?: 'Ativa' }}
+                            </span>
+                        @else
+                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
+                                {{ ucfirst($company->subscriptionStatus()) }}
+                            </span>
+                        @endif
+                    </td>
                     <td class="px-4 py-3 text-center">
                         @if($company->is_active)
                             <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">Ativa</span>

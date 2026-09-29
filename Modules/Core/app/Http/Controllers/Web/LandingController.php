@@ -19,11 +19,36 @@ class LandingController extends Controller
 
         $data = $this->landingData();
 
-        $data['banners'] = LandingBanner::active()->ordered()->get();
+        $data['banners'] = $this->banners();
         $data['hero_title'] = $data['settings']['landing_hero_title'] ?? 'Internet Fibra Optica de Alta Velocidade';
         $data['hero_subtitle'] = $data['settings']['landing_hero_subtitle'] ?? '';
 
         return view('core::landing.index', $data);
+    }
+
+    /**
+     * Banners da empresa atual; se nao houver nenhum, usa os da matriz para
+     * que a franqueadora continue aparecendo como marca padrao.
+     *
+     * @return Collection<int, LandingBanner>
+     */
+    private function banners(): Collection
+    {
+        $companyId = TenantContext::companyId();
+
+        $own = LandingBanner::active()->ordered()
+            ->where(fn ($query) => $query->where('company_id', $companyId))
+            ->get();
+
+        if ($own->isNotEmpty() || $companyId === null) {
+            return $own;
+        }
+
+        return LandingBanner::active()->ordered()
+            ->where(fn ($query) => $query
+                ->whereNull('company_id')
+                ->orWhereHas('company', fn ($parent) => $parent->whereNull('parent_id')))
+            ->get();
     }
 
     public function sac()
@@ -51,6 +76,28 @@ class LandingController extends Controller
         return view('core::landing.investors', $data);
     }
 
+    /**
+     * Catalogo unico: planos da matriz. Filiais e franquias nao montam
+     * catalogo proprio, entao a rede inteira exibe a mesma oferta.
+     *
+     * @return Collection<int, Plan>
+     */
+    private function publicPlans(): Collection
+    {
+        $company = TenantContext::company();
+        $matrixId = $company?->parent_id ?? $company?->id;
+
+        if (! $matrixId) {
+            return collect();
+        }
+
+        return Plan::query()
+            ->where('company_id', $matrixId)
+            ->where('is_active', true)
+            ->orderBy('price')
+            ->get();
+    }
+
     protected function landingEnabled(): bool
     {
         return SystemSetting::get('landing_enabled', '1') === '1';
@@ -75,7 +122,7 @@ class LandingController extends Controller
 
         $name = $company?->displayName() ?: 'MyISP';
 
-        $activePlans = Plan::where('is_active', true)->orderBy('price')->get();
+        $activePlans = $this->publicPlans();
 
         $residentialPlans = $activePlans->where(fn ($plan) => $plan->segment !== 'empresarial')->values();
         $businessPlans = $activePlans->where(fn ($plan) => $plan->segment === 'empresarial')->values();

@@ -84,19 +84,20 @@ class MultiCompanyTest extends TestCase
         $this->get(route('core.branches.create'))->assertOk();
 
         $this->post(route('core.branches.store'), [
-            'company_id' => $company->id,
             'name' => 'Centro',
             'code' => '002',
+            'document' => '12.345.678/0001-95',
             'is_active' => '1',
         ])->assertRedirect(route('core.branches.index'));
 
         $centro = Branch::where('name', 'Centro')->first();
         $this->assertNotNull($centro);
+        $this->assertSame('12345678000195', $centro->document);
+        $this->assertSame(Company::whereNull('parent_id')->orderBy('id')->value('id'), $centro->company_id);
 
         $this->get(route('core.branches.edit', $centro))->assertOk();
 
         $this->put(route('core.branches.update', $centro), [
-            'company_id' => $company->id,
             'name' => 'Centro II',
             'is_active' => '1',
         ])->assertRedirect(route('core.branches.index'));

@@ -37,6 +37,12 @@ class ContextController extends Controller
             }
 
             session(['current_company_id' => $companyId]);
+
+            // trocar de empresa invalida a filial em uso: o TenantContext
+            // resolve a primeira filial liberada da nova empresa
+            if ((int) session('current_branch_id')) {
+                session()->forget('current_branch_id');
+            }
         }
 
         if ($request->filled('branch_id')) {

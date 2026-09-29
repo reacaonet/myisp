@@ -4,9 +4,12 @@ namespace Modules\Core\Models;
 
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use Modules\Core\Models\Concerns\BelongsToTenant;
 
 class Branch extends Model
 {
+    use BelongsToTenant;
+
     protected $fillable = [
         'company_id',
         'parent_id',
@@ -22,10 +25,6 @@ class Branch extends Model
         ];
     }
 
-    public function company()
-    {
-        return $this->belongsTo(Company::class);
-    }
 
     public function parent()
     {

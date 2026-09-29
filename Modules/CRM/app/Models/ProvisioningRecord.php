@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class ProvisioningRecord extends Model
 {
     protected $fillable = [
-        'mikrotik_server_id', 'client_id', 'type', 'action',
+        'mikrotik_server_id', 'client_id', 'contract_id', 'type', 'action',
         'login', 'params', 'response', 'success', 'error',
     ];
 
@@ -28,5 +28,10 @@ class ProvisioningRecord extends Model
     public function client()
     {
         return $this->belongsTo(Client::class);
+    }
+
+    public function contract()
+    {
+        return $this->belongsTo(Contract::class);
     }
 }

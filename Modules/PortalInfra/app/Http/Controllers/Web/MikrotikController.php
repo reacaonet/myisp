@@ -11,20 +11,20 @@ class MikrotikController extends Controller
 {
     public function pppoeActive(Request $request)
     {
-        $servers = MikrotikServer::where('is_active', true)->orderBy('name')->get();
+        $servers = MikrotikServer::scoped()->where('is_active', true)->orderBy('name')->get();
         $selectedServer = null;
         $activeSessions = [];
 
         if ($serverId = $request->get('server_id')) {
-            $selectedServer = MikrotikServer::find($serverId);
+            $selectedServer = MikrotikServer::findScoped($serverId);
             if ($selectedServer) {
                 try {
-                    $service = new MikrotikService();
+                    $service = new MikrotikService;
                     $service->connect($selectedServer);
                     $activeSessions = $service->getActiveUsers('pppoe')['pppoe'] ?? [];
                     $service->disconnect();
                 } catch (\Exception $e) {
-                    return back()->with('error', "Erro ao conectar: " . $e->getMessage());
+                    return back()->with('error', 'Erro ao conectar: '.$e->getMessage());
                 }
             }
         }
@@ -34,20 +34,20 @@ class MikrotikController extends Controller
 
     public function hotspotActive(Request $request)
     {
-        $servers = MikrotikServer::where('is_active', true)->orderBy('name')->get();
+        $servers = MikrotikServer::scoped()->where('is_active', true)->orderBy('name')->get();
         $selectedServer = null;
         $activeSessions = [];
 
         if ($serverId = $request->get('server_id')) {
-            $selectedServer = MikrotikServer::find($serverId);
+            $selectedServer = MikrotikServer::findScoped($serverId);
             if ($selectedServer) {
                 try {
-                    $service = new MikrotikService();
+                    $service = new MikrotikService;
                     $service->connect($selectedServer);
                     $activeSessions = $service->getActiveUsers('hotspot')['hotspot'] ?? [];
                     $service->disconnect();
                 } catch (\Exception $e) {
-                    return back()->with('error', "Erro ao conectar: " . $e->getMessage());
+                    return back()->with('error', 'Erro ao conectar: '.$e->getMessage());
                 }
             }
         }
@@ -61,10 +61,10 @@ class MikrotikController extends Controller
             'session_id' => 'required|string',
         ]);
 
-        $server = MikrotikServer::findOrFail($serverId);
+        $server = MikrotikServer::findScopedOrFail($serverId);
 
         try {
-            $service = new MikrotikService();
+            $service = new MikrotikService;
             $service->connect($server);
             $service->api->comm('/ppp/active/remove', [
                 '.id' => $validated['session_id'],
@@ -73,7 +73,7 @@ class MikrotikController extends Controller
 
             return back()->with('success', 'Sessao PPPoE desconectada com sucesso.');
         } catch (\Exception $e) {
-            return back()->with('error', "Erro ao desconectar: " . $e->getMessage());
+            return back()->with('error', 'Erro ao desconectar: '.$e->getMessage());
         }
     }
 
@@ -83,10 +83,10 @@ class MikrotikController extends Controller
             'session_id' => 'required|string',
         ]);
 
-        $server = MikrotikServer::findOrFail($serverId);
+        $server = MikrotikServer::findScopedOrFail($serverId);
 
         try {
-            $service = new MikrotikService();
+            $service = new MikrotikService;
             $service->connect($server);
             $service->api->comm('/ip/hotspot/active/remove', [
                 '.id' => $validated['session_id'],
@@ -95,7 +95,7 @@ class MikrotikController extends Controller
 
             return back()->with('success', 'Sessao Hotspot desconectada com sucesso.');
         } catch (\Exception $e) {
-            return back()->with('error', "Erro ao desconectar: " . $e->getMessage());
+            return back()->with('error', 'Erro ao desconectar: '.$e->getMessage());
         }
     }
 }

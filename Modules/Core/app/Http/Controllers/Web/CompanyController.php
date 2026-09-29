@@ -5,6 +5,7 @@ namespace Modules\Core\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Modules\Core\Models\Company;
 use Modules\Core\Models\UserGroup;
 use Modules\Core\Services\FranchiseOnboarding;
@@ -12,6 +13,78 @@ use Modules\Core\Services\FranchiseOnboarding;
 class CompanyController extends Controller
 {
     public function __construct(protected FranchiseOnboarding $onboarding) {}
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function rules(?Company $company = null): array
+    {
+        return [
+            'name' => 'required|string|max:255',
+            'legal_name' => 'nullable|string|max:255',
+            'fantasy_name' => 'nullable|string|max:255',
+            'slug' => 'required|string|max:60|unique:companies,slug'.($company ? ','.$company->id : ''),
+            'domain' => [
+                'nullable',
+                'string',
+                'max:255',
+                'regex:/^[a-z0-9.-]+$/i',
+                Rule::unique('companies', 'domain')->ignore($company?->id),
+            ],
+            'code' => 'nullable|string|max:20',
+            'parent_id' => 'nullable|exists:companies,id',
+            'is_active' => 'boolean',
+            'is_franchise' => 'boolean',
+            'document' => 'nullable|string|max:30',
+            'state_registration' => 'nullable|string|max:30',
+            'municipal_registration' => 'nullable|string|max:30',
+            'phone' => 'nullable|string|max:30',
+            'cellphone' => 'nullable|string|max:30',
+            'email' => 'nullable|email|max:255',
+            'website' => 'nullable|string|max:255',
+            'address' => 'nullable|string|max:255',
+            'city' => 'nullable|string|max:255',
+            'state' => 'nullable|string|max:2',
+            'zip' => 'nullable|string|max:20',
+            'plan_slug' => 'nullable|string|max:60',
+            'subscription_status' => 'nullable|string|in:trial,active,overdue,canceled',
+            'trial_ends_at' => 'nullable|date',
+            'subscription_ends_at' => 'nullable|date',
+            'subscription_notes' => 'nullable|string|max:1000',
+            'matrix_name' => 'nullable|string|max:255',
+            'matrix_code' => 'nullable|string|max:20',
+            'admin_name' => 'nullable|required_with:admin_email|string|max:255',
+            'admin_email' => 'nullable|email|max:255|unique:users,email',
+            'admin_phone' => 'nullable|string|max:20',
+            'admin_password' => 'nullable|string|min:8',
+            'admin_group_id' => 'nullable|exists:user_groups,id',
+        ];
+    }
+
+    /**
+     * Campos de assinatura: a matriz fica ilimitada e sem vencimento.
+     *
+     * @return array<string, mixed>
+     */
+    private function subscriptionFields(Request $request): array
+    {
+        if (! $request->boolean('is_franchise') || $request->integer('parent_id') === 0) {
+            return [
+                'plan_slug' => null,
+                'subscription_status' => 'unlimited',
+                'trial_ends_at' => null,
+                'subscription_ends_at' => null,
+            ];
+        }
+
+        return [
+            'plan_slug' => $request->input('plan_slug') ?: null,
+            'subscription_status' => $request->input('subscription_status') ?: 'trial',
+            'trial_ends_at' => $request->input('trial_ends_at') ?: null,
+            'subscription_ends_at' => $request->input('subscription_ends_at') ?: null,
+            'subscription_notes' => $request->input('subscription_notes') ?: null,
+        ];
+    }
 
     public function index()
     {
@@ -30,34 +103,7 @@ class CompanyController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'legal_name' => 'nullable|string|max:255',
-            'fantasy_name' => 'nullable|string|max:255',
-            'slug' => 'required|string|max:60|unique:companies,slug',
-            'code' => 'nullable|string|max:20',
-            'parent_id' => 'nullable|exists:companies,id',
-            'is_active' => 'boolean',
-            'is_franchise' => 'boolean',
-            'document' => 'nullable|string|max:30',
-            'state_registration' => 'nullable|string|max:30',
-            'municipal_registration' => 'nullable|string|max:30',
-            'phone' => 'nullable|string|max:30',
-            'cellphone' => 'nullable|string|max:30',
-            'email' => 'nullable|email|max:255',
-            'website' => 'nullable|string|max:255',
-            'address' => 'nullable|string|max:255',
-            'city' => 'nullable|string|max:255',
-            'state' => 'nullable|string|max:2',
-            'zip' => 'nullable|string|max:20',
-            'matrix_name' => 'nullable|string|max:255',
-            'matrix_code' => 'nullable|string|max:20',
-            'admin_name' => 'nullable|required_with:admin_email|string|max:255',
-            'admin_email' => 'nullable|email|max:255|unique:users,email',
-            'admin_phone' => 'nullable|string|max:20',
-            'admin_password' => 'nullable|string|min:8',
-            'admin_group_id' => 'nullable|exists:user_groups,id',
-        ]);
+        $validated = array_merge($request->validate($this->rules()), $this->subscriptionFields($request));
 
         $validated['is_active'] = $request->boolean('is_active');
         $validated['is_franchise'] = $request->boolean('is_franchise');
@@ -126,27 +172,7 @@ class CompanyController extends Controller
     {
         $company = Company::findOrFail($id);
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'legal_name' => 'nullable|string|max:255',
-            'fantasy_name' => 'nullable|string|max:255',
-            'slug' => 'required|string|max:60|unique:companies,slug,'.$company->id,
-            'code' => 'nullable|string|max:20',
-            'parent_id' => 'nullable|exists:companies,id',
-            'is_active' => 'boolean',
-            'is_franchise' => 'boolean',
-            'document' => 'nullable|string|max:30',
-            'state_registration' => 'nullable|string|max:30',
-            'municipal_registration' => 'nullable|string|max:30',
-            'phone' => 'nullable|string|max:30',
-            'cellphone' => 'nullable|string|max:30',
-            'email' => 'nullable|email|max:255',
-            'website' => 'nullable|string|max:255',
-            'address' => 'nullable|string|max:255',
-            'city' => 'nullable|string|max:255',
-            'state' => 'nullable|string|max:2',
-            'zip' => 'nullable|string|max:20',
-        ]);
+        $validated = array_merge($request->validate($this->rules($company)), $this->subscriptionFields($request));
 
         if ((int) $company->parent_id === 0 || $company->isRoot()) {
             $validated['parent_id'] = null;

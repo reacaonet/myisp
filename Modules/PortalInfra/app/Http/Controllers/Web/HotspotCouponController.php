@@ -3,15 +3,20 @@
 namespace Modules\PortalInfra\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
+use Illuminate\Validation\Rules\Unique;
+use Modules\Core\Services\TenantContext;
 use Modules\CRM\Models\HotspotCoupon;
-use Modules\Core\Models\Server;
+use Modules\CRM\Models\MikrotikServer;
 
 class HotspotCouponController extends Controller
 {
     public function index(Request $request)
     {
-        $query = HotspotCoupon::with('server', 'client');
+        $query = $this->scopedCoupons()->with('server', 'client');
 
         if ($status = $request->get('status')) {
             $query->where('status', $status);
@@ -20,29 +25,59 @@ class HotspotCouponController extends Controller
         $coupons = $query->orderByDesc('created_at')->paginate(20);
 
         $stats = [
-            'total' => HotspotCoupon::count(),
-            'active' => HotspotCoupon::where('status', 'active')->count(),
-            'used' => HotspotCoupon::where('status', 'used')->count(),
-            'expired' => HotspotCoupon::where('status', 'expired')->count(),
+            'total' => $this->scopedCoupons()->count(),
+            'active' => $this->scopedCoupons()->where('status', 'active')->count(),
+            'used' => $this->scopedCoupons()->where('status', 'used')->count(),
+            'expired' => $this->scopedCoupons()->where('status', 'expired')->count(),
         ];
 
         return view('infra::hotspot-coupons.index', compact('coupons', 'stats'));
     }
 
+    private function scopedCoupons(): Builder
+    {
+        if (TenantContext::isCrossTenant()) {
+            return HotspotCoupon::query();
+        }
+
+        return HotspotCoupon::forCompany(TenantContext::companyId());
+    }
+
+    private function findCoupon($id): HotspotCoupon
+    {
+        return $this->scopedCoupons()->findOrFail($id);
+    }
+
+    private function serverRule(): Exists
+    {
+        return Rule::exists('mikrotik_servers', 'id')
+            ->where(fn ($query) => $query
+                ->when(! TenantContext::isCrossTenant(), fn ($q) => $q->where('company_id', TenantContext::companyId())));
+    }
+
+    private function codeRule(?int $ignoreId = null): Unique
+    {
+        return Rule::unique('hotspot_coupons', 'code')
+            ->where(fn ($query) => $query
+                ->when(! TenantContext::isCrossTenant(), fn ($q) => $q->where('company_id', TenantContext::companyId())))
+            ->ignore($ignoreId);
+    }
+
     public function create()
     {
-        $servers = Server::orderBy('name')->get();
+        $servers = MikrotikServer::scoped()->orderBy('name')->get();
+
         return view('infra::hotspot-coupons.create', compact('servers'));
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'code' => 'required|string|max:50|unique:hotspot_coupons,code',
+            'code' => ['required', 'string', 'max:50', $this->codeRule()],
             'profile' => 'nullable|string|max:100',
             'duration_hours' => 'required|integer|min:1|max:720',
             'price' => 'required|numeric|min:0',
-            'server_id' => 'nullable|exists:servers,id',
+            'server_id' => ['nullable', $this->serverRule()],
             'quantity' => 'nullable|integer|min:1|max:100',
         ]);
 
@@ -63,27 +98,29 @@ class HotspotCouponController extends Controller
 
     public function show($id)
     {
-        $coupon = HotspotCoupon::with('server', 'client')->findOrFail($id);
+        $coupon = $this->findCoupon($id);
+
         return view('infra::hotspot-coupons.show', compact('coupon'));
     }
 
     public function edit($id)
     {
-        $coupon = HotspotCoupon::findOrFail($id);
-        $servers = Server::orderBy('name')->get();
+        $coupon = $this->findCoupon($id);
+        $servers = MikrotikServer::scoped()->orderBy('name')->get();
+
         return view('infra::hotspot-coupons.edit', compact('coupon', 'servers'));
     }
 
     public function update(Request $request, $id)
     {
-        $coupon = HotspotCoupon::findOrFail($id);
+        $coupon = $this->findCoupon($id);
 
         $validated = $request->validate([
-            'code' => 'required|string|max:50|unique:hotspot_coupons,code,' . $id,
+            'code' => ['required', 'string', 'max:50', $this->codeRule((int) $coupon->id)],
             'profile' => 'nullable|string|max:100',
             'duration_hours' => 'required|integer|min:1|max:720',
             'price' => 'required|numeric|min:0',
-            'server_id' => 'nullable|exists:servers,id',
+            'server_id' => ['nullable', $this->serverRule()],
         ]);
 
         $coupon->update($validated);
@@ -94,7 +131,7 @@ class HotspotCouponController extends Controller
 
     public function destroy($id)
     {
-        $coupon = HotspotCoupon::findOrFail($id);
+        $coupon = $this->findCoupon($id);
         $coupon->delete();
 
         return redirect()->route('infra.hotspot-coupons.index')
@@ -107,7 +144,7 @@ class HotspotCouponController extends Controller
             'profile' => 'nullable|string|max:100',
             'duration_hours' => 'required|integer|min:1|max:720',
             'price' => 'required|numeric|min:0',
-            'server_id' => 'nullable|exists:servers,id',
+            'server_id' => ['nullable', $this->serverRule()],
             'quantity' => 'required|integer|min:1|max:500',
         ]);
 

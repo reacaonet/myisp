@@ -6,12 +6,14 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Modules\Core\Models\LandingBanner;
+use Modules\Core\Services\TenantContext;
 
 class LandingBannerController extends Controller
 {
     public function index()
     {
-        $banners = LandingBanner::ordered()->get();
+        $banners = LandingBanner::scoped()->ordered()->get();
+
         return view('core::banners.index', compact('banners'));
     }
 
@@ -39,7 +41,8 @@ class LandingBannerController extends Controller
         ]);
 
         $validated['is_active'] = $request->boolean('is_active');
-        $validated['sort_order'] = $validated['sort_order'] ?? LandingBanner::max('sort_order') + 1;
+        $validated['sort_order'] = $validated['sort_order'] ?? (LandingBanner::scoped()->max('sort_order') + 1);
+        $validated['company_id'] = TenantContext::companyId();
 
         if ($request->hasFile('image')) {
             $validated['image'] = $request->file('image')->store('banners', 'public');
@@ -53,13 +56,14 @@ class LandingBannerController extends Controller
 
     public function edit($id)
     {
-        $banner = LandingBanner::findOrFail($id);
+        $banner = LandingBanner::findScopedOrFail($id);
+
         return view('core::banners.edit', compact('banner'));
     }
 
     public function update(Request $request, $id)
     {
-        $banner = LandingBanner::findOrFail($id);
+        $banner = LandingBanner::findScopedOrFail($id);
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -94,8 +98,8 @@ class LandingBannerController extends Controller
 
     public function move($id, $direction)
     {
-        $banner = LandingBanner::findOrFail($id);
-        $banners = LandingBanner::ordered()->get();
+        $banner = LandingBanner::findScopedOrFail($id);
+        $banners = LandingBanner::scoped()->ordered()->get();
         $keys = $banners->pluck('id')->flip();
 
         $currentKey = $keys[$banner->id] ?? null;
@@ -118,7 +122,7 @@ class LandingBannerController extends Controller
 
     public function destroy($id)
     {
-        $banner = LandingBanner::findOrFail($id);
+        $banner = LandingBanner::findScopedOrFail($id);
         if ($banner->image) {
             Storage::disk('public')->delete($banner->image);
         }

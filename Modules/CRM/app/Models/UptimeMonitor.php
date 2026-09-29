@@ -3,10 +3,14 @@
 namespace Modules\CRM\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Modules\Core\Models\Concerns\BelongsToTenant;
 
 class UptimeMonitor extends Model
 {
+    use BelongsToTenant;
+
     protected $fillable = [
+        'company_id',
         'name', 'host', 'port', 'type', 'interval_seconds',
         'is_active', 'is_up', 'last_check_at', 'response_time_ms',
         'last_error', 'server_id',
@@ -23,7 +27,7 @@ class UptimeMonitor extends Model
 
     public function server()
     {
-        return $this->belongsTo(\Modules\Core\Models\Server::class);
+        return $this->belongsTo(MikrotikServer::class);
     }
 
     public function checks()

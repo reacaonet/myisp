@@ -8,6 +8,7 @@ use Illuminate\Notifications\Notifiable;
 use Modules\Billing\Models\Invoice;
 use Modules\Core\Models\Address;
 use Modules\Core\Models\Concerns\BelongsToTenant;
+use Modules\Core\Services\TenantContext;
 
 class Client extends Authenticatable
 {
@@ -71,5 +72,24 @@ class Client extends Authenticatable
     public function tickets()
     {
         return $this->hasMany(Ticket::class);
+    }
+
+    public function scopeScoped($query)
+    {
+        if (! TenantContext::isCrossTenant()) {
+            $query->forCompany(TenantContext::companyId());
+        }
+
+        return $query;
+    }
+
+    public static function findScoped(int $id): ?self
+    {
+        return static::scoped()->find($id);
+    }
+
+    public static function findScopedOrFail(int $id): self
+    {
+        return static::scoped()->findOrFail($id);
     }
 }

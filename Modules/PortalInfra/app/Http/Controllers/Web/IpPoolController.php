@@ -11,20 +11,20 @@ class IpPoolController extends Controller
 {
     public function index(Request $request)
     {
-        $servers = MikrotikServer::where('is_active', true)->orderBy('name')->get();
+        $servers = MikrotikServer::scoped()->where('is_active', true)->orderBy('name')->get();
         $selectedServer = null;
         $pools = [];
 
         if ($serverId = $request->get('server_id')) {
-            $selectedServer = MikrotikServer::find($serverId);
+            $selectedServer = MikrotikServer::findScoped($serverId);
             if ($selectedServer) {
                 try {
-                    $service = new MikrotikService();
+                    $service = new MikrotikService;
                     $service->connect($selectedServer);
                     $pools = $service->listIpPools();
                     $service->disconnect();
                 } catch (\Exception $e) {
-                    return back()->with('error', "Erro ao conectar: " . $e->getMessage());
+                    return back()->with('error', 'Erro ao conectar: '.$e->getMessage());
                 }
             }
         }
@@ -40,10 +40,10 @@ class IpPoolController extends Controller
             'ranges' => 'required|string|max:500',
         ]);
 
-        $server = MikrotikServer::findOrFail($validated['server_id']);
+        $server = MikrotikServer::findScopedOrFail($validated['server_id']);
 
         try {
-            $service = new MikrotikService();
+            $service = new MikrotikService;
             $service->connect($server);
             $service->addIpPool($validated['name'], $validated['ranges']);
             $service->disconnect();
@@ -51,7 +51,7 @@ class IpPoolController extends Controller
             return redirect()->route('infra.mikrotik.ip-pools', ['server_id' => $server->id])
                 ->with('success', "IP Pool '{$validated['name']}' criado com sucesso.");
         } catch (\Exception $e) {
-            return back()->withInput()->with('error', "Erro ao criar pool: " . $e->getMessage());
+            return back()->withInput()->with('error', 'Erro ao criar pool: '.$e->getMessage());
         }
     }
 
@@ -61,10 +61,10 @@ class IpPoolController extends Controller
             'pool_name' => 'required|string',
         ]);
 
-        $server = MikrotikServer::findOrFail($serverId);
+        $server = MikrotikServer::findScopedOrFail($serverId);
 
         try {
-            $service = new MikrotikService();
+            $service = new MikrotikService;
             $service->connect($server);
             $service->removeIpPool($validated['pool_name']);
             $service->disconnect();
@@ -72,7 +72,7 @@ class IpPoolController extends Controller
             return redirect()->route('infra.mikrotik.ip-pools', ['server_id' => $server->id])
                 ->with('success', "IP Pool '{$validated['pool_name']}' removido com sucesso.");
         } catch (\Exception $e) {
-            return back()->with('error', "Erro ao remover pool: " . $e->getMessage());
+            return back()->with('error', 'Erro ao remover pool: '.$e->getMessage());
         }
     }
 }

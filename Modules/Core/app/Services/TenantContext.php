@@ -15,6 +15,9 @@ class TenantContext
     /** Usuario do contexto resolvido (evita cache crossover em teste/Octane). */
     protected static ?string $resolvedUser = null;
 
+    /** Host publico que o contexto resolvido representa (idempotencia por request). */
+    protected static ?int $resolvedPublicCompanyId = null;
+
     protected static ?int $companyId = null;
 
     protected static ?int $branchId = null;
@@ -26,7 +29,15 @@ class TenantContext
             ? get_class($user).':'.$user->getAuthIdentifier()
             : null;
 
-        if (self::$resolved && self::$resolvedUser === $userKey) {
+        // o host publico entra na chave: um contexto resolvido antes do
+        // request (hooks, seeders) nao pode contaminar a resolucao por host
+        $publicCompanyId = $user ? null : PublicTenantResolver::companyId();
+
+        if (
+            self::$resolved
+            && self::$resolvedUser === $userKey
+            && self::$resolvedPublicCompanyId === $publicCompanyId
+        ) {
             return;
         }
 
@@ -36,8 +47,20 @@ class TenantContext
 
         self::$resolved = true;
         self::$resolvedUser = $userKey;
+        self::$resolvedPublicCompanyId = $publicCompanyId;
 
-        if (! $user || ! method_exists($user, 'companies') || ! method_exists($user, 'branches')) {
+        if (! $user) {
+            [$company, $branch] = $publicCompanyId
+                ? self::scopeFor($publicCompanyId)
+                : self::rootScope();
+
+            self::$companyId = $company;
+            self::$branchId = $branch;
+
+            return;
+        }
+
+        if (! method_exists($user, 'companies') || ! method_exists($user, 'branches')) {
             [$company, $branch] = self::rootScope();
 
             self::$companyId = $company;
@@ -133,9 +156,38 @@ class TenantContext
         return ($user->group?->slug ?? null) === 'superadmin';
     }
 
+    /** Filiais que o usuario logado pode assumir. */
+    public static function allowedBranchIds(?Authenticatable $user = null): array
+    {
+        $user ??= Auth::user();
+
+        if (! $user || ! method_exists($user, 'branches')) {
+            $id = self::branchId();
+
+            return $id ? [$id] : [];
+        }
+
+        if (self::isSuperadmin($user)) {
+            return Branch::orderBy('id')->pluck('id')->all();
+        }
+
+        return $user->branches()->pluck('branches.id')->all();
+    }
+
     public static function isCrossTenant(): bool
     {
         return self::isSuperadmin();
+    }
+
+    protected static function scopeFor(int $companyId): array
+    {
+        $branch = Branch::query()
+            ->where('company_id', $companyId)
+            ->whereNull('parent_id')
+            ->orderBy('id')
+            ->first();
+
+        return [$companyId, $branch?->id];
     }
 
     protected static function rootScope(): array
@@ -152,6 +204,7 @@ class TenantContext
     {
         self::$resolved = false;
         self::$resolvedUser = null;
+        self::$resolvedPublicCompanyId = null;
         self::$companyId = null;
         self::$branchId = null;
 

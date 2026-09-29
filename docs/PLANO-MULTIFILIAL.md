@@ -92,7 +92,7 @@ FRANQUEADORA (root / dono do sistema)
 | Tabela | `company_id` | `branch_id` | Comportamento |
 |---|---|---|---|
 | `clients` | obrigatorio | obrigatorio | Uniques compostas `(company_id, branch_id, document)` e `(company_id, branch_id, login)` |
-| `plans` | obrigatorio | nullable (null = vale a compania toda) | Catalogo por franquia |
+| `plans` | obrigatorio | nullable (null = vale a compania toda) | Catalogo unico da matriz; filiais/franquias nao montam catalogo proprio |
 | `mikrotik_servers` | obrigatorio | nullable (null = equipamento da matriz) | — |
 | `invoices` | obrigatorio | preenchido na geracao (herda contrato/cliente) | `invoice_number` unique composta `(company_id, invoice_number)` |
 | `payment_gateways` | obrigatorio | — | Cada franquia tem seus gateways |
@@ -134,6 +134,12 @@ Contratos, ordens de servico, tickets, payments: derivam a filial/compania do
 - Eliminar o fallback por IP (`provisionedMikrotikServer`) ou escopa-lo por tenant.
 - Scoping nos ~15 controllers do PortalInfra (`MikrotikServer::findOrFail($id)`
   deve validar a compania/filial do usuario).
+- **Vinculo cliente -> filial -> servidor**: o `branch_id` do cliente e do servidor
+  sao o mesmo campo que amarra os dois lados. No cadastro de cliente a filial e
+  obrigatoria e escolhida no formulario; no provisionamento, escolher o cliente
+  filtra/preseleciona o servidor da filial dele, e o controller rejeita um
+  servidor de outra filial (`ProvisionController@clientForServer`).
+  Nao existe `clients.server_id`: o vinculo e derivado da filial.
 
 ### 7. Franquias (operacional)
 
@@ -152,7 +158,8 @@ A landing hoje tem menu fixo: `SAC`, `Planos`, `VOD Stream`, `Cobertura`, `Sobre
   agrupado sob esse publico (sub-menu / ancoras `#planos`, `#vod`, `#cobertura`).
 - **Para Sua Empresa** (empresarial): secao dedicada com planos empresariais e
   contato comercial. `plans` ganha `segment` (`residencial`/`empresarial`) para
-  filtrar a exibicao por publico (catalogo continua unico por filial).
+  filtrar a exibicao por publico. O catalogo e **unico da matriz**: nenhuma
+  filial ou franquia publica planos proprios.
 - **Investidores** (franquias): pagina dedicada `GET /investidores`
   (`LandingController@investors` + view `landing.investors`, mesmo padrao da `landing.sac`),
   com conteudo editavel via settings do grupo `landing_investors_*`:

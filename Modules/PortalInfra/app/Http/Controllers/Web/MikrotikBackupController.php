@@ -3,6 +3,7 @@
 namespace Modules\PortalInfra\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Modules\Core\Services\TenantContext;
 use Modules\CRM\Models\MikrotikBackup;
@@ -13,27 +14,35 @@ class MikrotikBackupController extends Controller
 {
     public function index(Request $request)
     {
-        $query = MikrotikBackup::with('server');
-
-        $servers = MikrotikServer::query();
-
-        if (! TenantContext::isCrossTenant()) {
-            $query->whereIn('server_id', (clone $servers)->where('company_id', TenantContext::companyId())->pluck('id'));
-        }
+        $query = $this->scopedBackups()->with('server');
 
         if ($serverId = $request->get('server_id')) {
             $query->where('server_id', $serverId);
         }
 
         $backups = $query->orderByDesc('created_at')->paginate(20);
-        $servers = $servers->orderBy('name')->get();
+        $servers = MikrotikServer::scoped()->orderBy('name')->get();
 
         return view('infra::mikrotik-backups.index', compact('backups', 'servers'));
     }
 
+    private function scopedBackups(): Builder
+    {
+        if (TenantContext::isCrossTenant()) {
+            return MikrotikBackup::query();
+        }
+
+        return MikrotikBackup::forCompany(TenantContext::companyId());
+    }
+
+    private function findBackup($id): MikrotikBackup
+    {
+        return $this->scopedBackups()->findOrFail($id);
+    }
+
     public function create()
     {
-        $servers = MikrotikServer::orderBy('name')->get();
+        $servers = MikrotikServer::scoped()->orderBy('name')->get();
 
         return view('infra::mikrotik-backups.create', compact('servers'));
     }
@@ -44,7 +53,7 @@ class MikrotikBackupController extends Controller
             'server_id' => 'required|exists:mikrotik_servers,id',
         ]);
 
-        $server = MikrotikServer::findOrFail($validated['server_id']);
+        $server = MikrotikServer::findScopedOrFail($validated['server_id']);
 
         try {
             $service = new MikrotikService;
@@ -66,6 +75,7 @@ class MikrotikBackupController extends Controller
             $service->disconnect();
 
             MikrotikBackup::create([
+                'company_id' => $server->company_id,
                 'server_id' => $server->id,
                 'filename' => $filename,
                 'content' => json_encode($output),
@@ -82,14 +92,14 @@ class MikrotikBackupController extends Controller
 
     public function show($id)
     {
-        $backup = MikrotikBackup::with('server')->findOrFail($id);
+        $backup = $this->findBackup($id);
 
         return view('infra::mikrotik-backups.show', compact('backup'));
     }
 
     public function destroy($id)
     {
-        $backup = MikrotikBackup::findOrFail($id);
+        $backup = $this->findBackup($id);
         $backup->delete();
 
         return redirect()->route('infra.mikrotik-backups.index')
@@ -98,7 +108,7 @@ class MikrotikBackupController extends Controller
 
     public function download($id)
     {
-        $backup = MikrotikBackup::findOrFail($id);
+        $backup = $this->findBackup($id);
 
         return response($backup->content, 200, [
             'Content-Type' => 'application/octet-stream',

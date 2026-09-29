@@ -11,20 +11,20 @@ class LogsController extends Controller
 {
     public function index(Request $request)
     {
-        $servers = MikrotikServer::where('is_active', true)->orderBy('name')->get();
+        $servers = MikrotikServer::scoped()->where('is_active', true)->orderBy('name')->get();
         $selectedServer = null;
         $logs = [];
 
         if ($serverId = $request->get('server_id')) {
-            $selectedServer = MikrotikServer::find($serverId);
+            $selectedServer = MikrotikServer::findScoped($serverId);
             if ($selectedServer) {
                 try {
-                    $service = new MikrotikService();
+                    $service = new MikrotikService;
                     $service->connect($selectedServer);
                     $logs = $service->getLogEntries(100);
                     $service->disconnect();
                 } catch (\Exception $e) {
-                    return back()->with('error', "Erro ao conectar: " . $e->getMessage());
+                    return back()->with('error', 'Erro ao conectar: '.$e->getMessage());
                 }
             }
         }

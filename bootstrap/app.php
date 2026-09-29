@@ -6,6 +6,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Modules\Core\Http\Middleware\CheckGroupPermission;
 use Modules\Core\Http\Middleware\ForcePasswordChange;
+use Modules\Core\Http\Middleware\ResolvePublicTenant;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -23,6 +24,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             ForcePasswordChange::class,
         ]);
+
+        $middleware->prependToGroup('web', ResolvePublicTenant::class);
 
         $middleware->redirectGuestsTo(function (Request $request) {
             if ($request->expectsJson()) {

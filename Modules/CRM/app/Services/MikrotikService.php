@@ -2,19 +2,21 @@
 
 namespace Modules\CRM\Services;
 
+use Exception;
+use Modules\CRM\Models\Contract;
 use Modules\CRM\Models\MikrotikServer;
 use Modules\CRM\Models\ProvisioningRecord;
-use Exception;
 
 class MikrotikService
 {
     private ?MikrotikApi $api = null;
+
     private ?MikrotikServer $server = null;
 
     public function connect(MikrotikServer $server): bool
     {
         $this->server = $server;
-        $this->api = new MikrotikApi();
+        $this->api = new MikrotikApi;
 
         $connected = $this->api->connect(
             $server->ip,
@@ -22,7 +24,7 @@ class MikrotikService
             $server->senha
         );
 
-        if (!$connected) {
+        if (! $connected) {
             $detail = $this->api->lastError ?: 'erro desconhecido';
             throw new Exception("Nao foi possivel conectar ao servidor MikroTik {$server->name} ({$server->ip}) - {$detail}");
         }
@@ -53,6 +55,7 @@ class MikrotikService
             ];
         } catch (Exception $e) {
             $this->disconnect();
+
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
@@ -328,18 +331,21 @@ class MikrotikService
     public function getPppoeSecrets(): array
     {
         $this->ensureConnected();
+
         return $this->api->comm('/ppp/secret/print');
     }
 
     public function getHotspotUsers(): array
     {
         $this->ensureConnected();
+
         return $this->api->comm('/ip/hotspot/user/print');
     }
 
     public function getPppoeProfiles(): array
     {
         $this->ensureConnected();
+
         return $this->api->comm('/ppp/profile/print');
     }
 
@@ -359,7 +365,7 @@ class MikrotikService
             '?name' => $name,
         ]);
 
-        if (!empty($existing)) {
+        if (! empty($existing)) {
             $update = [];
 
             if ($localAddress) {
@@ -374,7 +380,7 @@ class MikrotikService
                 $update['dns-server'] = $dns;
             }
 
-            if (!empty($update)) {
+            if (! empty($update)) {
                 $update['.id'] = $existing[0]['.id'];
                 $this->api->comm('/ppp/profile/set', $update);
             }
@@ -385,7 +391,7 @@ class MikrotikService
         $args = ['name' => $name];
 
         if (($downloadKbps && $downloadKbps > 0) || ($uploadKbps && $uploadKbps > 0)) {
-            $args['rate-limit'] = (int) $downloadKbps . 'k/' . (int) $uploadKbps . 'k';
+            $args['rate-limit'] = (int) $downloadKbps.'k/'.(int) $uploadKbps.'k';
         }
 
         if ($pool) {
@@ -441,7 +447,7 @@ class MikrotikService
             $third = 1;
         }
 
-        $base = ($parts[0] ?? 10) . '.' . ($parts[1] ?? 0) . '.' . $third;
+        $base = ($parts[0] ?? 10).'.'.($parts[1] ?? 0).'.'.$third;
         $poolName = 'pool-pppoe';
 
         $pools = $this->api->comm('/ip/pool/print', [
@@ -457,19 +463,19 @@ class MikrotikService
             }
         }
 
-        if (!$found) {
+        if (! $found) {
             $this->api->comm('/ip/pool/add', [
                 'name' => $poolName,
-                'ranges' => $base . '.10-' . $base . '.254',
+                'ranges' => $base.'.10-'.$base.'.254',
             ]);
         }
 
         return [
             'pool' => $poolName,
-            'gateway' => $base . '.1',
-            'subnet' => $base . '.0/24',
-            'start' => $base . '.10',
-            'end' => $base . '.254',
+            'gateway' => $base.'.1',
+            'subnet' => $base.'.0/24',
+            'start' => $base.'.10',
+            'end' => $base.'.254',
         ];
     }
 
@@ -479,7 +485,7 @@ class MikrotikService
 
         $servers = $this->getPppoeServers();
 
-        if (!empty($servers)) {
+        if (! empty($servers)) {
             foreach ($servers as $s) {
                 if (($s['disabled'] ?? 'false') === 'true') {
                     $this->api->comm('/interface/pppoe-server/server/set', [
@@ -522,7 +528,7 @@ class MikrotikService
         return [
             'ok' => true,
             'created' => true,
-            'message' => 'PPPoE Server criado automaticamente na interface ' . $lan['interface'] . '.',
+            'message' => 'PPPoE Server criado automaticamente na interface '.$lan['interface'].'.',
         ];
     }
 
@@ -559,12 +565,14 @@ class MikrotikService
     public function getHotspotProfiles(): array
     {
         $this->ensureConnected();
+
         return $this->api->comm('/ip/hotspot/profile/print');
     }
 
     public function getHotspotUserProfiles(): array
     {
         $this->ensureConnected();
+
         return $this->api->comm('/ip/hotspot/user/profile/print');
     }
 
@@ -576,14 +584,14 @@ class MikrotikService
             '?name' => $name,
         ]);
 
-        if (!empty($existing)) {
+        if (! empty($existing)) {
             return $name;
         }
 
         $args = ['name' => $name];
 
         if (($downloadKbps && $downloadKbps > 0) || ($uploadKbps && $uploadKbps > 0)) {
-            $args['rate-limit'] = (int) $downloadKbps . 'k/' . (int) $uploadKbps . 'k';
+            $args['rate-limit'] = (int) $downloadKbps.'k/'.(int) $uploadKbps.'k';
         }
 
         $this->api->comm('/ip/hotspot/user/profile/add', $args);
@@ -594,18 +602,21 @@ class MikrotikService
     public function getPppoeServers(): array
     {
         $this->ensureConnected();
+
         return $this->api->comm('/interface/pppoe-server/server/print');
     }
 
     public function getHotspotServers(): array
     {
         $this->ensureConnected();
+
         return $this->api->comm('/ip/hotspot/print');
     }
 
     public function getSystemResources(): array
     {
         $this->ensureConnected();
+
         return $this->api->comm('/system/resource/print', [
             '.proplist' => 'version,cpu,cpu-frequency,cpu-load,uptime,free-memory,free-hdd-space,total-hdd-space,total-memory,board-name',
         ]);
@@ -614,12 +625,14 @@ class MikrotikService
     public function getSystemIdentity(): array
     {
         $this->ensureConnected();
+
         return $this->api->comm('/system/identity/print');
     }
 
     public function getInterfaces(): array
     {
         $this->ensureConnected();
+
         return $this->api->comm('/interface/print', [
             '.proplist' => 'name,type,running,disabled,rx-rate,tx-rate,rx-byte,tx-byte',
         ]);
@@ -628,12 +641,14 @@ class MikrotikService
     public function getPppoeInterfaces(): array
     {
         $this->ensureConnected();
+
         return $this->api->comm('/interface/pppoe-server/print');
     }
 
     public function getPing(string $address, int $count = 3): array
     {
         $this->ensureConnected();
+
         return $this->api->comm('/ping', [
             'address' => $address,
             'count' => (string) $count,
@@ -643,12 +658,14 @@ class MikrotikService
     public function getSystemClock(): array
     {
         $this->ensureConnected();
+
         return $this->api->comm('/system/clock/print');
     }
 
     public function getLogEntries(int $limit = 20): array
     {
         $this->ensureConnected();
+
         return $this->api->comm('/log/print', [
             '.proplist' => 'time,topics,message',
         ]);
@@ -681,6 +698,7 @@ class MikrotikService
         }
 
         $this->api->comm('/queue/simple/add', $args);
+
         return true;
     }
 
@@ -706,6 +724,7 @@ class MikrotikService
     public function getInterfaceStats(): array
     {
         $this->ensureConnected();
+
         return $this->api->comm('/interface/print', [
             '.proplist' => 'name,type,running,disabled',
         ]);
@@ -713,8 +732,8 @@ class MikrotikService
 
     private function ensureConnected(): void
     {
-        if (!$this->api || !$this->api->isConnected()) {
-            throw new Exception("Nao conectado ao servidor MikroTik");
+        if (! $this->api || ! $this->api->isConnected()) {
+            throw new Exception('Nao conectado ao servidor MikroTik');
         }
     }
 
@@ -727,6 +746,7 @@ class MikrotikService
 
         $data = [
             'client_id' => $clientId ?? $existing?->client_id,
+            'contract_id' => $this->resolveContractId($clientId) ?? $existing?->contract_id,
             'type' => $type,
             'action' => $action,
             'login' => $login,
@@ -737,10 +757,26 @@ class MikrotikService
 
         if ($existing) {
             $existing->update($data);
+
             return;
         }
 
         ProvisioningRecord::create(array_merge(['mikrotik_server_id' => $this->server?->id], $data));
+    }
+
+    /**
+     * Contrato ativo mais recente do cliente, para amarrar o registro ao contrato.
+     */
+    private function resolveContractId(?int $clientId): ?int
+    {
+        if (! $clientId) {
+            return null;
+        }
+
+        return Contract::where('client_id', $clientId)
+            ->where('status', 'active')
+            ->latest('id')
+            ->value('id');
     }
 
     public function applyMinimumPlan(string $type, string $login, int $downloadKbps, int $uploadKbps): bool
@@ -783,6 +819,7 @@ class MikrotikService
                 $results[] = $row;
             }
         }
+
         return $results;
     }
 
@@ -793,7 +830,7 @@ class MikrotikService
             '?list' => $listName,
             '?address' => $address,
         ]);
-        if (!empty($existing)) {
+        if (! empty($existing)) {
             return;
         }
         $this->api->comm('/ip/firewall/address-list/add', [
@@ -809,7 +846,7 @@ class MikrotikService
             '?list' => $listName,
             '?address' => $address,
         ]);
-        if (!empty($entries) && isset($entries[0]['.id'])) {
+        if (! empty($entries) && isset($entries[0]['.id'])) {
             $this->api->comm('/ip/firewall/address-list/remove', [
                 '.id' => $entries[0]['.id'],
             ]);
@@ -819,12 +856,14 @@ class MikrotikService
     public function getSystemResource(): array
     {
         $this->ensureConnected();
+
         return $this->getSystemResources();
     }
 
     public function getUptime(): string
     {
         $resource = $this->getSystemResources();
+
         return $resource[0]['uptime'] ?? 'unknown';
     }
 
@@ -832,6 +871,7 @@ class MikrotikService
     {
         $this->ensureConnected();
         $results = $this->api->comm('/ip/firewall/nat/print');
+
         return $results;
     }
 
@@ -839,6 +879,7 @@ class MikrotikService
     {
         $this->ensureConnected();
         $results = $this->api->comm('/interface/wireless/registration/print');
+
         return $results;
     }
 
@@ -846,6 +887,7 @@ class MikrotikService
     {
         $this->ensureConnected();
         $results = $this->api->comm('/ip/pool/print');
+
         return $results;
     }
 
@@ -856,6 +898,7 @@ class MikrotikService
             'name' => $name,
             'ranges' => $addresses,
         ]);
+
         return true;
     }
 
@@ -865,12 +908,13 @@ class MikrotikService
         $pools = $this->api->comm('/ip/pool/print', [
             '?name' => $name,
         ]);
-        if (empty($pools) || !isset($pools[0]['.id'])) {
+        if (empty($pools) || ! isset($pools[0]['.id'])) {
             return false;
         }
         $this->api->comm('/ip/pool/remove', [
             '.id' => $pools[0]['.id'],
         ]);
+
         return true;
     }
 
@@ -878,6 +922,7 @@ class MikrotikService
     {
         $this->ensureConnected();
         $results = $this->api->comm('/ip/arp/print');
+
         return $results;
     }
 }

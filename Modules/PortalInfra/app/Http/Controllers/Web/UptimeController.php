@@ -3,9 +3,9 @@
 namespace Modules\PortalInfra\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
-use Modules\Core\Models\Server;
 use Modules\Core\Services\TenantContext;
 use Modules\CRM\Models\MikrotikServer;
 use Modules\CRM\Models\UptimeCheck;
@@ -15,15 +15,7 @@ class UptimeController extends Controller
 {
     public function index()
     {
-        $query = UptimeMonitor::with('server');
-
-        if (! TenantContext::isCrossTenant()) {
-            $query->whereIn('server_id', MikrotikServer::query()
-                ->where('company_id', TenantContext::companyId())
-                ->pluck('id'));
-        }
-
-        $monitors = $query->orderBy('name')->get();
+        $monitors = $this->scopedMonitors()->with('server')->orderBy('name')->get();
 
         $stats = [
             'total' => $monitors->count(),
@@ -35,9 +27,23 @@ class UptimeController extends Controller
         return view('infra::uptime.index', compact('monitors', 'stats'));
     }
 
+    private function scopedMonitors(): Builder
+    {
+        if (TenantContext::isCrossTenant()) {
+            return UptimeMonitor::query();
+        }
+
+        return UptimeMonitor::forCompany(TenantContext::companyId());
+    }
+
+    private function findMonitor($id): UptimeMonitor
+    {
+        return $this->scopedMonitors()->findOrFail($id);
+    }
+
     public function create()
     {
-        $servers = Server::orderBy('name')->get();
+        $servers = MikrotikServer::scoped()->orderBy('name')->get();
 
         return view('infra::uptime.create', compact('servers'));
     }
@@ -50,7 +56,7 @@ class UptimeController extends Controller
             'port' => 'required|integer|min:1|max:65535',
             'type' => 'required|in:http,ping,tcp',
             'interval_seconds' => 'required|integer|min:10|max:3600',
-            'server_id' => 'nullable|exists:servers,id',
+            'server_id' => 'nullable|exists:mikrotik_servers,id',
         ]);
 
         $validated['is_active'] = true;
@@ -63,7 +69,7 @@ class UptimeController extends Controller
 
     public function show($id)
     {
-        $monitor = UptimeMonitor::with('server')->findOrFail($id);
+        $monitor = $this->findMonitor($id);
         $checks = $monitor->checks()->orderByDesc('checked_at')->limit(50)->get();
 
         $uptime24h = $monitor->checks()
@@ -80,15 +86,15 @@ class UptimeController extends Controller
 
     public function edit($id)
     {
-        $monitor = UptimeMonitor::findOrFail($id);
-        $servers = Server::orderBy('name')->get();
+        $monitor = $this->findMonitor($id);
+        $servers = MikrotikServer::scoped()->orderBy('name')->get();
 
         return view('infra::uptime.edit', compact('monitor', 'servers'));
     }
 
     public function update(Request $request, $id)
     {
-        $monitor = UptimeMonitor::findOrFail($id);
+        $monitor = $this->findMonitor($id);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -96,7 +102,7 @@ class UptimeController extends Controller
             'port' => 'required|integer|min:1|max:65535',
             'type' => 'required|in:http,ping,tcp',
             'interval_seconds' => 'required|integer|min:10|max:3600',
-            'server_id' => 'nullable|exists:servers,id',
+            'server_id' => 'nullable|exists:mikrotik_servers,id',
             'is_active' => 'boolean',
         ]);
 
@@ -110,7 +116,7 @@ class UptimeController extends Controller
 
     public function destroy($id)
     {
-        $monitor = UptimeMonitor::findOrFail($id);
+        $monitor = $this->findMonitor($id);
         $monitor->checks()->delete();
         $monitor->delete();
 
@@ -120,7 +126,7 @@ class UptimeController extends Controller
 
     public function check($id)
     {
-        $monitor = UptimeMonitor::findOrFail($id);
+        $monitor = $this->findMonitor($id);
         $start = microtime(true);
 
         try {
@@ -186,7 +192,7 @@ class UptimeController extends Controller
 
     public function checkAll()
     {
-        $monitors = UptimeMonitor::where('is_active', true)->get();
+        $monitors = $this->scopedMonitors()->where('is_active', true)->get();
 
         foreach ($monitors as $monitor) {
             try {

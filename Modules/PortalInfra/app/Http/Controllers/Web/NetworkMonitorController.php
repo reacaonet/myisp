@@ -3,7 +3,6 @@
 namespace Modules\PortalInfra\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use Modules\CRM\Models\MikrotikServer;
 use Modules\CRM\Services\MikrotikService;
 
@@ -11,11 +10,11 @@ class NetworkMonitorController extends Controller
 {
     public function index()
     {
-        $servers = MikrotikServer::where('is_active', true)->get();
+        $servers = MikrotikServer::scoped()->where('is_active', true)->get();
         $serverStats = [];
 
         foreach ($servers as $server) {
-            $service = new MikrotikService();
+            $service = new MikrotikService;
             try {
                 $service->connect($server);
                 $resources = $service->getSystemResources();
@@ -52,8 +51,8 @@ class NetworkMonitorController extends Controller
 
     public function show($id)
     {
-        $server = MikrotikServer::findOrFail($id);
-        $service = new MikrotikService();
+        $server = MikrotikServer::findScopedOrFail($id);
+        $service = new MikrotikService;
 
         try {
             $service->connect($server);
@@ -71,14 +70,15 @@ class NetworkMonitorController extends Controller
             ));
         } catch (\Exception $e) {
             $service->disconnect();
-            return back()->with('error', "Erro ao conectar: " . $e->getMessage());
+
+            return back()->with('error', 'Erro ao conectar: '.$e->getMessage());
         }
     }
 
     public function activeUsers($id)
     {
-        $server = MikrotikServer::findOrFail($id);
-        $service = new MikrotikService();
+        $server = MikrotikServer::findScopedOrFail($id);
+        $service = new MikrotikService;
 
         try {
             $service->connect($server);
@@ -88,14 +88,15 @@ class NetworkMonitorController extends Controller
             return view('infra::network-monitor.active-users', compact('server', 'users'));
         } catch (\Exception $e) {
             $service->disconnect();
-            return back()->with('error', "Erro ao conectar: " . $e->getMessage());
+
+            return back()->with('error', 'Erro ao conectar: '.$e->getMessage());
         }
     }
 
     public function refreshStats($id)
     {
-        $server = MikrotikServer::findOrFail($id);
-        $service = new MikrotikService();
+        $server = MikrotikServer::findScopedOrFail($id);
+        $service = new MikrotikService;
 
         try {
             $service->connect($server);

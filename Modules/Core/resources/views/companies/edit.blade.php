@@ -34,6 +34,10 @@
                 <input type="text" name="slug" value="{{ old('slug', $company->slug) }}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
             </div>
             <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Dominio publico</label>
+                <input type="text" name="domain" value="{{ old('domain', $company->domain) }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="franquia.exemplo.com.br">
+            </div>
+            <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Codigo</label>
                 <input type="text" name="code" value="{{ old('code', $company->code) }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
             </div>
@@ -121,6 +125,40 @@
                 </div>
             </div>
         </div>
+
+        <fieldset class="mt-6 border border-gray-200 rounded-xl p-4">
+            <legend class="px-2 text-sm font-medium text-gray-700">Assinatura</legend>
+            @if ($company->isRoot())
+                <p class="text-xs text-gray-500">A matriz opera sem assinatura e sem vencimento.</p>
+            @else
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Plano</label>
+                        <input type="text" name="plan_slug" value="{{ old('plan_slug', $company->plan_slug) }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Situacao</label>
+                        <select name="subscription_status" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            @foreach(['trial' => 'Em teste', 'active' => 'Ativa', 'overdue' => 'Em atraso', 'canceled' => 'Cancelada'] as $value => $label)
+                                <option value="{{ $value }}" {{ old('subscription_status', $company->subscription_status) === $value ? 'selected' : '' }}>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Fim do teste</label>
+                        <input type="date" name="trial_ends_at" value="{{ old('trial_ends_at', $company->trial_ends_at?->format('Y-m-d')) }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Vencimento da assinatura</label>
+                        <input type="date" name="subscription_ends_at" value="{{ old('subscription_ends_at', $company->subscription_ends_at?->format('Y-m-d')) }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Observacoes</label>
+                        <textarea name="subscription_notes" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">{{ old('subscription_notes', $company->subscription_notes) }}</textarea>
+                    </div>
+                </div>
+            @endif
+        </fieldset>
 
         <div class="flex justify-end mt-6">
             <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Salvar Compania</button>

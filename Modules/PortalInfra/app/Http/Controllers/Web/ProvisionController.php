@@ -4,10 +4,12 @@ namespace Modules\PortalInfra\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Modules\Core\Services\TenantContext;
 use Modules\CRM\Models\Client;
 use Modules\CRM\Models\Contract;
 use Modules\CRM\Models\MikrotikServer;
+use Modules\CRM\Models\Plan;
 use Modules\CRM\Models\ProvisioningRecord;
 use Modules\CRM\Services\MikrotikService;
 
@@ -15,12 +17,10 @@ class ProvisionController extends Controller
 {
     public function index(Request $request)
     {
-        $query = ProvisioningRecord::with(['mikrotikServer', 'client']);
-
-        $servers = MikrotikServer::query();
+        $query = ProvisioningRecord::with(['mikrotikServer', 'client', 'contract']);
 
         if (! TenantContext::isCrossTenant()) {
-            $query->whereIn('mikrotik_server_id', (clone $servers)->where('company_id', TenantContext::companyId())->pluck('id'));
+            $query->whereIn('mikrotik_server_id', MikrotikServer::scoped()->pluck('id'));
         }
 
         if ($request->filled('search')) {
@@ -37,17 +37,59 @@ class ProvisionController extends Controller
         }
 
         $records = $query->latest()->paginate(20);
-        $servers = $servers->where('is_active', true)->orderBy('name')->get();
+        $servers = MikrotikServer::scoped()->where('is_active', true)->orderBy('name')->get();
 
         return view('infra::provisioning.index', compact('records', 'servers'));
     }
 
+    /**
+     * Cliente do provisionamento precisa estar na mesma empresa e na mesma filial
+     * do servidor escolhido: e a filial que define em qual RB o usuario entra.
+     *
+     * @return array{0: ?Client, 1: ?Plan, 2: ?Contract}
+     */
+    private function clientForServer($clientId, MikrotikServer $server): array
+    {
+        if (empty($clientId)) {
+            return [null, null, null];
+        }
+
+        $client = Client::query()
+            ->where('company_id', $server->company_id)
+            ->find($clientId);
+
+        if (! $client) {
+            throw ValidationException::withMessages([
+                'client_id' => 'Cliente nao pertence a esta empresa.',
+            ]);
+        }
+
+        if ((int) $client->branch_id !== (int) $server->branch_id) {
+            throw ValidationException::withMessages([
+                'mikrotik_server_id' => 'Servidor nao pertence a filial do cliente selecionado.',
+            ]);
+        }
+
+        $contract = Contract::with('plan')
+            ->where('client_id', $client->id)
+            ->where('status', 'active')
+            ->latest()
+            ->first();
+
+        return [$client, $contract?->plan, $contract];
+    }
+
     public function create()
     {
-        $servers = MikrotikServer::where('is_active', true)->orderBy('name')->get();
-        $clients = Client::orderBy('name')->get();
+        $servers = MikrotikServer::scoped()->where('is_active', true)->orderBy('name')->get();
+        $clients = Client::scoped()->orderBy('name')->get();
 
-        return view('infra::provisioning.create', compact('servers', 'clients'));
+        return view('infra::provisioning.create', [
+            'servers' => $servers,
+            'clients' => $clients,
+            'clientBranches' => $clients->pluck('branch_id', 'id'),
+            'serverBranches' => $servers->pluck('branch_id', 'id'),
+        ]);
     }
 
     public function store(Request $request)
@@ -63,21 +105,10 @@ class ProvisionController extends Controller
             'ip' => 'nullable|ip|max:45',
         ]);
 
-        $server = MikrotikServer::findOrFail($validated['mikrotik_server_id']);
+        $server = MikrotikServer::findScopedOrFail($validated['mikrotik_server_id']);
         $service = new MikrotikService;
 
-        $plan = null;
-        $contract = null;
-
-        if (! empty($validated['client_id'])) {
-            $contract = Contract::with('plan')
-                ->where('client_id', $validated['client_id'])
-                ->where('status', 'active')
-                ->latest()
-                ->first();
-
-            $plan = $contract?->plan;
-        }
+        [$client, $plan, $contract] = $this->clientForServer($validated['client_id'] ?? null, $server);
 
         try {
             $service->connect($server);
@@ -119,9 +150,9 @@ class ProvisionController extends Controller
                     $validated['password'],
                     $profile,
                     $validated['mac'] ?? null,
-                    $validated['client_id'] ? Client::find($validated['client_id'])->name : null,
+                    $client?->name,
                     $validated['ip'] ?? null,
-                    $validated['client_id'] ? (int) $validated['client_id'] : null
+                    $client?->id
                 );
 
                 $pppoeSetup = $service->ensurePppoeServer();
@@ -132,9 +163,9 @@ class ProvisionController extends Controller
                     $validated['password'],
                     $profile,
                     $validated['mac'] ?? null,
-                    $validated['client_id'] ? Client::find($validated['client_id'])->name : null,
+                    $client?->name,
                     $validated['ip'] ?? null,
-                    $validated['client_id'] ? (int) $validated['client_id'] : null
+                    $client?->id
                 );
             }
 
@@ -164,6 +195,7 @@ class ProvisionController extends Controller
             if ($failedRecord) {
                 $failedRecord->update([
                     'client_id' => $validated['client_id'] ?? null,
+                    'contract_id' => $contract?->id,
                     'type' => $validated['type'],
                     'action' => 'add',
                     'params' => $validated,
@@ -174,6 +206,7 @@ class ProvisionController extends Controller
                 ProvisioningRecord::create([
                     'mikrotik_server_id' => $server->id,
                     'client_id' => $validated['client_id'] ?? null,
+                    'contract_id' => $contract?->id,
                     'type' => $validated['type'],
                     'action' => 'add',
                     'login' => $validated['login'],
@@ -191,8 +224,8 @@ class ProvisionController extends Controller
     public function edit($id)
     {
         $record = ProvisioningRecord::with(['mikrotikServer', 'client'])->findOrFail($id);
-        $servers = MikrotikServer::where('is_active', true)->orderBy('name')->get();
-        $clients = Client::orderBy('name')->get();
+        $servers = MikrotikServer::scoped()->where('is_active', true)->orderBy('name')->get();
+        $clients = Client::scoped()->orderBy('name')->get();
 
         return view('infra::provisioning.edit', compact('record', 'servers', 'clients'));
     }
@@ -211,21 +244,10 @@ class ProvisionController extends Controller
             'ip' => 'nullable|ip|max:45',
         ]);
 
-        $server = MikrotikServer::findOrFail($validated['mikrotik_server_id']);
+        $server = MikrotikServer::findScopedOrFail($validated['mikrotik_server_id']);
         $service = new MikrotikService;
 
-        $plan = null;
-        $contract = null;
-
-        if (! empty($validated['client_id'])) {
-            $contract = Contract::with('plan')
-                ->where('client_id', $validated['client_id'])
-                ->where('status', 'active')
-                ->latest()
-                ->first();
-
-            $plan = $contract?->plan;
-        }
+        [$client, $plan, $contract] = $this->clientForServer($validated['client_id'] ?? null, $server);
 
         try {
             $service->connect($server);
@@ -258,7 +280,7 @@ class ProvisionController extends Controller
                     $profile,
                     $validated['ip'] ?? null,
                     $validated['mac'] ?? null,
-                    $validated['client_id'] ? (int) $validated['client_id'] : null
+                    $client?->id
                 );
 
                 $service->ensurePppoeServer();
@@ -269,7 +291,7 @@ class ProvisionController extends Controller
                     $profile,
                     $validated['ip'] ?? null,
                     $validated['mac'] ?? null,
-                    $validated['client_id'] ? (int) $validated['client_id'] : null
+                    $client?->id
                 );
             }
 
@@ -282,6 +304,7 @@ class ProvisionController extends Controller
             $record->update([
                 'mikrotik_server_id' => $server->id,
                 'client_id' => $validated['client_id'] ?? null,
+                'contract_id' => $contract?->id,
                 'type' => $validated['type'],
                 'params' => array_merge((array) $record->params, [
                     'password' => $this->resolvePassword($validated['password']),
@@ -320,8 +343,14 @@ class ProvisionController extends Controller
 
     public function clientPlan($clientId)
     {
+        $client = Client::scoped()->find($clientId);
+
+        if (! $client) {
+            return response()->json(['plan' => null, 'contract' => null]);
+        }
+
         $contract = Contract::with('plan')
-            ->where('client_id', $clientId)
+            ->where('client_id', $client->id)
             ->where('status', 'active')
             ->latest()
             ->first();
@@ -403,7 +432,7 @@ class ProvisionController extends Controller
 
     public function profiles($serverId)
     {
-        $server = MikrotikServer::findOrFail($serverId);
+        $server = MikrotikServer::findScopedOrFail($serverId);
         $service = new MikrotikService;
 
         try {
@@ -428,7 +457,7 @@ class ProvisionController extends Controller
 
     public function activeUsers($serverId)
     {
-        $server = MikrotikServer::findOrFail($serverId);
+        $server = MikrotikServer::findScopedOrFail($serverId);
         $service = new MikrotikService;
 
         try {

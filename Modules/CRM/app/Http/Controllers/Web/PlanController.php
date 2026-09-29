@@ -5,19 +5,14 @@ namespace Modules\CRM\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Modules\Core\Models\Server;
-use Modules\Core\Services\TenantContext;
+use Modules\CRM\Models\MikrotikServer;
 use Modules\CRM\Models\Plan;
 
 class PlanController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Plan::query();
-
-        if (! TenantContext::isCrossTenant()) {
-            $query->forCompany(TenantContext::companyId());
-        }
+        $query = Plan::scoped();
 
         if ($search = $request->get('search')) {
             $query->where('name', 'like', "%{$search}%");
@@ -30,13 +25,15 @@ class PlanController extends Controller
 
     public function create()
     {
-        $servers = Server::where('is_active', true)->orderBy('name')->get();
+        $servers = MikrotikServer::scoped()->where('is_active', true)->orderBy('name')->get();
 
         return view('crm::plans.create', compact('servers'));
     }
 
     public function store(Request $request)
     {
+        $this->normalizeCheckboxes($request);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -58,7 +55,7 @@ class PlanController extends Controller
             'police_out' => 'nullable|string',
             'tipo_servidor' => 'nullable|string',
             'interface' => 'nullable|string',
-            'server_id' => 'nullable|exists:servers,id',
+            'server_id' => 'nullable|exists:mikrotik_servers,id',
             'is_active' => 'boolean',
         ]);
 
@@ -72,15 +69,17 @@ class PlanController extends Controller
 
     public function edit($id)
     {
-        $plan = Plan::findOrFail($id);
-        $servers = Server::where('is_active', true)->orderBy('name')->get();
+        $plan = Plan::findScopedOrFail($id);
+        $servers = MikrotikServer::scoped()->where('is_active', true)->orderBy('name')->get();
 
         return view('crm::plans.edit', compact('plan', 'servers'));
     }
 
     public function update(Request $request, $id)
     {
-        $plan = Plan::findOrFail($id);
+        $plan = Plan::findScopedOrFail($id);
+
+        $this->normalizeCheckboxes($request);
 
         $validated = $request->validate([
             'name' => 'string|max:255',
@@ -103,7 +102,7 @@ class PlanController extends Controller
             'police_out' => 'nullable|string',
             'tipo_servidor' => 'nullable|string',
             'interface' => 'nullable|string',
-            'server_id' => 'nullable|exists:servers,id',
+            'server_id' => 'nullable|exists:mikrotik_servers,id',
             'is_active' => 'boolean',
         ]);
 
@@ -119,10 +118,24 @@ class PlanController extends Controller
 
     public function destroy($id)
     {
-        $plan = Plan::findOrFail($id);
+        $plan = Plan::findScopedOrFail($id);
         $plan->delete();
 
         return redirect()->route('crm.plans.index')
             ->with('success', 'Plano removido com sucesso.');
+    }
+
+    /**
+     * Checkbox desmarcado nao vai no POST. Sem esta normalizacao a regra
+     * 'boolean' nunca era avaliada e o update mantia o valor antigo do banco,
+     * impossibilitando desligar hotspot/pppoe/ativo em um plano ja salvo.
+     */
+    private function normalizeCheckboxes(Request $request): void
+    {
+        $request->merge([
+            'has_pppoe' => $request->boolean('has_pppoe'),
+            'has_hotspot' => $request->boolean('has_hotspot'),
+            'is_active' => $request->boolean('is_active'),
+        ]);
     }
 }

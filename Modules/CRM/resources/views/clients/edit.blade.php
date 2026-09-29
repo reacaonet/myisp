@@ -21,6 +21,24 @@
             </div>
             @endif
 
+            <h3 class="text-md font-semibold text-gray-800 border-b pb-2">Filial</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Filial *</label>
+                    <select name="branch_id" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm @error('branch_id') border-red-500 @enderror">
+                        <option value="">Selecione a filial...</option>
+                        @foreach($branches as $branch)
+                            <option value="{{ $branch->id }}" @selected(old('branch_id', $client->branch_id) == $branch->id)>
+                                {{ $branch->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                    @error('branch_id') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                    <p class="text-gray-500 text-xs mt-1">Define o servidor usado no provisionamento deste cliente.</p>
+                </div>
+            </div>
+
             <h3 class="text-md font-semibold text-gray-800 border-b pb-2">Dados Pessoais</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>

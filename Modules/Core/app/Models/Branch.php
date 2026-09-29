@@ -15,6 +15,7 @@ class Branch extends Model
         'parent_id',
         'code',
         'name',
+        'document',
         'is_active',
     ];
 
@@ -25,6 +26,25 @@ class Branch extends Model
         ];
     }
 
+    /**
+     * Filial sem CNPJ e normal: a matriz e as lojas que nao temem nota em
+     * nome proprio ficam com o documento vazio.
+     */
+    public function documentFormatted(): ?string
+    {
+        $digits = preg_replace('/\D/', '', (string) $this->document);
+
+        if (! $digits) {
+            return null;
+        }
+
+        if (strlen($digits) === 14) {
+            return substr($digits, 0, 2).'.'.substr($digits, 2, 3).'.'.substr($digits, 5, 3).'/'
+                .substr($digits, 8, 4).'-'.substr($digits, 12, 2);
+        }
+
+        return $this->document;
+    }
 
     public function parent()
     {

@@ -5,7 +5,10 @@
 @section('content')
 <div class="max-w-5xl mx-auto">
     <div class="flex items-center justify-between mb-6">
-        <h2 class="text-2xl font-bold text-gray-900">Filiais</h2>
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900">Filiais</h2>
+            <p class="text-sm text-gray-500 mt-1">A rede e uma empresa so: cada filial e uma unidade, com CNPJ proprio opcional.</p>
+        </div>
         <a href="{{ route('core.branches.create') }}" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             Nova Filial
@@ -19,22 +22,12 @@
         <div class="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{{ session('error') }}</div>
     @endif
 
-    <form method="GET" action="{{ route('core.branches.index') }}" class="mb-4 flex items-center gap-3">
-        <label class="text-sm text-gray-600 font-medium">Compania</label>
-        <select name="company_id" onchange="this.form.submit()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
-            <option value="">Todas</option>
-            @foreach($companies as $c)
-                <option value="{{ $c->id }}" {{ request('company_id') == $c->id ? 'selected' : '' }}>{{ $c->name }}</option>
-            @endforeach
-        </select>
-    </form>
-
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <table class="w-full text-sm">
             <thead class="bg-gray-50 border-b border-gray-200">
                 <tr>
-                    <th class="text-left px-4 py-3 font-medium text-gray-500">Compania</th>
                     <th class="text-left px-4 py-3 font-medium text-gray-500">Filial</th>
+                    <th class="text-left px-4 py-3 font-medium text-gray-500">CNPJ</th>
                     <th class="text-left px-4 py-3 font-medium text-gray-500">Codigo</th>
                     <th class="text-left px-4 py-3 font-medium text-gray-500">Matriz / Pai</th>
                     <th class="text-center px-4 py-3 font-medium text-gray-500">Status</th>
@@ -44,9 +37,8 @@
             <tbody class="divide-y divide-gray-100">
                 @forelse($branches as $branch)
                 <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3 text-gray-700">{{ $branch->company->name ?? '—' }}</td>
                     <td class="px-4 py-3 font-medium text-gray-900">{{ $branch->name }}</td>
-                    <td class="px-4 py-3 text-gray-500">{{ $branch->code ?: '—' }}</td>
+                    <td class="px-4 py-3 text-gray-700 font-mono text-xs">{{ $branch->documentFormatted() ?? 'Sem CNPJ' }}</td>
                     <td class="px-4 py-3 text-gray-500">
                         @if($branch->isMatrix())
                             <span class="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-700">Matriz</span>

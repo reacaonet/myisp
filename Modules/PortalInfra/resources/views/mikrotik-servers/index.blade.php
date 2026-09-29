@@ -13,6 +13,7 @@
             <thead>
                 <tr class="text-left text-gray-500 bg-gray-50 border-b border-gray-200">
                     <th class="px-6 py-4 font-medium">Nome</th>
+                    <th class="px-6 py-4 font-medium">Filial</th>
                     <th class="px-6 py-4 font-medium">IP</th>
                     <th class="px-6 py-4 font-medium">Porta</th>
                     <th class="px-6 py-4 font-medium">Tipo</th>
@@ -24,6 +25,7 @@
                 @forelse($servers as $s)
                 <tr class="border-b border-gray-100 hover:bg-gray-50">
                     <td class="px-6 py-4 font-medium text-gray-900">{{ $s->name }}</td>
+                    <td class="px-6 py-4 text-gray-600">{{ $s->branch?->name ?? '-' }}</td>
                     <td class="px-6 py-4 text-gray-600 font-mono">{{ $s->ip }}</td>
                     <td class="px-6 py-4 text-gray-600">{{ $s->port }}</td>
                     <td class="px-6 py-4 text-gray-600">{{ ucfirst($s->type) }}</td>
@@ -49,7 +51,7 @@
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="6" class="px-6 py-12 text-center text-gray-400">Nenhum servidor MikroTik cadastrado.</td></tr>
+                <tr><td colspan="7" class="px-6 py-12 text-center text-gray-400">Nenhum servidor MikroTik cadastrado.</td></tr>
                 @endforelse
             </tbody>
         </table>

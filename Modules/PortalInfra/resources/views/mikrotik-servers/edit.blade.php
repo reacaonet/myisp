@@ -14,6 +14,18 @@
                 <label class="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
                 <input type="text" name="name" value="{{ old('name', $server->name) }}" required class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm">
             </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Filial *</label>
+                <select name="branch_id" required class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option value="">Selecione...</option>
+                    @foreach($branches as $branch)
+                        <option value="{{ $branch->id }}" @selected(old('branch_id', $server->branch_id) == $branch->id)>
+                            {{ $branch->name }}{{ $branch->isMatrix() ? ' (matriz)' : '' }}
+                        </option>
+                    @endforeach
+                </select>
+                <p class="text-xs text-gray-500 mt-1">A filial e o que liga este servidor aos clientes dela no provisionamento.</p>
+            </div>
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">IP *</label>

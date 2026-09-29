@@ -25,28 +25,24 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="md:col-span-2">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Compania</label>
-                <select name="company_id" id="company_id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <option value="">Selecione...</option>
-                    @foreach($companies as $c)
-                        <option value="{{ $c->id }}" {{ old('company_id') == $c->id ? 'selected' : '' }}>{{ $c->name }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="md:col-span-2">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Nome da Filial</label>
                 <input type="text" name="name" value="{{ old('name') }}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="ex: Centro, Zona Sul, Loja 2">
+            </div>
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-1">CNPJ</label>
+                <input type="text" name="document" value="{{ old('document') }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="00.000.000/0000-00">
+                <p class="text-xs text-gray-500 mt-1">Opcional. Deixe vazio se a filial nao emite nota em nome proprio.</p>
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Codigo</label>
                 <input type="text" name="code" value="{{ old('code') }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="ex: 002">
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Filial pai</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Unidade pai (opcional)</label>
                 <select name="parent_id" id="parent_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <option value="">Nenhuma (esta filial e a Matriz)</option>
+                    <option value="">Nenhuma — filial direto da empresa</option>
                     @foreach($branches as $b)
-                        <option value="{{ $b->id }}" data-company="{{ $b->company_id }}" {{ old('parent_id') == $b->id ? 'selected' : '' }}>{{ $b->company->name ?? '' }} - {{ $b->name }}</option>
+                        <option value="{{ $b->id }}" {{ old('parent_id') == $b->id ? 'selected' : '' }}>{{ $b->name }}</option>
                     @endforeach
                 </select>
             </div>
@@ -64,21 +60,4 @@
     </form>
 </div>
 
-<script>
-    const companySelect = document.getElementById('company_id');
-    const parentSelect = document.getElementById('parent_id');
-
-    function filterParents() {
-        const companyId = companySelect.value;
-        for (const option of parentSelect.options) {
-            if (option.value === '') continue;
-            option.hidden = option.dataset.company !== companyId;
-        }
-    }
-
-    if (companySelect) {
-        companySelect.addEventListener('change', filterParents);
-        filterParents();
-    }
-</script>
 @endsection

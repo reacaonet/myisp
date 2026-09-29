@@ -5,24 +5,122 @@
 @section('content')
 <div class="bg-white rounded-xl shadow-sm border border-gray-200">
     <div class="p-6 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h2 class="text-lg font-semibold text-gray-800">Clientes</h2>
-        <div class="flex gap-3">
-            <form method="GET" class="flex gap-2">
-                <input type="text" name="search" placeholder="Buscar cliente..." value="{{ request('search') }}"
-                       class="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64">
-                <button type="submit" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200">Buscar</button>
-            </form>
-            <a href="{{ route('crm.clients.create') }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 inline-flex items-center gap-1">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                Novo Cliente
-            </a>
+        <div>
+            <h2 class="text-lg font-semibold text-gray-800">Clientes</h2>
+            <p class="text-xs text-gray-500 mt-0.5">{{ $clients->total() }} {{ $clients->total() === 1 ? 'cliente' : 'clientes' }} na rede</p>
         </div>
+        <a href="{{ route('crm.clients.create') }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 inline-flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            Novo Cliente
+        </a>
     </div>
+
+    <form method="GET" class="p-6 border-b border-gray-200 bg-gray-50/60 space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div class="sm:col-span-2 lg:col-span-4">
+                <label class="block text-xs font-medium text-gray-600 mb-1">Busca</label>
+                <input type="text" name="search" value="{{ $filters['search'] }}"
+                       placeholder="Nome, documento, e-mail, telefone, celular, login ou codigo"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Filial</label>
+                <select name="branch_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">Todas as filiais</option>
+                    @foreach($branches as $branch)
+                        <option value="{{ $branch->id }}" @selected($filters['branch_id'] === $branch->id)>{{ $branch->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Status</label>
+                <select name="status" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">Todos</option>
+                    <option value="active" @selected($filters['status'] === 'active')>Ativo</option>
+                    <option value="inactive" @selected($filters['status'] === 'inactive')>Inativo</option>
+                    <option value="suspended" @selected($filters['status'] === 'suspended')>Suspenso</option>
+                    <option value="canceled" @selected($filters['status'] === 'canceled')>Cancelado</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Pessoa</label>
+                <select name="type" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">Todos</option>
+                    <option value="individual" @selected($filters['type'] === 'individual')>Fisica</option>
+                    <option value="legal" @selected($filters['type'] === 'legal')>Juridica</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Assinante</label>
+                <select name="tipo_assinante" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">Todos</option>
+                    <option value="pf" @selected($filters['tipo_assinante'] === 'pf')>PF</option>
+                    <option value="pj" @selected($filters['tipo_assinante'] === 'pj')>PJ</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Utilizacao</label>
+                <select name="tipo_utilizacao" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">Todas</option>
+                    <option value="residencial" @selected($filters['tipo_utilizacao'] === 'residencial')>Residencial</option>
+                    <option value="comercial" @selected($filters['tipo_utilizacao'] === 'comercial')>Comercial</option>
+                    <option value="institucional" @selected($filters['tipo_utilizacao'] === 'institucional')>Institucional</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Grupo</label>
+                <select name="grupo" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">Todos</option>
+                    @foreach($groups as $group)
+                        <option value="{{ $group }}" @selected($filters['grupo'] === $group)>{{ $group }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Contrato</label>
+                <select name="contract" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">Todos</option>
+                    <option value="active" @selected($filters['contract'] === 'active')>Com contrato ativo</option>
+                    <option value="without" @selected($filters['contract'] === 'without')>Sem contrato</option>
+                    <option value="suspended" @selected($filters['contract'] === 'suspended')>Contrato suspenso/cancelado</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Ordenar por</label>
+                <select name="order" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="recent" @selected($filters['order'] === 'recent')>Mais recentes</option>
+                    <option value="oldest" @selected($filters['order'] === 'oldest')>Mais antigos</option>
+                    <option value="name" @selected($filters['order'] === 'name')>Nome (A-Z)</option>
+                    <option value="name_desc" @selected($filters['order'] === 'name_desc')>Nome (Z-A)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between gap-3 pt-1">
+            <p class="text-xs text-gray-500">
+                @php $ativos = collect($filters)->filter(fn ($v) => $v !== null && $v !== '' && $v !== 'recent')->count(); @endphp
+                {{ $ativos > 0 ? $ativos.' filtro(s) ativo(s)' : 'Nenhum filtro ativo' }}
+            </p>
+            <div class="flex items-center gap-2">
+                <a href="{{ route('crm.clients.index') }}" class="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100">Limpar</a>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Filtrar</button>
+            </div>
+        </div>
+    </form>
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
                 <tr class="text-left text-gray-500 bg-gray-50 border-b border-gray-200">
                     <th class="px-6 py-4 font-medium">Nome</th>
+                    <th class="px-6 py-4 font-medium">Filial</th>
                     <th class="px-6 py-4 font-medium">Documento</th>
                     <th class="px-6 py-4 font-medium">Email</th>
                     <th class="px-6 py-4 font-medium">Celular</th>
@@ -36,6 +134,7 @@
                     <td class="px-6 py-4">
                         <a href="{{ route('crm.clients.show', $client) }}" class="text-blue-600 hover:underline font-medium">{{ $client->name }}</a>
                     </td>
+                    <td class="px-6 py-4 text-gray-600">{{ $client->branch?->name ?? '-' }}</td>
                     <td class="px-6 py-4 text-gray-600">{{ $client->document }}</td>
                     <td class="px-6 py-4 text-gray-600">{{ $client->email ?? '-' }}</td>
                     <td class="px-6 py-4 text-gray-600">{{ $client->cellphone ?? '-' }}</td>
@@ -54,7 +153,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="6" class="px-6 py-12 text-center text-gray-400">
+                    <td colspan="7" class="px-6 py-12 text-center text-gray-400">
                         Nenhum cliente encontrado.
                     </td>
                 </tr>

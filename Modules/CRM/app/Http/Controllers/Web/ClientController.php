@@ -3,42 +3,185 @@
 namespace Modules\CRM\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\In;
+use Modules\Core\Models\Branch;
 use Modules\Core\Services\TenantContext;
 use Modules\CRM\Models\Client;
 
 class ClientController extends Controller
 {
+    /** Campos livres varridos pela busca textual. */
+    private const SEARCHABLE = ['name', 'document', 'email', 'cellphone', 'phone', 'login', 'codigo'];
+
+    /** Selects com dominio fechado, validados antes de chegar na query. */
+    private const STATUSES = ['active', 'inactive', 'suspended', 'canceled'];
+
+    private const TYPES = ['individual', 'legal'];
+
+    private const SUBSCRIBER_TYPES = ['pf', 'pj'];
+
+    private const USAGE_TYPES = ['comercial', 'institucional', 'residencial'];
+
+    private const CONTRACT_FILTERS = ['active', 'without', 'suspended'];
+
+    private const ORDERS = ['recent', 'oldest', 'name', 'name_desc'];
+
     public function index(Request $request)
     {
-        $query = Client::with('addresses');
+        $groups = $this->groupOptions();
+        $filters = $this->filters($request, $groups);
+
+        $query = $this->baseQuery();
+
+        $this->applyFilters($query, $filters);
+
+        $clients = $query
+            ->when($filters['order'] === 'oldest', fn ($q) => $q->oldest())
+            ->when($filters['order'] === 'name', fn ($q) => $q->orderBy('name'))
+            ->when($filters['order'] === 'name_desc', fn ($q) => $q->orderByDesc('name'))
+            ->when($filters['order'] === 'recent', fn ($q) => $q->latest())
+            ->paginate(15)
+            ->withQueryString();
+
+        return view('crm::clients.index', [
+            'clients' => $clients,
+            'branches' => $this->branchQuery()->get(),
+            'groups' => $groups,
+            'filters' => $filters,
+        ]);
+    }
+
+    /**
+     * Base da listagem: a rede inteira e visivel, a filial e filtro e nao bloqueio.
+     *
+     * @return Builder<Client>
+     */
+    private function baseQuery(): Builder
+    {
+        $query = Client::with(['addresses', 'branch']);
 
         if (! TenantContext::isCrossTenant()) {
             $query->forCompany(TenantContext::companyId());
-
-            if (TenantContext::branchId()) {
-                $query->forBranch(TenantContext::branchId());
-            }
         }
 
-        if ($search = $request->get('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('document', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%")
-                    ->orWhere('cellphone', 'like', "%{$search}%");
+        return $query;
+    }
+
+    /**
+     * Só o que veio no request e caiu num dominio conhecido. Evita montar
+     * query com valor arbitrario e mantem os selects da tela em sincronia.
+     */
+    private function filters(Request $request, Collection $groups): array
+    {
+        return [
+            'search' => trim((string) $request->get('search', '')),
+            'branch_id' => $request->filled('branch_id') ? $request->integer('branch_id') : null,
+            'status' => $this->oneOf($request->get('status'), self::STATUSES),
+            'type' => $this->oneOf($request->get('type'), self::TYPES),
+            'tipo_assinante' => $this->oneOf($request->get('tipo_assinante'), self::SUBSCRIBER_TYPES),
+            'tipo_utilizacao' => $this->oneOf($request->get('tipo_utilizacao'), self::USAGE_TYPES),
+            'grupo' => $this->oneOf($request->get('grupo'), $groups->all()),
+            'contract' => $this->oneOf($request->get('contract'), self::CONTRACT_FILTERS),
+            'order' => $this->oneOf($request->get('order'), self::ORDERS) ?? 'recent',
+        ];
+    }
+
+    private function oneOf($value, array $allowed): ?string
+    {
+        $value = is_string($value) ? trim($value) : '';
+
+        return in_array($value, $allowed, true) ? $value : null;
+    }
+
+    /**
+     * @param  Builder<Client>  $query
+     */
+    private function applyFilters(Builder $query, array $filters): void
+    {
+        $query->when($filters['branch_id'], fn ($q, $branch) => $q->forBranch($branch));
+        $query->when($filters['status'], fn ($q, $status) => $q->where('status', $status));
+        $query->when($filters['type'], fn ($q, $type) => $q->where('type', $type));
+        $query->when($filters['tipo_assinante'], fn ($q, $value) => $q->where('tipo_assinante', $value));
+        $query->when($filters['tipo_utilizacao'], fn ($q, $value) => $q->where('tipo_utilizacao', $value));
+        $query->when($filters['grupo'], fn ($q, $value) => $q->where('grupo', $value));
+
+        if ($filters['contract'] === 'active') {
+            $query->whereHas('activeContracts');
+        } elseif ($filters['contract'] === 'without') {
+            $query->whereDoesntHave('contracts');
+        } elseif ($filters['contract'] === 'suspended') {
+            $query->whereHas('contracts', fn ($q) => $q->whereIn('status', ['suspended', 'canceled']));
+        }
+
+        $search = $filters['search'];
+
+        if ($search !== '') {
+            $term = '%'.$search.'%';
+
+            $query->where(function ($q) use ($term) {
+                foreach (self::SEARCHABLE as $column) {
+                    $q->orWhere($column, 'like', $term);
+                }
             });
         }
+    }
 
-        $clients = $query->latest()->paginate(15);
+    /**
+     * Grupos existentes na base, sem lista fixa: o grupo nasce do uso real.
+     *
+     * @return Collection<int, string>
+     */
+    private function groupOptions()
+    {
+        return $this->baseQuery()
+            ->whereNotNull('grupo')
+            ->where('grupo', '<>', '')
+            ->distinct()
+            ->orderBy('grupo')
+            ->pluck('grupo');
+    }
 
-        return view('crm::clients.index', compact('clients'));
+    /**
+     * A regra do formulario usa exatamente a lista de filiais exibida no
+     * select, para um parametro forjado nao aceitar filial de outra empresa
+     * nem filial que o operador nao pode assumir.
+     */
+    private function branchRule(): In
+    {
+        return Rule::in($this->branchQuery()->pluck('id')->all());
     }
 
     public function create()
     {
-        return view('crm::clients.create');
+        return view('crm::clients.create', ['branches' => $this->branchQuery()->get()]);
+    }
+
+    /**
+     * Filiais que o operador pode escolher no cadastro. A matriz entra
+     * primeiro, porque e o padrao da rede, e as demais sao as liberadas
+     * para o usuario dentro da empresa atual.
+     *
+     * @return Builder<Branch>
+     */
+    private function branchQuery()
+    {
+        $query = Branch::query()->orderByRaw('parent_id is null desc')->orderBy('name');
+
+        if (! TenantContext::isCrossTenant()) {
+            $query->forCompany(TenantContext::companyId());
+
+            $allowed = TenantContext::allowedBranchIds();
+
+            $query->where(function ($q) use ($allowed) {
+                $q->whereIn('id', $allowed)->orWhereNull('parent_id');
+            });
+        }
+
+        return $query;
     }
 
     public function store(Request $request)
@@ -46,6 +189,7 @@ class ClientController extends Controller
         $tenant = $this->tenantUniqueScope();
 
         $validated = $request->validate([
+            'branch_id' => ['required', 'integer', $this->branchRule()],
             'codigo' => 'nullable|string|max:20',
             'name' => 'required|string|max:255',
             'document' => ['required', 'string', 'max:20', Rule::unique('clients', 'document')->where($tenant)],
@@ -109,7 +253,7 @@ class ClientController extends Controller
     {
         $client = Client::with('addresses')->findOrFail($id);
 
-        return view('crm::clients.edit', compact('client'));
+        return view('crm::clients.edit', compact('client') + ['branches' => $this->branchQuery()->get()]);
     }
 
     public function update(Request $request, $id)
@@ -119,6 +263,7 @@ class ClientController extends Controller
         $tenant = $this->tenantUniqueScope($client);
 
         $validated = $request->validate([
+            'branch_id' => ['required', 'integer', $this->branchRule()],
             'codigo' => 'nullable|string|max:20',
             'name' => 'string|max:255',
             'document' => ['string', 'max:20', Rule::unique('clients', 'document')->ignore($id)->where($tenant)],

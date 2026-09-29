@@ -28,9 +28,10 @@
                     <select name="mikrotik_server_id" id="serverSelect" required class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm">
                         <option value="">Selecione...</option>
                         @foreach($servers as $s)
-                            <option value="{{ $s->id }}" data-type="{{ $s->type }}">{{ $s->name }} ({{ $s->ip }})</option>
+                            <option value="{{ $s->id }}" data-type="{{ $s->type }}" data-branch="{{ $s->branch_id }}">{{ $s->name }} ({{ $s->ip }})</option>
                         @endforeach
                     </select>
+                    <p class="text-xs text-gray-500 mt-1">Escolhendo o cliente, a lista e filtrada pelo servidor da filial dele.</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Tipo *</label>
@@ -45,7 +46,7 @@
                 <select name="client_id" id="clientSelect" class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm">
                     <option value="">Nenhum</option>
                     @foreach($clients as $c)
-                        <option value="{{ $c->id }}" @selected(old('client_id')==$c->id)>{{ $c->name }}</option>
+                        <option value="{{ $c->id }}" data-branch="{{ $c->branch_id }}" @selected(old('client_id')==$c->id)>{{ $c->name }}</option>
                     @endforeach
                 </select>
                 <div id="planInfo" class="hidden mt-2 text-sm"></div>
@@ -87,7 +88,39 @@
 
 @push('scripts')
 <script>
-document.getElementById('clientSelect').addEventListener('change', function() {
+const clientSelect = document.getElementById('clientSelect');
+const serverSelect = document.getElementById('serverSelect');
+
+const serverOptions = Array.from(serverSelect.options).filter(o => o.value);
+
+// A filial do cliente define o servidor: filtra a lista e ja deixa o
+// servidor da filial selecionado quando ela tem um unico RB.
+function filtrarServidoresPelaFilial() {
+    const selected = serverSelect.value;
+    const clientOption = clientSelect.options[clientSelect.selectedIndex];
+    const branch = clientOption && clientOption.dataset.branch ? clientOption.dataset.branch : null;
+
+    serverOptions.forEach(option => {
+        option.hidden = branch !== null && option.dataset.branch !== branch;
+    });
+
+    if (branch !== null) {
+        const daFilial = serverOptions.filter(o => !o.hidden);
+        if (daFilial.length === 1) {
+            serverSelect.value = daFilial[0].value;
+            serverSelect.dispatchEvent(new Event('change'));
+            return;
+        }
+    }
+
+    if (selected && serverSelect.querySelector(`option[value="${selected}"]`).hidden) {
+        serverSelect.value = '';
+    }
+}
+
+clientSelect.addEventListener('change', function() {
+    filtrarServidoresPelaFilial();
+
     const clientId = this.value;
     const planInfo = document.getElementById('planInfo');
 
@@ -145,11 +178,12 @@ document.getElementById('serverSelect').addEventListener('change', function() {
 });
 
 document.getElementById('typeSelect').addEventListener('change', function() {
-    document.getElementById('serverSelect').dispatchEvent(new Event('change'));
+    serverSelect.dispatchEvent(new Event('change'));
 });
 
 if ('{{ old('client_id') }}') {
-    document.getElementById('clientSelect').dispatchEvent(new Event('change'));
+    filtrarServidoresPelaFilial();
+    clientSelect.dispatchEvent(new Event('change'));
 }
 </script>
 @endpush

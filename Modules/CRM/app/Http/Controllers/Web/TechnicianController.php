@@ -3,8 +3,8 @@
 namespace Modules\CRM\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\User;
+use Illuminate\Http\Request;
 use Modules\Core\Models\UserGroup;
 
 class TechnicianController extends Controller
@@ -13,6 +13,7 @@ class TechnicianController extends Controller
     {
         $tecnicoGroupId = UserGroup::where('slug', 'tecnico')->value('id');
         $technicians = User::where('user_group_id', $tecnicoGroupId)->latest()->paginate(15);
+
         return view('crm::technicians.index', compact('technicians'));
     }
 
@@ -39,6 +40,7 @@ class TechnicianController extends Controller
 
         $validated['password'] = bcrypt($validated['password']);
         $validated['user_group_id'] = $tecnicoGroupId;
+        $validated['is_active'] = $request->boolean('is_active');
 
         User::create($validated);
 
@@ -49,6 +51,7 @@ class TechnicianController extends Controller
     public function edit($id)
     {
         $technician = User::findOrFail($id);
+
         return view('crm::technicians.edit', compact('technician'));
     }
 
@@ -58,7 +61,7 @@ class TechnicianController extends Controller
 
         $validated = $request->validate([
             'name' => 'string|max:255',
-            'email' => 'nullable|email|max:255|unique:users,email,' . $technician->id,
+            'email' => 'nullable|email|max:255|unique:users,email,'.$technician->id,
             'password' => 'nullable|string|min:6',
             'cargo' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:20',
@@ -68,11 +71,13 @@ class TechnicianController extends Controller
             'is_active' => 'boolean',
         ]);
 
-        if (!empty($validated['password'])) {
+        if (! empty($validated['password'])) {
             $validated['password'] = bcrypt($validated['password']);
         } else {
             unset($validated['password']);
         }
+
+        $validated['is_active'] = $request->boolean('is_active');
 
         $technician->update($validated);
 

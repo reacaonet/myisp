@@ -225,6 +225,8 @@ class ClientController extends Controller
             'zipcode' => 'nullable|string|max:9',
         ]);
 
+        $validated['nf'] = $request->boolean('nf');
+
         $client = Client::create($validated);
 
         $addressData = array_filter($request->only(['street', 'number', 'complement', 'referencia', 'neighborhood', 'city', 'state', 'zipcode']));
@@ -298,6 +300,8 @@ class ClientController extends Controller
             'state' => 'nullable|string|size:2',
             'zipcode' => 'nullable|string|max:9',
         ]);
+
+        $validated['nf'] = $request->boolean('nf');
 
         $client->update($validated);
 

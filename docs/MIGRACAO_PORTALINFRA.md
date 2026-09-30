@@ -103,7 +103,6 @@ Suporte
 
 Financeiro
 ├── Faturas             (billing.invoices.index)      — invoices
-├── Pagamentos          (billing.invoices.index?status=paid) — invoices
 ├── Livro Caixa         (billing.cash-book.index)     — cash_book
 ├── Relatorios          (billing.reports.index)       — reports
 ├── Boletos             (billing.boleto.index)         — boleto

@@ -22,18 +22,11 @@
     <div class="p-6 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h2 class="text-lg font-semibold text-gray-800">Faturas</h2>
         <div class="flex gap-3 flex-wrap">
-            <form method="GET" class="flex gap-2">
-                <select name="status" class="px-3 py-2 border border-gray-300 rounded-lg text-sm" onchange="this.form.submit()">
-                    <option value="">Todos</option>
-                    <option value="pending" @selected(request('status') == 'pending')>Pendente</option>
-                    <option value="paid" @selected(request('status') == 'paid')>Pago</option>
-                    <option value="overdue" @selected(request('status') == 'overdue')>Vencido</option>
-                    <option value="canceled" @selected(request('status') == 'canceled')>Cancelado</option>
-                </select>
-                <input type="text" name="search" placeholder="Buscar..." value="{{ request('search') }}"
-                       class="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-48">
-                <button type="submit" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200">Buscar</button>
-            </form>
+            <button type="submit" form="bulk-invoices-form" onclick="return checkInvoiceBulkSelection()"
+                style="background-color:#dc2626;color:#ffffff;font-weight:600;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;"
+                onmouseover="this.style.backgroundColor='#b91c1c'" onmouseout="this.style.backgroundColor='#dc2626'">
+                Excluir Selecionadas
+            </button>
             <a href="{{ route('billing.invoices.create') }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 inline-flex items-center gap-1">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                 Nova Fatura
@@ -46,10 +39,108 @@
             </form>
         </div>
     </div>
+
+    <div class="p-4 border-b border-gray-200 bg-gray-50">
+        <form method="GET" class="flex flex-wrap gap-3 items-end">
+            <div class="flex-1 min-w-[220px]">
+                <label class="block text-xs text-gray-500 mb-1" for="filter-search">Busca</label>
+                <input type="text" id="filter-search" name="search" value="{{ request('search') }}"
+                       placeholder="Cliente, numero da fatura, boleto ou transacao..."
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1" for="filter-status">Status</label>
+                <select id="filter-status" name="status" class="px-3 py-2 border border-gray-300 rounded-lg text-sm" onchange="this.form.submit()">
+                    <option value="">Todos</option>
+                    @foreach(\Modules\Billing\Services\InvoiceListFilter::STATUSES as $value => $label)
+                        <option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1" for="filter-payment-method">Forma de pagamento</label>
+                <select id="filter-payment-method" name="payment_method" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option value="">Todas</option>
+                    @foreach(\Modules\Billing\Services\InvoiceListFilter::PAYMENT_METHODS as $value => $label)
+                        <option value="{{ $value }}" @selected(request('payment_method') === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1" for="filter-branch">Filial</label>
+                <select id="filter-branch" name="branch_id" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option value="">Todas</option>
+                    @foreach($branches as $branch)
+                        <option value="{{ $branch->id }}" @selected((int) request('branch_id') === $branch->id)>{{ $branch->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1" for="filter-due-from">Vencimento de</label>
+                <input type="date" id="filter-due-from" name="due_from" value="{{ request('due_from') }}"
+                       class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1" for="filter-due-to">Vencimento ate</label>
+                <input type="date" id="filter-due-to" name="due_to" value="{{ request('due_to') }}"
+                       class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1" for="filter-paid-from">Pago de</label>
+                <input type="date" id="filter-paid-from" name="paid_from" value="{{ request('paid_from') }}"
+                       class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1" for="filter-paid-to">Pago ate</label>
+                <input type="date" id="filter-paid-to" name="paid_to" value="{{ request('paid_to') }}"
+                       class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1" for="filter-total-min">Valor minimo</label>
+                <input type="number" step="0.01" min="0" id="filter-total-min" name="total_min" value="{{ request('total_min') }}"
+                       class="w-28 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1" for="filter-total-max">Valor maximo</label>
+                <input type="number" step="0.01" min="0" id="filter-total-max" name="total_max" value="{{ request('total_max') }}"
+                       class="w-28 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1" for="filter-blocked">Bloqueio</label>
+                <select id="filter-blocked" name="blocked" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option value="">Todos</option>
+                    <option value="sim" @selected(request('blocked') === 'sim')>Bloqueadas</option>
+                    <option value="nao" @selected(request('blocked') === 'nao')>Nao bloqueadas</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1" for="filter-avulso">Tipo</label>
+                <select id="filter-avulso" name="avulso" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option value="">Todos</option>
+                    <option value="sim" @selected(request('avulso') === 'sim')>Avulsas</option>
+                    <option value="nao" @selected(request('avulso') === 'nao')>Contrato</option>
+                </select>
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200">Filtrar</button>
+                @if(request()->hasAny(['search', 'status', 'payment_method', 'branch_id', 'due_from', 'due_to', 'paid_from', 'paid_to', 'total_min', 'total_max', 'blocked', 'avulso']))
+                    <a href="{{ route('billing.invoices.index') }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200">Limpar</a>
+                @endif
+            </div>
+        </form>
+    </div>
+
+    <form method="POST" action="{{ route('billing.invoices.bulk-destroy') }}" id="bulk-invoices-form">
+        @csrf
+    </form>
+
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
                 <tr class="text-left text-gray-500 bg-gray-50 border-b border-gray-200">
+                    <th class="px-4 py-4 font-medium w-10">
+                        <input type="checkbox" id="select-all-invoices" class="rounded border-gray-300 text-blue-600">
+                    </th>
                     <th class="px-6 py-4 font-medium">Fatura</th>
                     <th class="px-6 py-4 font-medium">Cliente</th>
                     <th class="px-6 py-4 font-medium">Valor</th>
@@ -61,6 +152,10 @@
             <tbody>
                 @forelse($invoices as $invoice)
                 <tr class="border-b border-gray-100 hover:bg-gray-50">
+                    <td class="px-4 py-4">
+                        <input type="checkbox" name="ids[]" value="{{ $invoice->id }}" form="bulk-invoices-form"
+                               class="invoice-checkbox rounded border-gray-300 text-blue-600">
+                    </td>
                     <td class="px-6 py-4 font-mono text-xs text-gray-600">{{ $invoice->invoice_number }}</td>
                     <td class="px-6 py-4">
                         <a href="{{ route('billing.invoices.show', $invoice) }}" class="text-blue-600 hover:underline font-medium">{{ $invoice->client?->name }}</a>
@@ -80,13 +175,58 @@
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="6" class="px-6 py-12 text-center text-gray-400">Nenhuma fatura encontrada.</td></tr>
+                <tr><td colspan="7" class="px-6 py-12 text-center text-gray-400">Nenhuma fatura encontrada.</td></tr>
                 @endforelse
             </tbody>
         </table>
     </div>
-    @if($invoices->hasPages())
-    <div class="p-6 border-t border-gray-200">{{ $invoices->links() }}</div>
-    @endif
+    <div class="p-6 border-t border-gray-200 flex items-center justify-between gap-4 flex-wrap">
+        <div class="flex items-center gap-3">
+            <button type="submit" form="bulk-invoices-form" onclick="return checkInvoiceBulkSelection()"
+                style="background-color:#dc2626;color:#ffffff;font-weight:600;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;"
+                onmouseover="this.style.backgroundColor='#b91c1c'" onmouseout="this.style.backgroundColor='#dc2626'">
+                Excluir Selecionadas
+            </button>
+            <span class="text-sm text-gray-400" id="invoices-selected-count">Selecione faturas para excluir em massa</span>
+        </div>
+        @if($invoices->hasPages())
+            <div>{{ $invoices->withQueryString()->links() }}</div>
+        @endif
+    </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const selectAll = document.getElementById('select-all-invoices');
+    const checkboxes = document.querySelectorAll('.invoice-checkbox');
+    const counter = document.getElementById('invoices-selected-count');
+
+    function update() {
+        const checked = document.querySelectorAll('.invoice-checkbox:checked');
+        counter.textContent = checked.length > 0
+            ? checked.length + ' fatura(s) selecionada(s)'
+            : 'Selecione faturas para excluir em massa';
+    }
+
+    window.checkInvoiceBulkSelection = function () {
+        const checked = document.querySelectorAll('.invoice-checkbox:checked');
+        if (checked.length === 0) {
+            alert('Selecione ao menos uma fatura.');
+            return false;
+        }
+        return confirm('Excluir ' + checked.length + ' fatura(s)? Os pagamentos vinculados tambem serao removidos. Esta acao nao pode ser desfeita.');
+    };
+
+    if (selectAll) {
+        selectAll.addEventListener('change', function () {
+            checkboxes.forEach(cb => { cb.checked = selectAll.checked; });
+            update();
+        });
+    }
+
+    checkboxes.forEach(cb => cb.addEventListener('change', update));
+});
+</script>
+@endpush

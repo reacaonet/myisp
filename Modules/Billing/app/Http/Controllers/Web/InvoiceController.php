@@ -10,6 +10,7 @@ use Modules\Billing\Mail\PaymentConfirmed;
 use Modules\Billing\Models\BillingSetting;
 use Modules\Billing\Models\CashBookEntry;
 use Modules\Billing\Models\Invoice;
+use Modules\Billing\Services\InvoiceListFilter;
 use Modules\Core\Services\TenantContext;
 use Modules\CRM\Models\Client;
 use Modules\CRM\Models\Contract;
@@ -19,21 +20,16 @@ class InvoiceController extends Controller
 {
     public function index(Request $request)
     {
+        $filter = new InvoiceListFilter;
+        $filters = $request->validate($filter->rules($request));
+
         $query = Invoice::with('client', 'contract.plan');
 
         if (! TenantContext::isCrossTenant()) {
             $query->forCompany(TenantContext::companyId());
         }
 
-        if ($search = $request->get('search')) {
-            $query->whereHas('client', function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%");
-            })->orWhere('invoice_number', 'like', "%{$search}%");
-        }
-
-        if ($status = $request->get('status')) {
-            $query->where('status', $status);
-        }
+        $filter->apply($query, $filters);
 
         $invoices = $query->latest()->paginate(15);
 
@@ -49,7 +45,9 @@ class InvoiceController extends Controller
             'blocked' => $scoped()->where('auto_blocked', true)->count(),
         ];
 
-        return view('billing::invoices.index', compact('invoices', 'stats'));
+        return view('billing::invoices.index', compact('invoices', 'stats') + [
+            'branches' => $filter->branches(),
+        ]);
     }
 
     public function create()
@@ -152,12 +150,32 @@ class InvoiceController extends Controller
 
     public function destroy($id)
     {
-        $invoice = Invoice::findOrFail($id);
+        $invoice = Invoice::query()
+            ->when(! TenantContext::isCrossTenant(), fn ($query) => $query->forCompany(TenantContext::companyId()))
+            ->findOrFail($id);
+
         $invoice->payments()->delete();
         $invoice->delete();
 
         return redirect()->route('billing.invoices.index')
             ->with('success', 'Fatura removida com sucesso.');
+    }
+
+    public function bulkDestroy(Request $request)
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $count = Invoice::bulkDelete($validated['ids']);
+
+        if ($count === 0) {
+            return back()->with('error', 'Nenhuma fatura selecionada.');
+        }
+
+        return redirect()->route('billing.invoices.index')
+            ->with('success', "{$count} fatura(s) excluida(s) com sucesso.");
     }
 
     public function registerPayment(Request $request, $id)

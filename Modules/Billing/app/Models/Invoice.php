@@ -61,6 +61,30 @@ class Invoice extends Model
         return 'FAT-'.$year.'-'.str_pad($seq + 1, 4, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * Exclusao em massa usada pelas listagens de faturas e de boletos. Fica no
+     * model porque as duas telas removem a mesma entidade e precisam respeitar o
+     * mesmo escopo de empresa.
+     *
+     * @param  array<int, mixed>  $ids
+     */
+    public static function bulkDelete(array $ids): int
+    {
+        $invoices = static::query()
+            ->when(! TenantContext::isCrossTenant(), fn ($query) => $query->forCompany(TenantContext::companyId()))
+            ->whereIn('id', $ids)
+            ->get(['id']);
+
+        foreach ($invoices as $invoice) {
+            $invoice->payments()->delete();
+        }
+
+        $count = $invoices->count();
+        $invoices->each->delete();
+
+        return $count;
+    }
+
     protected function casts(): array
     {
         return [

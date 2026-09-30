@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Modules\Billing\Models\Invoice;
 use Modules\Billing\Models\PaymentGateway;
+use Modules\Billing\Services\InvoiceListFilter;
 use Modules\Billing\Services\PaymentService;
 use Modules\Core\Models\Company;
 use Modules\Core\Models\SystemSetting;
@@ -15,28 +16,42 @@ class BoletoController extends Controller
 {
     public function index(Request $request)
     {
+        $filter = new InvoiceListFilter;
+        $filters = $request->validate($filter->rules($request, boletos: true));
+
         $query = Invoice::with('client', 'contract.plan', 'gateway');
 
         if (! TenantContext::isCrossTenant()) {
             $query->forCompany(TenantContext::companyId());
         }
 
-        if ($search = $request->get('search')) {
-            $query->whereHas('client', function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%");
-            })->orWhere('invoice_number', 'like', "%{$search}%");
-        }
-
-        if ($status = $request->get('status')) {
-            $query->where('status', $status);
-        }
+        $filter->apply($query, $filters, boletos: true);
 
         $bankSettings = $this->bankSettings();
 
         $invoices = $query->orderBy('due_date')->paginate(20);
         $gateways = PaymentService::getActiveGateways();
 
-        return view('billing::boletos.index', compact('invoices', 'gateways', 'bankSettings'));
+        return view('billing::boletos.index', compact('invoices', 'gateways', 'bankSettings') + [
+            'branches' => $filter->branches(),
+        ]);
+    }
+
+    public function bulkDestroy(Request $request)
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $count = Invoice::bulkDelete($validated['ids']);
+
+        if ($count === 0) {
+            return back()->with('error', 'Nenhuma fatura selecionada.');
+        }
+
+        return redirect()->route('billing.boleto.index')
+            ->with('success', "{$count} fatura(s) excluida(s) com sucesso.");
     }
 
     public function print($id)

@@ -16,6 +16,7 @@ Route::prefix('faturas')->name('billing.invoices.')->middleware(['auth', 'group.
     Route::get('/{invoice}/edit', [InvoiceController::class, 'edit'])->name('edit');
     Route::put('/{invoice}', [InvoiceController::class, 'update'])->name('update');
     Route::delete('/{invoice}', [InvoiceController::class, 'destroy'])->name('destroy');
+    Route::post('/excluir-em-massa', [InvoiceController::class, 'bulkDestroy'])->name('bulk-destroy');
     Route::post('/{invoice}/payment', [InvoiceController::class, 'registerPayment'])->name('payment');
     Route::post('/gerar', [InvoiceController::class, 'generateFromContracts'])->name('generate');
     Route::get('/{invoice}/recibo', [InvoiceController::class, 'receipt'])->name('receipt');
@@ -44,6 +45,7 @@ Route::prefix('relatorios')->name('billing.reports.')->middleware(['auth', 'grou
 
 Route::prefix('boletos')->name('billing.boleto.')->middleware(['auth', 'group.permission:boleto'])->group(function () {
     Route::get('/', [BoletoController::class, 'index'])->name('index');
+    Route::post('/excluir-em-massa', [BoletoController::class, 'bulkDestroy'])->name('bulk-destroy');
     Route::get('/{invoice}/imprimir', [BoletoController::class, 'print'])->name('print');
     Route::post('/{invoice}/gerar-boleto', [BoletoController::class, 'generateBoleto'])->name('generate-boleto');
     Route::post('/{invoice}/gerar-pix', [BoletoController::class, 'generatePix'])->name('generate-pix');

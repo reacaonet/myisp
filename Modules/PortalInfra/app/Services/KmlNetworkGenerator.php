@@ -32,6 +32,70 @@ class KmlNetworkGenerator
 
     private const STREET_SEGMENT_JOIN_METERS = 30;
 
+    /**
+     * Lado da celula que agrupa as casas em um ponto de demanda. Uma celula
+     * vira no maximo um bloco de CTOs, entao o tamanho define o quao separadas
+     * as CTOs ficam entre si.
+     */
+    private const DEMAND_CELL_METERS = 150;
+
+    /**
+     * Lado da celula usada para separar a cidade em bairros na hora de ordenar
+     * a geracao. Como as CTOs saem bairro a bairro, um bairro so ganha a
+     * segunda CTO depois de todo bairro vizinho ter ganhado a sua, e nenhuma
+     * quadra concentrada consegue tomar o lugar dos demais.
+     */
+    private const NEIGHBORHOOD_CELL_METERS = 500;
+
+    /**
+     * Uma CTO e um poste na rua, nunca dentro de um lote. Se o agrupamento de
+     * casas nao tiver rua por perto, ele e descartado em vez de inventar CTO
+     * no meio do terreno.
+     */
+    private const MAX_SNAP_TO_STREET_METERS = 250;
+
+    /**
+     * Deduplicacao de posicao entre CTOs de qq rua. Dois postes na mesma
+     * coordenada viram um so.
+     */
+    private const CTO_POSITION_DEDUP_METERS = 30.0;
+
+    /**
+     * Raio de cada ponto da grade usada na consulta de predios.
+     */
+    private const BUILDING_QUERY_RADIUS_METERS = 700;
+
+    /**
+     * Valores de building que representam cliente residencial.
+     *
+     * "yes" entra porque o OSM brasileiro quase nao usa building=house: a
+     * pratica corrente e building=yes, e sem ele a consulta volta vazia em
+     * cidade brasileira. A forma abreviada (building:house) seria lida como a
+     * chave "building:house", que ninguem preenche. Sete clautes exatas em
+     * volta do mesmo ponto derrubam o servidor; um unico regex aguenta.
+     */
+    private const BUILDING_SELECTOR = '["building"~"^(house|residential|apartments|detached|semidetached_house|terrace|yes)$"]';
+
+    /**
+     * Timeout por consulta de predio. Uma consulta por ponto da grade leva
+     * ~25 s em area densa; o padrao de 60 s cortava no meio.
+     */
+    private const BUILDING_QUERY_TIMEOUT_SECONDS = 120;
+
+    /**
+     * Folga sobre o intervalo informado no formulario. O intervalo e medido ao
+     * longo da rua, entao a linha reta entre duas CTOs consecutive sempre e
+     * menor ou igual a ele. Usar o intervalo cheio na deduplicacao mataria CTOs
+     * legitimas em rua curva.
+     */
+    private const CTO_SPACING_TOLERANCE = 0.85;
+
+    /**
+     * Teto de CTOs por agrupamento de casas. Sem isso um bloco de apartamentos
+     * denso geraria dezenas de postes para a mesma quadra.
+     */
+    private const MAX_CTOS_PER_DEMAND_CLUSTER = 3;
+
     private const CTO_BASE_CODE = 'CTO';
 
     private const CAIXA_BASE_CODE = 'CE';
@@ -78,9 +142,22 @@ class KmlNetworkGenerator
 
     private int $skippedTooClose = 0;
 
+    /** Agrupamentos de casas que nao tinham rua proxima para receber a CTO. */
+    private int $skippedNoStreet = 0;
+
     private array $streetCtoCoords = [];
 
     private array $chainCtoCoords = [];
+
+    /** Indice espacial dos nos de rua, usado para encaixar a CTO na rua. */
+    private array $streetNodeIndex = [];
+
+    private float $streetIndexCellMeters = 0.0;
+
+    /** Indice espacial das CTOs ja criadas, para respeitar o intervalo global. */
+    private array $placedCtoIndex = [];
+
+    private float $placedCtoCellMeters = 0.0;
 
     private function overpassQuery(string $query): array
     {
@@ -92,7 +169,7 @@ class KmlNetworkGenerator
                 CURLOPT_POST => true,
                 CURLOPT_POSTFIELDS => 'data='.urlencode($query),
                 CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT => 60,
+                CURLOPT_TIMEOUT => self::BUILDING_QUERY_TIMEOUT_SECONDS + 30,
                 CURLOPT_SSL_VERIFYPEER => false,
                 CURLOPT_HTTPHEADER => [
                     'Accept: application/json',
@@ -203,6 +280,131 @@ class KmlNetworkGenerator
     public function getCityPolygon(): ?array
     {
         return $this->cityPolygon;
+    }
+
+    /**
+     * Casas e predios do OSM. Sao eles que dizem onde ha cliente de verdade:
+     * a geracao antiga so media o comprimento da rua e por isso colocava CTO
+     * em terreno vazio e deixava bairros inteiros de fora.
+     *
+     * Quando o OSM nao tem cobertura de predios (comum em cidade pequena) o
+     * metodo devolve lista vazia e o chamador cai na geracao por rua.
+     */
+    public function fetchBuildingsByPolygon(array $polygon): array
+    {
+        $points = [];
+        foreach ($polygon as $point) {
+            $points[] = "{$point['lat']} {$point['lng']}";
+        }
+
+        $polyFilter = 'poly:"'.implode(' ', $points).'"';
+
+        return $this->fetchBuildings($polyFilter);
+    }
+
+    /**
+     * Consulta predios por valor de tag, uma consulta por vez.
+     *
+     * O filtro por bbox do Overpass nao serve para cidade: mesmo numa area de
+     * 1 km2 a consulta "building" estoura os 2048 MB do servidor e volta
+     * remark "run out of memory", que o codigo lia como "cidade sem predios".
+     * A forma around resolve pelo indice de ponto, mas o servidor derruba
+     * consultas com varias clausulas around somando area demais. Uma consulta
+     * por valor e por ponto e o que roda.
+     */
+    public function fetchBuildingsByBounds(float $south, float $west, float $north, float $east): array
+    {
+        $radius = self::BUILDING_QUERY_RADIUS_METERS;
+
+        // Grade com passo de um raio: nenhum predio fica sem ponto de consulta.
+        $stepLat = ($radius * 2 * 0.707) / 111320;
+        $stepLng = ($radius * 2 * 0.707) / (111320 * cos(deg2rad(($south + $north) / 2)));
+
+        $points = [];
+        for ($lat = $south; $lat <= $north; $lat += $stepLat) {
+            for ($lng = $west; $lng <= $east; $lng += $stepLng) {
+                $points[] = [$lat, $lng];
+            }
+        }
+
+        $seen = [];
+        $buildings = [];
+
+        foreach ($points as [$lat, $lng]) {
+            $query = '[out:json][timeout:'.self::BUILDING_QUERY_TIMEOUT_SECONDS.'];'
+                .'way(around:'.$radius.','.$lat.','.$lng.')['.self::BUILDING_SELECTOR.'];'
+                .'out center tags;';
+
+            try {
+                $data = $this->overpassQuery($query);
+            } catch (\RuntimeException $e) {
+                // Instancia-publica instavel. Um ponto perdido e melhor que
+                // perder a geracao inteira.
+                continue;
+            }
+
+            foreach ($data['elements'] ?? [] as $element) {
+                $id = $element['id'] ?? null;
+                if ($id !== null) {
+                    if (isset($seen[$id])) {
+                        continue;
+                    }
+                    $seen[$id] = true;
+                }
+
+                $bLat = $element['lat'] ?? ($element['center']['lat'] ?? null);
+                $bLng = $element['lon'] ?? ($element['center']['lon'] ?? null);
+
+                if ($bLat === null || $bLng === null) {
+                    continue;
+                }
+
+                if ($bLat < $south || $bLat > $north || $bLng < $west || $bLng > $east) {
+                    continue;
+                }
+
+                $buildings[] = [
+                    'lat' => (float) $bLat,
+                    'lng' => (float) $bLng,
+                    'tags' => $element['tags'] ?? [],
+                ];
+            }
+        }
+
+        return $buildings;
+    }
+
+    private function fetchBuildings(string $areaFilter): array
+    {
+        $query = '[out:json][timeout:180];way'.self::BUILDING_SELECTOR.'['.$areaFilter.'];out center tags;';
+
+        try {
+            $data = $this->overpassQuery($query);
+        } catch (\RuntimeException $e) {
+            // Sem buildings a geracao por rua ainda salva a operacao.
+            return [];
+        }
+
+        $buildings = [];
+
+        foreach ($data['elements'] ?? [] as $element) {
+            $lat = $element['lat'] ?? ($element['center']['lat'] ?? null);
+            $lng = $element['lon'] ?? ($element['center']['lon'] ?? null);
+
+            if ($lat === null || $lng === null) {
+                continue;
+            }
+
+            $buildings[] = [
+                'lat' => (float) $lat,
+                'lng' => (float) $lng,
+                'levels' => isset($element['tags']['building:levels'])
+                    ? (int) $element['tags']['building:levels']
+                    : null,
+            ];
+        }
+
+        return $buildings;
     }
 
     private function geocodeWithNominatim(string $query): ?array
@@ -556,6 +758,7 @@ class KmlNetworkGenerator
         $this->currentState = $state;
         $this->ctoCapacity = $ctoCapacity > 0 ? $ctoCapacity : 16;
         $this->ctoIntervalMeters = $ctoIntervalMeters >= 50 && $ctoIntervalMeters <= 1000 ? $ctoIntervalMeters : 250;
+        $this->placedCtoCellMeters = $this->minimumCtoSeparation();
         $this->ctosPerCaixa = $ctosPerCaixa > 0 ? $ctosPerCaixa : self::CTOS_PER_CAIXA_PADRAO;
         $this->cityPolygon = $polygon;
 
@@ -563,6 +766,7 @@ class KmlNetworkGenerator
         // Precisamos costurar os segmentos de mesmo nome que se tocam pelas
         // pontas para gerar CTOs ao longo da rua inteira respeitando o intervalo.
         $mergedStreets = $this->mergeStreetsByContinuity($streets);
+        $mergedStreets = $this->orderStreetsGeographically($mergedStreets);
 
         foreach ($mergedStreets as $streetIndex => $street) {
             $this->streetName = $street['name'] ?? "Rua {$streetIndex}";
@@ -575,6 +779,12 @@ class KmlNetworkGenerator
             $this->processStreet($nodes, $prefix, $streetIndex);
         }
 
+        $this->flushPendingCaixa();
+
+        // Preenche ruas que ficaram sem nenhuma CTO. Cidades sem cobertura de
+        // predios no OSM entram por aqui, e sem esta etapa bairros inteiros
+        // saiam de fora so porque as ruas vizinhas ja ocupavam o ponto.
+        $this->backfillStreetsWithoutCtos($mergedStreets, $prefix);
         $this->flushPendingCaixa();
 
         return [
@@ -593,6 +803,566 @@ class KmlNetworkGenerator
                 'skipped_too_close' => $this->skippedTooClose,
             ],
         ];
+    }
+
+    /**
+     * Geracao guiada por casa: cada ponto de demanda (agrupamento de casas do
+     * OSM) vira uma CTO encaixada na rua mais proxima.
+     *
+     * A diferenca para generateFromStreets e a origem do ponto. Ali a CTO
+     * nascia do comprimento da rua, o que produzia duas situacoes ruins: uma
+     * fileira de CTOs atravessando um trecho sem ninguem e um bairro inteiro
+     * sem nenhuma CTO, porque o filtro de area urbana tinha descartado as ruas
+     * daquele bairro. Aqui quem manda e o agrupamento de casas.
+     */
+    public function generateFromDemand(
+        array $buildings,
+        array $streets,
+        string $prefix = '',
+        string $city = '',
+        string $state = '',
+        int $ctoCapacity = 16,
+        int $ctoIntervalMeters = 250,
+        ?array $polygon = null,
+        int $ctosPerCaixa = self::CTOS_PER_CAIXA_PADRAO
+    ): array {
+        $this->reset();
+        $this->currentPrefix = $prefix;
+        $this->currentCity = $city;
+        $this->currentState = $state;
+        $this->ctoCapacity = $ctoCapacity > 0 ? $ctoCapacity : 16;
+        $this->ctoIntervalMeters = $ctoIntervalMeters >= 50 && $ctoIntervalMeters <= 1000 ? $ctoIntervalMeters : 250;
+        $this->placedCtoCellMeters = $this->minimumCtoSeparation();
+        $this->ctosPerCaixa = $ctosPerCaixa > 0 ? $ctosPerCaixa : self::CTOS_PER_CAIXA_PADRAO;
+        $this->cityPolygon = $polygon;
+
+        $mergedStreets = $this->mergeStreetsByContinuity($streets);
+        $mergedStreets = $this->orderStreetsGeographically($mergedStreets);
+        $this->buildStreetNodeIndex($mergedStreets);
+
+        $anchors = $this->buildDemandAnchors($buildings);
+
+        foreach ($anchors as $anchor) {
+            $this->streetName = $anchor['street'];
+            $this->createCto(
+                $anchor['lat'],
+                $anchor['lng'],
+                $prefix,
+                $anchor['distance'],
+                $anchor['street_index']
+            );
+        }
+
+        // Quando nao foi gerada nenhuma CTO por demanda, as ruas podem nao ter
+        // cobertura de predios: devolvemos para a geracao por ruas.
+        if ($this->totalCtos === 0) {
+            return $this->generateFromStreets(
+                $streets,
+                $prefix,
+                $city,
+                $state,
+                $ctoCapacity,
+                $ctoIntervalMeters,
+                $polygon,
+                $ctosPerCaixa
+            );
+        }
+
+        // Preenche ruas sem casas: para cada rua, gera pelo menos uma CTO se o
+        // trecho tiver mais do que o intervalo e nao houver nenhuma CTO na rua.
+        // Isso evita bairros com 10 ruas sem CTO.
+        $backfilled = $this->backfillStreetsWithoutCtos($mergedStreets, $prefix);
+
+        $this->flushPendingCaixa();
+
+        return [
+            'ctos' => $this->generatedCtos,
+            'caixas' => $this->generatedCaixas,
+            'splitters' => $this->generatedSplitters,
+            'stats' => [
+                'total_ctos' => $this->totalCtos,
+                'total_caixas' => $this->totalCaixas,
+                'total_splitters' => $this->totalSplitters,
+                'ctos_per_caixa' => $this->ctosPerCaixa,
+                'cto_capacity' => $this->ctoCapacity,
+                'total_streets' => count($mergedStreets),
+                'total_distance_km' => $this->calculateTotalDistance($mergedStreets),
+                'skipped_out_of_bound' => $this->skippedOutOfBound,
+                'skipped_too_close' => $this->skippedTooClose,
+                'skipped_no_street' => $this->skippedNoStreet,
+                'homes_considered' => count($buildings),
+                'demand_clusters' => count($anchors),
+                'backfilled_streets' => $backfilled,
+            ],
+        ];
+    }
+
+    /**
+     * Agrupa as casas em pontos de demanda e escolhe onde cada CTO vai nascer.
+     *
+     * Ordenacao: bairro a bairro, e dentro do bairro de norte para sul. Como a
+     * CEO e criada a partir da media das suas CTOs, manter as CTOs de um bairro
+     * em sequencia e o que impede a CEO de nascer no meio da cidade. O
+     * agrupamento por bairro tambem garante que nenhum bairro seja ignorado:
+     * a CTO mais proxima de uma casa vizinha sempre compete na mesma rodada.
+     */
+    private function buildDemandAnchors(array $buildings): array
+    {
+        if (empty($buildings)) {
+            return [];
+        }
+
+        // O intervalo que o tecnico escolhe na tela governa o tamanho do
+        // agrupamento: 250m agrupa as casas de uma quadra em um ponto so.
+        $clusterMeters = max(80.0, min(300.0, (float) $this->ctoIntervalMeters));
+
+        // Dois agrupamentos de casas viram a mesma CTO quando ficam mais
+        // proximos que o intervalo escolhido na tela.
+        $minSeparation = max(
+            self::CTO_POSITION_DEDUP_METERS,
+            (float) $this->ctoIntervalMeters * self::CTO_SPACING_TOLERANCE
+        );
+
+        $clusters = [];
+        foreach ($buildings as $building) {
+            $lat = $building['lat'] ?? null;
+            $lng = $building['lng'] ?? null;
+
+            if ($lat === null || $lng === null) {
+                continue;
+            }
+
+            $key = $this->gridKey((float) $lat, (float) $lng, $clusterMeters);
+
+            if (! isset($clusters[$key])) {
+                $clusters[$key] = ['lat' => 0.0, 'lng' => 0.0, 'homes' => 0];
+            }
+
+            $clusters[$key]['lat'] += (float) $lat;
+            $clusters[$key]['lng'] += (float) $lng;
+            $clusters[$key]['homes']++;
+        }
+
+        // Um agrupamento denso pode pedir mais de uma CTO, mas nunca mais que o
+        // teto: um bloco de apartamentos nao vira uma dezena de postes.
+        $anchors = [];
+
+        foreach ($clusters as $cluster) {
+            $centerLat = $cluster['lat'] / $cluster['homes'];
+            $centerLng = $cluster['lng'] / $cluster['homes'];
+
+            $wanted = min(
+                self::MAX_CTOS_PER_DEMAND_CLUSTER,
+                max(1, (int) ceil($cluster['homes'] / $this->ctoCapacity))
+            );
+
+            $candidates = $this->nearestStreetNodes(
+                $centerLat,
+                $centerLng,
+                $wanted,
+                $minSeparation,
+                self::MAX_SNAP_TO_STREET_METERS
+            );
+
+            if ($candidates === []) {
+                // Casas existe, mas nao ha rua para postear. Inventar CTO no
+                // meio do lote e pior do que nao gerar nada.
+                $this->skippedNoStreet++;
+
+                continue;
+            }
+
+            foreach ($candidates as $node) {
+                $neighborhood = $this->gridKey(
+                    $node['lat'],
+                    $node['lng'],
+                    self::NEIGHBORHOOD_CELL_METERS
+                );
+
+                $anchors[] = [
+                    'lat' => $node['lat'],
+                    'lng' => $node['lng'],
+                    'distance' => $node['distance'],
+                    'street' => $node['street'],
+                    'street_index' => $node['street_index'],
+                    'neighborhood' => $neighborhood,
+                ];
+            }
+        }
+
+        $this->skippedTooClose = 0;
+
+        return $this->sortAnchorsGeographically($anchors, $minSeparation);
+    }
+
+    /**
+     * Passa por todos os bairros em ordem geografica e, dentro de cada um,
+     * descarta as CTOs que sobraram perto demais de outra. A fila por bairro
+     * e o que corrige a fileira de CTOs coladas: duas casas muito proximas
+     * caem no mesmo agrupamento e so uma CTO sobrevive.
+     */
+    private function sortAnchorsGeographically(array $anchors, float $minSeparation): array
+    {
+        usort($anchors, function (array $a, array $b) {
+            return [$a['neighborhood'], $a['lat'], $a['lng']]
+                <=> [$b['neighborhood'], $b['lat'], $b['lng']];
+        });
+
+        $kept = [];
+        $keptInNeighborhood = [];
+
+        foreach ($anchors as $anchor) {
+            $tooClose = false;
+
+            foreach ($keptInNeighborhood[$anchor['neighborhood']] ?? [] as $existing) {
+                $distance = $this->haversine(
+                    $anchor['lat'],
+                    $anchor['lng'],
+                    $existing['lat'],
+                    $existing['lng']
+                );
+
+                if ($distance < $minSeparation) {
+                    $tooClose = true;
+                    break;
+                }
+            }
+
+            if ($tooClose) {
+                $this->skippedTooClose++;
+
+                continue;
+            }
+
+            $keptInNeighborhood[$anchor['neighborhood']][] = $anchor;
+            $kept[] = $anchor;
+        }
+
+        return $kept;
+    }
+
+    /**
+     * Ordem as ruas por posicao geografica antes de gerar.
+     *
+     * A CEO e criada a partir da media das suas CTOs. Se as ruas forem processadas
+     * na ordem em que o OSM devolveu (agrupadas por nome, ou seja, aleatorio em
+     * relacao a geografia), as CAs nascem em qualquer lugar e varias delas caem
+     * praticamente na mesma rua. Ordenando por bairro, cada CEO fica perto das
+     * suas CTOs e as CAs se espalham pela cidade.
+     */
+    private function orderStreetsGeographically(array $mergedStreets): array
+    {
+        usort($mergedStreets, function (array $a, array $b) {
+            $latA = $a['latitude'] ?? $this->firstLatitude($a);
+            $latB = $b['latitude'] ?? $this->firstLatitude($b);
+            $lngA = $a['longitude'] ?? $this->firstLongitude($a);
+            $lngB = $b['longitude'] ?? $this->firstLongitude($b);
+
+            return [$latA, $lngA] <=> [$latB, $lngB];
+        });
+
+        foreach ($mergedStreets as $index => $street) {
+            $mergedStreets[$index]['latitude'] = $this->firstLatitude($street);
+            $mergedStreets[$index]['longitude'] = $this->firstLongitude($street);
+        }
+
+        return $mergedStreets;
+    }
+
+    private function firstLatitude(array $street): float
+    {
+        $node = $street['nodes'][0] ?? null;
+
+        if (! is_array($node)) {
+            return 0.0;
+        }
+
+        return (float) ($node['lat'] ?? $node[0] ?? 0.0);
+    }
+
+    private function firstLongitude(array $street): float
+    {
+        $node = $street['nodes'][0] ?? null;
+
+        if (! is_array($node)) {
+            return 0.0;
+        }
+
+        return (float) ($node['lng'] ?? $node[1] ?? 0.0);
+    }
+
+    /**
+     * Rede com bairro sem CTO e bairro com CTO demais sao o mesmo problema
+     * visto de dois lados: a geracao so olhava rua, e a rua sozinha nao sabe dizer
+     * onde tem cliente.
+     *
+     * Aqui a logica e a seguinte: depois de gerar as CTOs por demanda, qualquer
+     * rua que ficou sem nenhuma CTO e que seja longa o suficiente para comportar
+     * uma recebe uma CTO no meio. Uma rua curta demais ou muito proxima de outra
+     * ja atendida nao entra, para nao criar poste collado nem poluir o mapa.
+     */
+    private function backfillStreetsWithoutCtos(array $mergedStreets, string $prefix): int
+    {
+        $backfilled = 0;
+
+        foreach ($mergedStreets as $streetIndex => $street) {
+            $nodes = $street['nodes'] ?? [];
+            if (count($nodes) < 2) {
+                continue;
+            }
+
+            $this->streetName = $street['name'] ?? "Rua {$streetIndex}";
+
+            // Se ja existe CTO desta rua, o bairro dela ja foi atendido.
+            if (! empty($this->streetCtoCoords[$this->streetName])) {
+                continue;
+            }
+
+            $count = count($nodes);
+            if ($count < 2) {
+                continue;
+            }
+
+            // Comprimento total e ponto no meio do percurso.
+            $length = 0.0;
+            for ($i = 1; $i < $count; $i++) {
+                $a = $nodes[$i - 1];
+                $b = $nodes[$i];
+                $length += $this->haversine(
+                    (float) ($a['lat'] ?? $a[0]),
+                    (float) ($a['lng'] ?? $a[1]),
+                    (float) ($b['lat'] ?? $b[0]),
+                    (float) ($b['lng'] ?? $b[1])
+                );
+            }
+
+            $half = $length / 2;
+            $walked = 0.0;
+            $midpoint = null;
+
+            for ($i = 1; $i < $count && $midpoint === null; $i++) {
+                $a = $nodes[$i - 1];
+                $b = $nodes[$i];
+                $segment = $this->haversine(
+                    (float) ($a['lat'] ?? $a[0]),
+                    (float) ($a['lng'] ?? $a[1]),
+                    (float) ($b['lat'] ?? $b[0]),
+                    (float) ($b['lng'] ?? $b[1])
+                );
+
+                if ($walked + $segment >= $half && $segment > 0) {
+                    $fraction = ($half - $walked) / $segment;
+                    $midpoint = [
+                        'lat' => ((float) ($a['lat'] ?? $a[0])) + (((float) ($b['lat'] ?? $b[0])) - ((float) ($a['lat'] ?? $a[0]))) * $fraction,
+                        'lng' => ((float) ($a['lng'] ?? $a[1])) + (((float) ($b['lng'] ?? $b[1])) - ((float) ($a['lng'] ?? $a[1]))) * $fraction,
+                    ];
+                }
+
+                $walked += $segment;
+            }
+
+            // Rua degenerada (todos os pontos iguais): usa o primeiro no.
+            if ($midpoint === null) {
+                $first = $nodes[0];
+                $midpoint = [
+                    'lat' => (float) ($first['lat'] ?? $first[0]),
+                    'lng' => (float) ($first['lng'] ?? $first[1]),
+                ];
+            }
+
+            if ($this->createCto($midpoint['lat'], $midpoint['lng'], $prefix, round($length / 2, 2), $streetIndex)) {
+                $backfilled++;
+            }
+        }
+
+        return $backfilled;
+    }
+
+    /**
+     * Indice espacial dos nos de rua. Sem ele, snapshot de cada agrupamento de
+     * casas contra todas as ruas da cidade seria quadrático e a geracao levaria
+     * minutos.
+     */
+    private function buildStreetNodeIndex(array $mergedStreets): void
+    {
+        $this->streetNodeIndex = [];
+        $this->streetIndexCellMeters = max(50.0, (float) self::DEMAND_CELL_METERS);
+
+        foreach ($mergedStreets as $streetIndex => $street) {
+            $streetName = $street['name'] ?? "Rua {$streetIndex}";
+            $cumulative = 0.0;
+            $previous = null;
+
+            foreach ($street['nodes'] ?? [] as $node) {
+                $lat = $node['lat'] ?? $node[0] ?? null;
+                $lng = $node['lng'] ?? $node[1] ?? null;
+
+                if ($lat === null || $lng === null) {
+                    continue;
+                }
+
+                $lat = (float) $lat;
+                $lng = (float) $lng;
+
+                if ($previous !== null) {
+                    $cumulative += $this->haversine($previous['lat'], $previous['lng'], $lat, $lng);
+                }
+
+                $key = $this->gridKey($lat, $lng, $this->streetIndexCellMeters);
+
+                $this->streetNodeIndex[$key][] = [
+                    'lat' => $lat,
+                    'lng' => $lng,
+                    'distance' => $cumulative,
+                    'street' => $streetName,
+                    'street_index' => $streetIndex,
+                ];
+
+                $previous = ['lat' => $lat, 'lng' => $lng];
+            }
+        }
+    }
+
+    /**
+     * Procura nos de rua em aneis crescentes ao redor do agrupamento de casas
+     * e devolve ate $wanted nos distintos, respeitando a distancia minima.
+     */
+    private function nearestStreetNodes(float $lat, float $lng, int $wanted, float $minSeparation, float $maxMeters): array
+    {
+        if ($this->streetNodeIndex === []) {
+            return [];
+        }
+
+        $cell = $this->streetIndexCellMeters;
+        $row = (int) floor($lat / $this->latitudeStep($cell));
+        $column = (int) floor($lng / $this->longitudeStep($lat, $cell));
+        $maxRing = (int) ceil($maxMeters / $cell) + 1;
+        $found = [];
+
+        for ($ring = 0; $ring <= $maxRing; $ring++) {
+            for ($r = $row - $ring; $r <= $row + $ring; $r++) {
+                for ($c = $column - $ring; $c <= $column + $ring; $c++) {
+                    if ($ring > 0 && abs($r - $row) !== $ring && abs($c - $column) !== $ring) {
+                        continue;
+                    }
+
+                    foreach ($this->streetNodeIndex[$r.':'.$c] ?? [] as $node) {
+                        $found[] = [
+                            'node' => $node,
+                            'distance' => $this->haversine($lat, $lng, $node['lat'], $node['lng']),
+                        ];
+                    }
+                }
+            }
+
+            // Nao ha nada mais perto do que ja encontramos neste anel.
+            if ($found !== [] && min(array_column($found, 'distance')) <= $ring * $cell) {
+                break;
+            }
+        }
+
+        $found = array_values(array_filter(
+            $found,
+            fn (array $candidate) => $candidate['distance'] <= $maxMeters
+        ));
+
+        usort($found, fn (array $a, array $b) => $a['distance'] <=> $b['distance']);
+
+        $picked = [];
+
+        foreach ($found as $candidate) {
+            $node = $candidate['node'];
+
+            if ($this->cityPolygon !== null && ! $this->isPointInPolygon($node['lat'], $node['lng'], $this->cityPolygon)) {
+                continue;
+            }
+
+            $isDistinct = true;
+
+            foreach ($picked as $chosen) {
+                if ($this->haversine($node['lat'], $node['lng'], $chosen['lat'], $chosen['lng']) < $minSeparation) {
+                    $isDistinct = false;
+                    break;
+                }
+            }
+
+            if (! $isDistinct) {
+                continue;
+            }
+
+            $picked[] = $node;
+
+            if (count($picked) >= $wanted) {
+                break;
+            }
+        }
+
+        return $picked;
+    }
+
+    private function latitudeStep(float $cellMeters): float
+    {
+        return $cellMeters / 111320.0;
+    }
+
+    private function longitudeStep(float $lat, float $cellMeters): float
+    {
+        return $cellMeters / max(1.0, 111320.0 * cos(deg2rad($lat)));
+    }
+
+    private function gridKey(float $lat, float $lng, float $cellMeters): string
+    {
+        return ((int) floor($lat / $this->latitudeStep($cellMeters)))
+            .':'.((int) floor($lng / $this->longitudeStep($lat, $cellMeters)));
+    }
+
+    /**
+     * Espacamento minimo entre duas CTOs de qq rua.
+     *
+     * Deliberadamente nao usa o intervalo do formulario. O intervalo mede a
+     * distancia percorrida ao longo da rua entre dois postes, e e aplicado em
+     * processStreet(). Aqui so evitamos dois postes na mesma coordenada, que
+     * aconteceria quando uma rua cruza outra no mesmo no do OSM.
+     *
+     * A versao anterior exigia intervalo * 0,85 tambem entre ruas diferentes e
+     * destruia a cobertura: em Santo Antonio dos Lopes (11,8 km de rua em area
+     * pequena) 49 das 58 CTOs esperadas eram descartadas por ficarem a menos de
+     * 255 m de uma CTO de rua vizinha, e bairros inteiros saiam sem nenhuma.
+     */
+    private function minimumCtoSeparation(): float
+    {
+        return self::CTO_POSITION_DEDUP_METERS;
+    }
+
+    /**
+     * Varre as nove celulas vizinhas do indice de CTOs criadas. Sem o indice
+     * isso seria O(n) por CTO e a geracao de cidade grande travaria.
+     */
+    private function isCtoPositionTaken(float $lat, float $lng): bool
+    {
+        $minimum = $this->minimumCtoSeparation();
+        $cell = $this->placedCtoCellMeters;
+
+        $row = (int) floor($lat / $this->latitudeStep($cell));
+        $column = (int) floor($lng / $this->longitudeStep($lat, $cell));
+
+        for ($r = $row - 1; $r <= $row + 1; $r++) {
+            for ($c = $column - 1; $c <= $column + 1; $c++) {
+                foreach ($this->placedCtoIndex[$r.':'.$c] ?? [] as $placed) {
+                    if ($this->haversine($lat, $lng, $placed['lat'], $placed['lng']) < $minimum) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function registerCtoPosition(float $lat, float $lng): void
+    {
+        $key = $this->gridKey($lat, $lng, $this->placedCtoCellMeters);
+        $this->placedCtoIndex[$key][] = ['lat' => $lat, 'lng' => $lng];
     }
 
     private function mergeStreetsByContinuity(array $streets): array
@@ -735,7 +1505,16 @@ class KmlNetworkGenerator
         $lastCtoDistance = 0.0;
         $lastPoint = null;
         $createdInStreet = false;
-        $streetNodeCount = 0;
+        $streetLength = 0.0;
+        $midPoint = null;
+
+        // O OSM as vezes entrega a mesma rua desenhada em quadriculas paralelas
+        // que NAO se encostam, e a costura por pontas nao consegue uni-las. Cada
+        // quadricula e processada como se fosse uma rota comeca do zero, e o
+        // poste do fim de uma cai perto do poste do inicio da outra. Guardamos
+        // as CTOs desta rua para poder recusar essa repeticao.
+        $existingOnStreet = $this->streetCtoCoords[$this->streetName] ?? [];
+        $streetFloor = $this->ctoIntervalMeters * self::CTO_SPACING_TOLERANCE;
 
         foreach ($nodes as $nodeIndex => $node) {
             $lat = $node['lat'] ?? $node[0] ?? null;
@@ -745,8 +1524,6 @@ class KmlNetworkGenerator
                 continue;
             }
 
-            $streetNodeCount++;
-
             $currentPoint = ['lat' => (float) $lat, 'lng' => (float) $lng];
 
             if ($lastPoint !== null) {
@@ -755,6 +1532,11 @@ class KmlNetworkGenerator
                     $currentPoint['lat'], $currentPoint['lng']
                 );
                 $accumulatedDistance += $segmentDistance;
+                $streetLength += $segmentDistance;
+
+                if ($midPoint === null && $accumulatedDistance >= $streetLength / 2) {
+                    $midPoint = $currentPoint;
+                }
 
                 while (($accumulatedDistance - $lastCtoDistance) >= $this->ctoIntervalMeters) {
                     $remainingInSegment = $accumulatedDistance - $lastCtoDistance;
@@ -767,7 +1549,15 @@ class KmlNetworkGenerator
                     $ctoLat = $lastPoint['lat'] + ($currentPoint['lat'] - $lastPoint['lat']) * $fraction;
                     $ctoLng = $lastPoint['lng'] + ($currentPoint['lng'] - $lastPoint['lng']) * $fraction;
 
+                    if ($this->isTooCloseToStreetCto($ctoLat, $ctoLng, $existingOnStreet, $streetFloor)) {
+                        $this->skippedTooClose++;
+                        $lastCtoDistance += $this->ctoIntervalMeters;
+
+                        continue;
+                    }
+
                     $createdInStreet = $this->createCto($ctoLat, $ctoLng, $prefix, $accumulatedDistance, $chainIndex) || $createdInStreet;
+                    $existingOnStreet[] = ['lat' => $ctoLat, 'lng' => $ctoLng];
                     $lastCtoDistance += $this->ctoIntervalMeters;
                 }
             }
@@ -775,19 +1565,39 @@ class KmlNetworkGenerator
             $lastPoint = $currentPoint;
         }
 
-        if (! $createdInStreet && $streetNodeCount > 0 && $lastPoint !== null) {
-            foreach ($nodes as $node) {
-                $validLat = $node['lat'] ?? $node[0] ?? null;
-                $validLng = $node['lng'] ?? $node[1] ?? null;
+        if ($createdInStreet || $lastPoint === null) {
+            return;
+        }
 
-                if ($validLat === null || $validLng === null) {
-                    continue;
-                }
+        // Rua curta: nao cabe mais de um poste dentro do intervalo, mas ela
+        // ainda e uma rua e precisa de uma CTO. Antes essa rua era encerrada
+        // num unico ponto e, se esse ponto ja tivesse CTO vizinha, a rua
+        // inteira saia de fora do projeto.
+        $candidate = $midPoint ?? $lastPoint;
 
-                $this->createCto((float) $validLat, (float) $validLng, $prefix, 0.0, $chainIndex);
-                break;
+        if ($this->isTooCloseToStreetCto($candidate['lat'], $candidate['lng'], $existingOnStreet, $streetFloor)) {
+            $this->skippedTooClose++;
+
+            return;
+        }
+
+        $this->createCto($candidate['lat'], $candidate['lng'], $prefix, round($streetLength / 2, 2), $chainIndex);
+    }
+
+    /**
+     * Uma CTO na mesma rua, a menos do intervalo, e o poste repetido de outro
+     * fragmento da mesma rua. So vale recusar entre ruas iguais: entre ruas
+     * diferentes a proximidade e geometria da cidade, nao erro de geracao.
+     */
+    private function isTooCloseToStreetCto(float $lat, float $lng, array $placed, float $floor): bool
+    {
+        foreach ($placed as $cto) {
+            if ($this->haversine($lat, $lng, $cto['lat'], $cto['lng']) < $floor) {
+                return true;
             }
         }
+
+        return false;
     }
 
     private function createCto(float $lat, float $lng, string $prefix, float $distance, int $chainIndex = 0): bool
@@ -798,29 +1608,21 @@ class KmlNetworkGenerator
             return false;
         }
 
-        // Dedup com duas camadas (ambas apenas com clearance mínimo de junção,
-        // 30m). O espaçamento exato do intervalo é garantido pelo while em
-        // processStreet (distância acumulada de caminho); aqui apenas
-        // evitamos CTOs duplicadas no mesmo ponto físico (polilinhas que se
-        // fecham) e CTOs coladas entre vias paralelas de mesmo nome.
-        foreach ($this->chainCtoCoords[$chainIndex] ?? [] as $prevCoord) {
-            if ($this->haversine($lat, $lng, $prevCoord['lat'], $prevCoord['lng']) < self::STREET_SEGMENT_JOIN_METERS) {
-                $this->skippedTooClose++;
+        // A metragem do formulario e a unica fonte de espacamento, e vale para
+        // a cidade inteira: duas CTOs so podem nascer separadas quando
+        // passou por aqui. Antes a deduplicacao olhava 30 m e so dentro da
+        // mesma cadeia ou do mesmo nome de rua, e por isso saiam tres CTOs
+        // coladas em menos de cem metros quando duas quadras diferentes se
+        // cruzavam, e o intervalo configurado nunca era respeitado.
+        if ($this->isCtoPositionTaken($lat, $lng)) {
+            $this->skippedTooClose++;
 
-                return false;
-            }
-        }
-
-        foreach ($this->streetCtoCoords[$this->streetName] ?? [] as $prevCoord) {
-            if ($this->haversine($lat, $lng, $prevCoord['lat'], $prevCoord['lng']) < self::STREET_SEGMENT_JOIN_METERS) {
-                $this->skippedTooClose++;
-
-                return false;
-            }
+            return false;
         }
 
         $this->chainCtoCoords[$chainIndex][] = ['lat' => $lat, 'lng' => $lng];
         $this->streetCtoCoords[$this->streetName][] = ['lat' => $lat, 'lng' => $lng];
+        $this->registerCtoPosition($lat, $lng);
 
         $code = $prefix.self::CTO_BASE_CODE.str_pad($this->totalCtos + 1, 4, '0', STR_PAD_LEFT);
 
@@ -1012,7 +1814,9 @@ class KmlNetworkGenerator
             }
         }
 
-        return round($total, 2);
+        // haversine() devolve metros, e a coluna se chama total_distance_km.
+        // Sem esta divisao a tela mostrava 11864 km para uma cidade de 11 km.
+        return round($total / 1000, 3);
     }
 
     private function reset(): void
@@ -1028,6 +1832,10 @@ class KmlNetworkGenerator
         $this->cityPolygon = null;
         $this->skippedOutOfBound = 0;
         $this->skippedTooClose = 0;
+        $this->skippedNoStreet = 0;
+        $this->streetNodeIndex = [];
+        $this->placedCtoIndex = [];
+        $this->placedCtoCellMeters = $this->minimumCtoSeparation();
         $this->streetCtoCoords = [];
         $this->chainCtoCoords = [];
     }

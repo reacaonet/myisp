@@ -52,6 +52,16 @@
 </div>
 @endif
 
+@if(($result['stats']['generated_by'] ?? '') === 'demand')
+<div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-800">
+    <b>Gerado por casa.</b> As {{ number_format($result['stats']['homes_considered'] ?? 0, 0, ',', '.') }} residencias do OSM formaram
+    {{ number_format($result['stats']['demand_clusters'] ?? 0, 0, ',', '.') }} agrupamentos, e cada CTO nasceu no agrupamento mais proximo,
+    encaixada na rua. @if(!empty($result['stats']['skipped_no_street']))
+        {{ $result['stats']['skipped_no_street'] }} agrupamento(s) foram descartados por nao terem rua a ate 250 m.
+    @endif
+</div>
+@endif
+
 @if(count($result['caixas']) > 0)
             <div class="mb-6">
                 <h3 class="text-sm font-semibold text-gray-500 uppercase mb-3">Caixas de Emenda Criadas</h3>

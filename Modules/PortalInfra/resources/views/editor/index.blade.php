@@ -13,10 +13,7 @@
     .leaflet-popup-content b { color: #1f2937; }
     .fiber-lbl { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6b7280; margin-top: 6px; margin-bottom: 2px; letter-spacing: .04em; }
     .fiber-inp { width: 100%; box-sizing: border-box; border: 1px solid #d1d5db; border-radius: 6px; padding: 4px 8px; font-size: 12px; }
-    .marker-cto { background: #ef4444; width: 13px; height: 13px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
     .marker-caixa { background: #22c55e; width: 15px; height: 15px; border-radius: 3px; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
-    .marker-splitter { background: #8b5cf6; width: 14px; height: 14px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
-    .marker-inactive { opacity: 0.4; }
     .popup-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
     .popup-actions button { border: 0; border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; color: #fff; }
     .act-edit { background: #2563eb; }
@@ -60,7 +57,6 @@
         <div class="flex items-center gap-4 text-xs text-gray-500">
             <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded-full bg-red-500 border border-white shadow"></span> CTO</span>
             <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded bg-green-500 border border-white shadow"></span> Caixa</span>
-            <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded-full bg-purple-500 border border-white shadow"></span> Splitter</span>
         </div>
     </div>
 </div>
@@ -95,6 +91,7 @@
     </div>
 </div>
 
+<div class="mt-3 hidden rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900" id="orphanSplitters"></div>
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
     <div id="map" class="w-full"></div>
     <div class="toolbar">
@@ -294,7 +291,6 @@
     let currentCity = null;
     let ctoLayer = L.layerGroup().addTo(map);
     let caixaLayer = L.layerGroup().addTo(map);
-    let splitterLayer = L.layerGroup().addTo(map);
     let fiberLayer = L.layerGroup().addTo(map);
     let connectionLayer = L.layerGroup().addTo(map);
 
@@ -309,16 +305,16 @@
     let drawingDistance = 0;
     const drawingPath = [];
 
-    const ctoIcon = L.divIcon({ className: 'marker-cto', iconSize: [13, 13], iconAnchor: [7, 7] });
     const caixaIcon = L.divIcon({ className: 'marker-caixa', iconSize: [15, 15], iconAnchor: [8, 8] });
-    const caixaInactiveIcon = L.divIcon({ className: 'marker-caixa marker-inactive', iconSize: [15, 15], iconAnchor: [8, 8] });
-    const splitterIcon = L.divIcon({ className: 'marker-splitter', iconSize: [14, 14], iconAnchor: [7, 7] });
 
-    // A CTO e o unico elemento com cor propria: cada CTO nasce com a cor que
-    // o tecnico escolheu para separar visualmente as CTOs da mesma CEO.
-    function ctoIconFor(color, inactive) {
+    // O editor e a ferramenta de construcao: aqui tudo aparece com cor cheia.
+    // Quem ainda nao lancou fibra continua editavel, mas no mapa de rede ele
+    // fica translucido. A CTO e o unico elemento com cor propria: cada CTO nasce
+    // com a cor que o tecnico escolheu para separar visualmente as CTOs da
+    // mesma CEO.
+    function ctoIconFor(color) {
         return L.divIcon({
-            className: 'marker-cto-dyn' + (inactive ? ' marker-inactive' : ''),
+            className: 'marker-cto-dyn',
             html: '<span style="display:block;width:13px;height:13px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);background:' + escHtml(color || '#ef4444') + '"></span>',
             iconSize: [13, 13],
             iconAnchor: [7, 7]
@@ -390,7 +386,34 @@
         if (!id) return null;
         const list = type === 'cto' ? ctos : type === 'caixa' ? caixas : type === 'splitter' ? splitters : [];
         const el = list.find(e => e.id === Number(id));
-        return el ? [el.lat, el.lng] : null;
+        if (!el) return null;
+
+        // Splitter nao tem marcador proprio, entao o cabo que sai dele e
+        // desenhado a partir da CEO ou CTO que o contém.
+        if (type === 'splitter' && el.parent_type) {
+            const parent = findElement(el.parent_type, el.parent_id);
+            if (parent) return [parent.lat, parent.lng];
+        }
+
+        return [el.lat, el.lng];
+    }
+
+    // Splitter e componente interno: nao existe marcador solto no mapa. Ele
+    // aparece listado dentro do popup da CEO ou CTO que o contém, que e onde
+    // ele e editado e excluido.
+    function childSplitters(parentType, parentId) {
+        const items = splitters.filter(s => s.parent_type === parentType && Number(s.parent_id) === Number(parentId));
+        if (items.length === 0) return '';
+
+        return '<div class="popup-meta" style="margin-top:8px"><b>Splitters (' + items.length + ')</b>' +
+            items.map(s =>
+                '<div style="display:flex;align-items:center;gap:6px;margin-top:4px">' +
+                '<span style="flex:1;color:#7c3aed">' + escHtml(s.code || s.name) + ' — 1x' + escHtml(String(s.output_ports || 0)) + '</span>' +
+                '<button class="act-edit" data-action="splitter-edit" data-id="' + s.id + '">Editar</button>' +
+                '<button class="act-delete" data-action="splitter-delete" data-id="' + s.id + '">Excluir</button>' +
+                '</div>'
+            ).join('') +
+            '</div>';
     }
 
     // Popups: a CEO e a CTO sao o ponto de partida da obra. Clicar nelas abre
@@ -410,6 +433,7 @@
             '<div class="popup-meta">Portas: <b>' + c.used + '/' + c.capacity + '</b> • Splitters: <b>' + (c.splitter_count || 0) + '</b><br>' +
             'Status: <b>' + (c.status === 'active' ? 'ativa' : 'inativa (sem fibra lançada)') + '</b><br>' +
             'Cor: <span style="display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:middle;border:1px solid #d1d5db;background:' + escHtml(c.color || '#ef4444') + '"></span></div>' +
+            childSplitters('cto', c.id) +
             elementActions('cto', c.id) +
             '</div>';
     }
@@ -420,23 +444,37 @@
             escHtml(c.name) + '<br>' + escHtml(c.street || '') + '<br>' +
             '<div class="popup-meta">CTOs: <b>' + (c.cto_count || 0) + '</b> • Splitters: <b>' + (c.splitter_count || 0) + '</b><br>' +
             'Status: <b>' + (c.status === 'active' ? 'ativa' : 'inativa (sem fibra lançada)') + '</b></div>' +
+            childSplitters('caixa', c.id) +
             elementActions('caixa', c.id) +
             '</div>';
     }
 
-    function splitterPopup(s) {
-        const parentLabel = s.parent_type === 'caixa' ? 'CEO' : 'CTO';
-        return '<div style="min-width:200px">' +
-            '<b style="color:#7c3aed">' + escHtml(s.code || s.name) + '</b><br>' +
-            escHtml(s.name) + '<br>Splitter ' + escHtml(s.ratio) + '<br>' +
-            '<div class="popup-meta">Dentro da ' + parentLabel + ': <b>' + escHtml(s.parent_code || '?') + '</b></div>' +
-            '<div class="popup-actions">' +
-            '<button class="act-edit" data-action="splitter-edit" data-id="' + s.id + '">Editar</button>' +
-            '<button class="act-delete" data-action="splitter-delete" data-id="' + s.id + '">Excluir</button>' +
-            '</div></div>';
-    }
+    // Splitter sem progenitor nao entra em nenhum popup. Como ele tambem nao tem
+// marcador, ficaria invisivel: o banner mantem esses splitters legiveis ate
+// o tecnico realocar o progenitor pelo modal de edicao.
+function renderOrphanSplitters() {
+const box = document.getElementById('orphanSplitters');
+if (!box) return;
 
-    function renderConnection(cnx) {
+const orphans = splitters.filter(s => !s.parent_type || !s.parent_id);
+if (orphans.length === 0) {
+box.classList.add('hidden');
+box.innerHTML = '';
+return;
+}
+
+box.classList.remove('hidden');
+box.innerHTML = '<b>' + orphans.length + ' splitter(s) sem CEO/CTO de origem.</b> ' +
+'Como splitters sao componentes internos, eles nao aparecem no mapa. Defina a origem de cada um: ' +
+orphans.map(s =>
+'<span style="display:inline-flex;align-items:center;gap:6px;margin:4px 6px 0 0;background:#fff;border:1px solid #fcd34d;border-radius:6px;padding:3px 8px">' +
+'<b>' + escHtml(s.code || s.name) + '</b>' +
+'<button class="act-edit" data-action="splitter-edit" data-id="' + s.id + '">Definir origem</button>' +
+'</span>'
+).join('');
+}
+
+function renderConnection(cnx) {
         const start = findPos(cnx.source_type, cnx.source_id);
         const end = findPos(cnx.target_type, cnx.target_id);
         if (!start) return;
@@ -475,7 +513,6 @@
                 fibers = data.fibers || [];
                 ctoLayer.clearLayers();
                 caixaLayer.clearLayers();
-                splitterLayer.clearLayers();
                 fiberLayer.clearLayers();
                 connectionLayer.clearLayers();
 
@@ -483,27 +520,21 @@
 
                 let bounds = [];
                 (data.ctos || []).forEach(c => {
-                    const marker = L.marker([c.lat, c.lng], { icon: ctoIconFor(c.color, c.status === 'inactive'), draggable: true }).addTo(ctoLayer);
+                    const marker = L.marker([c.lat, c.lng], { icon: ctoIconFor(c.color), draggable: true }).addTo(ctoLayer);
                     marker.on('dragend', e => saveMove('cto', c.id, e.target.getLatLng()));
                     marker.bindPopup(ctoPopup(c));
                     bounds.push([c.lat, c.lng]);
                 });
 
                 (data.caixas || []).forEach(c => {
-                    const marker = L.marker([c.lat, c.lng], { icon: c.status === 'inactive' ? caixaInactiveIcon : caixaIcon, draggable: true }).addTo(caixaLayer);
+                    const marker = L.marker([c.lat, c.lng], { icon: caixaIcon, draggable: true }).addTo(caixaLayer);
                     marker.on('dragend', e => saveMove('caixa', c.id, e.target.getLatLng()));
                     marker.bindPopup(caixaPopup(c));
                     bounds.push([c.lat, c.lng]);
                 });
 
-                (data.splitters || []).forEach(s => {
-                    const marker = L.marker([s.lat, s.lng], { icon: splitterIcon, draggable: true }).addTo(splitterLayer);
-                    marker.on('dragend', e => saveMove('splitter', s.id, e.target.getLatLng()));
-                    marker.bindPopup(splitterPopup(s));
-                    bounds.push([s.lat, s.lng]);
-                });
-
                 document.getElementById('countCto').textContent = data.ctos.length;
+                renderOrphanSplitters();
                 document.getElementById('countCaixa').textContent = data.caixas.length;
                 const totalFiber = (data.fibers || []).reduce((s, f) => s + (f.length_meters || 0), 0);
                 document.getElementById('totalFiber').textContent = fmtMeters(totalFiber);
@@ -773,6 +804,14 @@
                 .then(json => { showToast(json.message || 'Splitter removido.'); loadData(); })
                 .catch(err => showToast('Erro: ' + err.message));
         }
+    });
+
+    // O banner de splitters orfaos vive fora do mapa, entao precisa do seu
+    // proprio listener para os botoes de edicao.
+    document.getElementById('orphanSplitters').addEventListener('click', function (e) {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        openSplitterModal(Number(btn.dataset.id));
     });
 
     function findElement(type, id) {

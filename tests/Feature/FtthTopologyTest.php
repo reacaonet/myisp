@@ -519,4 +519,345 @@ class FtthTopologyTest extends TestCase
     {
         $this->assertArrayHasKey('ftth', GroupPermission::MENU_PERMISSIONS());
     }
+
+    public function test_api_do_mapa_traz_a_cor_da_cto(): void
+    {
+        $this->actingAs($this->operadorFtth());
+
+        Cto::create([
+            'name' => 'CTO Colorida',
+            'code' => 'CTO-COR-1',
+            'latitude' => -4.3,
+            'longitude' => -46.5,
+            'capacity' => 16,
+            'status' => 'active',
+            'color' => '#0ea5e9',
+            'city' => 'TesteCor',
+        ]);
+
+        $json = $this->getJson(route('infra.ftth.api.map-data', ['city' => 'TesteCor']))->assertOk()->json();
+
+        // Sem a cor no payload o mapa cai no vermelho padrao e perde a cor que
+        // o tecnico escolheu para separar as CTOs da mesma CEO.
+        $this->assertSame('#0ea5e9', $json['ctos'][0]['color']);
+        $this->assertSame('active', $json['ctos'][0]['status']);
+    }
+
+    public function test_editor_mostra_apenas_cto_e_caixa_sem_transparencia(): void
+    {
+        $this->actingAs($this->operadorFtth());
+
+        $html = $this->get(route('infra.ftth.editor.index'))->assertOk()->getContent();
+
+        // Splitter e componente interno: nao ganha marcador proprio.
+        $this->assertStringNotContainsString('splitterLayer', $html);
+        $this->assertStringNotContainsString('marker-splitter', $html);
+
+        // O editor e a ferramenta de construcao: nada translucido aqui.
+        $this->assertStringNotContainsString('marker-inactive', $html);
+
+        // CEO e CTO continuam sendo as duas unicas coisas desenhadas.
+        $this->assertStringContainsString('marker-caixa', $html);
+        $this->assertStringContainsString('ctoIconFor(c.color)', $html);
+
+        // O acesso ao splitter migra para dentro do popup de quem o contem.
+        $this->assertStringContainsString('childSplitters', $html);
+    }
+
+    public function test_mapa_deixa_planejado_translucido_e_destaca_ativo(): void
+    {
+        $this->actingAs($this->operadorFtth());
+
+        $html = $this->get(route('infra.ftth.map'))->assertOk()->getContent();
+
+        // No mapa o planejamento continua translucido e o que foi construido
+        // recebe cor cheia com anel de destaque.
+        $this->assertStringContainsString('marker-dim', $html);
+        $this->assertStringContainsString('marker-active', $html);
+        $this->assertStringContainsString("status === 'active'", $html);
+    }
+
+    public function test_cto_segue_a_metrica_do_formulario_e_cobre_bairro_vazio(): void
+    {
+        // Duas ruas: uma longa e sem casa, outra curta com uma quadra de
+        // casas. As duas precisam receber CTO, e nenhuma CTO pode nascer fora
+        // da metrica pedida no formulario.
+        $rua = [
+            ['name' => 'Rua Longa', 'nodes' => $this->linhaDeRua(-4.30, -46.50, -4.20, -46.50)],
+            ['name' => 'Rua do Bairro', 'nodes' => $this->linhaDeRua(-4.29, -46.40, -4.29, -46.39)],
+        ];
+
+        $casas = $this->casasPertoDe(-4.29, -46.395, 3);
+
+        $this->gerarPorDemanda($rua, $casas, 8, 400);
+
+        $ctos = Cto::all();
+
+        $this->assertGreaterThan(
+            0,
+            Cto::where('street', 'Rua do Bairro')->count(),
+            'A quadra com casa tem que receber CTO.'
+        );
+
+        // Bairro sem casa nao pode ficar zerado: rua longa ganha cobertura.
+        $this->assertGreaterThan(
+            0,
+            Cto::where('street', 'Rua Longa')->count(),
+            'Rua sem casa nao pode ficar sem nenhuma CTO.'
+        );
+
+        // A metrica do formulario manda: com 400m, nenhuma CTO pode nascer
+        // colada a outra.
+        $this->assertCtosRespeitamEspacamento($ctos, 400 * 0.85);
+    }
+
+    public function test_rua_quebrada_nao_gera_cto_colada_uma_da_outra(): void
+    {
+        // O OSM devolve a mesma rua como fragmentos separados por um intervalo.
+        // Cada fragmento começa a contar do zero, e sem a metrica global cada
+        // um plantava uma CTO no seu proprio inicio: tres CTOs em menos de
+        // duzentos metros, que e exatamente o defeito reportado.
+        $fragmentos = [
+            ['name' => 'Rua Quebrada', 'nodes' => $this->linhaDeRua(-4.30000, -46.5000, -4.29865, -46.5000, 10)],
+            ['name' => 'Rua Quebrada', 'nodes' => $this->linhaDeRua(-4.29820, -46.5000, -4.29685, -46.5000, 10)],
+            ['name' => 'Rua Quebrada', 'nodes' => $this->linhaDeRua(-4.29640, -46.5000, -4.29505, -46.5000, 10)],
+        ];
+
+        (new KmlNetworkGenerator)->generateFromStreets(
+            $fragmentos,
+            'TST',
+            'Teste',
+            'MA',
+            16,
+            400,
+            null,
+            8
+        );
+
+        // Tres fragmentos de 150m separados por 50m. Cada fragmento comeca a
+        // contar do zero e plantava uma CTO no seu inicio, entao o codigo
+        // antigo saia com tres CTOs a cada 200m. Com 400m de intervalo sobra
+        // uma no comeco e outra no fim.
+        $this->assertSame(2, Cto::count());
+        $this->assertCtosRespeitamEspacamento(Cto::all(), 400 * 0.85);
+    }
+
+    public function test_caixa_de_emenda_nao_nasce_uma_do_lado_da_outra(): void
+    {
+        // Varias ruas paralelas: sem ordem geografica as CAs saiam na mesma
+        // faixa de rua.
+        $ruas = [];
+        for ($i = 0; $i < 6; $i++) {
+            $ruas[] = [
+                'name' => 'Rua Paralela '.$i,
+                'nodes' => $this->linhaDeRua(-4.3000, (-46.5000 + ($i * 0.004)), -4.2400, (-46.5000 + ($i * 0.004))),
+            ];
+        }
+
+        (new KmlNetworkGenerator)->generateFromStreets($ruas, 'TST', 'Teste', 'MA', 16, 400, null, 2);
+
+        $caixas = CaixaEmenda::all();
+
+        $this->assertGreaterThan(1, $caixas->count(), 'Precisa nascer mais de uma CA para o teste valer.');
+
+        for ($i = 0; $i < $caixas->count(); $i++) {
+            for ($j = $i + 1; $j < $caixas->count(); $j++) {
+                $this->assertGreaterThan(
+                    150,
+                    $this->distanciaEntreCaixas($caixas[$i], $caixas[$j]),
+                    'Duas caixas de emenda Bornaram na mesma esquina.'
+                );
+            }
+        }
+    }
+
+    public function test_bairro_com_casa_nao_fica_de_fora_da_geracao(): void
+    {
+        // Dois bairros igualmente distantes do centro. A geracao antiga
+        // concentrava tudo na rua mais longa e o segundo bairro saia vazio.
+        $rua = [
+            ['name' => 'Rua A', 'nodes' => $this->linhaDeRua(-4.3000, -46.5000, -4.2000, -46.5000)],
+            ['name' => 'Rua B', 'nodes' => $this->linhaDeRua(-4.3000, -46.3000, -4.2900, -46.3000)],
+        ];
+
+        $casas = array_merge(
+            $this->casasPertoDe(-4.2500, -46.4998, 4),
+            $this->casasPertoDe(-4.2950, -46.3000, 4)
+        );
+
+        $this->gerarPorDemanda($rua, $casas);
+
+        $bairroA = Cto::where('street', 'Rua A')->count();
+        $bairroB = Cto::where('street', 'Rua B')->count();
+
+        $this->assertGreaterThan(0, $bairroA, 'O bairro com casas precisa de CTO.');
+        $this->assertGreaterThan(0, $bairroB, 'Nenhum bairro com casa pode ficar de fora.');
+    }
+
+    public function test_ctos_nao_sao_coladas_no_mesmo_agrupamento(): void
+    {
+        $rua = [
+            ['name' => 'Rua das Casas', 'nodes' => $this->linhaDeRua(-4.3000, -46.5000, -4.2900, -46.5000)],
+        ];
+
+        // 30 casas praticamente no mesmo ponto: o problema antigo era gerar
+        // varias CTOs uma ao lado da outra em um lugar sem cliente.
+        $casas = [];
+        for ($i = 0; $i < 30; $i++) {
+            $casas[] = ['lat' => -4.2950 + ($i * 0.00001), 'lng' => -46.5000];
+        }
+
+        $this->gerarPorDemanda($rua, $casas);
+
+        $ctos = Cto::all();
+
+        $this->assertGreaterThan(0, $ctos->count());
+        $this->assertLessThanOrEqual(
+            3,
+            $ctos->count(),
+            '30 casas no mesmo ponto nao podem virar uma fileira de CTOs.'
+        );
+
+        // Nenhuma CTO pode ficar a menos de 100m da outra.
+        for ($i = 0; $i < $ctos->count(); $i++) {
+            for ($j = $i + 1; $j < $ctos->count(); $j++) {
+                $this->assertGreaterThan(
+                    100,
+                    $this->distanciaEntre($ctos[$i], $ctos[$j]),
+                    'Duas CTOs coladas sao exatamente o que a geracao precisa evitar.'
+                );
+            }
+        }
+    }
+
+    public function test_casa_sem_rua_perto_nao_gera_cto_no_terreno(): void
+    {
+        // Rua no bairro A e casa isolada a kilometres de qualquer rua.
+        $rua = [
+            ['name' => 'Rua A', 'nodes' => $this->linhaDeRua(-4.3000, -46.5000, -4.2900, -46.5000)],
+        ];
+
+        $casas = array_merge(
+            $this->casasPertoDe(-4.2950, -46.5000, 3),
+            [['lat' => -4.0000, 'lng' => -46.0000]]
+        );
+
+        $result = $this->gerarPorDemanda($rua, $casas);
+
+        foreach (Cto::all() as $cto) {
+            $this->assertLessThan(
+                4.0,
+                abs($cto->latitude + 4.2950),
+                'CTO nascida longe da rua e no meio do terreno.'
+            );
+        }
+
+        $this->assertSame(1, $result['stats']['skipped_no_street'], 'A casa sem rua precisa ser descartada, nao inventada.');
+    }
+
+    public function test_sem_predidos_no_osm_a_geracao_cai_para_as_ruas(): void
+    {
+        // generateFromStreets continua intacto: e o caminho para cidade sem
+        // cobertura de building no OSM.
+        $rua = [
+            ['name' => 'Rua Teste', 'nodes' => $this->linhaDeRua(-4.3000, -46.5000, -4.2000, -46.5000)],
+        ];
+
+        $result = (new KmlNetworkGenerator)->generateFromStreets(
+            $rua,
+            'TST',
+            'Teste',
+            'MA',
+            16,
+            250,
+            null,
+            8
+        );
+
+        $this->assertGreaterThan(0, $result['stats']['total_ctos']);
+    }
+
+    private function linhaDeRua(float $latFrom, float $lngFrom, float $latTo, float $lngTo, int $passos = 40): array
+    {
+        $nodes = [];
+
+        for ($i = 0; $i <= $passos; $i++) {
+            $fator = $i / $passos;
+            $nodes[] = [
+                'lat' => $latFrom + (($latTo - $latFrom) * $fator),
+                'lng' => $lngFrom + (($lngTo - $lngFrom) * $fator),
+            ];
+        }
+
+        return $nodes;
+    }
+
+    private function casasPertoDe(float $lat, float $lng, int $quantidade): array
+    {
+        $casas = [];
+
+        for ($i = 0; $i < $quantidade; $i++) {
+            $casas[] = [
+                'lat' => $lat + ($i * 0.00008),
+                'lng' => $lng,
+            ];
+        }
+
+        return $casas;
+    }
+
+    private function gerarPorDemanda(array $ruas, array $casas, int $ctosPerCaixa = 8, int $intervalo = 250): array
+    {
+        return (new KmlNetworkGenerator)->generateFromDemand(
+            $casas,
+            $ruas,
+            'TST',
+            'Teste',
+            'MA',
+            16,
+            $intervalo,
+            null,
+            $ctosPerCaixa
+        );
+    }
+
+    private function assertCtosRespeitamEspacamento($ctos, float $minimo): void
+    {
+        for ($i = 0; $i < $ctos->count(); $i++) {
+            for ($j = $i + 1; $j < $ctos->count(); $j++) {
+                $this->assertGreaterThan(
+                    $minimo,
+                    $this->distanciaEntre($ctos[$i], $ctos[$j]),
+                    sprintf(
+                        'Duas CTOs a menos de %.0fm uma da outra e o defeito que o intervalo do formulario deveria impedir.',
+                        $minimo
+                    )
+                );
+            }
+        }
+    }
+
+    private function distanciaEntreCaixas(CaixaEmenda $a, CaixaEmenda $b): float
+    {
+        $earthRadius = 6371000.0;
+        $dLat = deg2rad($b->latitude - $a->latitude);
+        $dLng = deg2rad($b->longitude - $a->longitude);
+
+        $h = sin($dLat / 2) ** 2
+            + cos(deg2rad($a->latitude)) * cos(deg2rad($b->latitude)) * sin($dLng / 2) ** 2;
+
+        return $earthRadius * 2 * atan2(sqrt($h), sqrt(1 - $h));
+    }
+
+    private function distanciaEntre(Cto $a, Cto $b): float
+    {
+        $earthRadius = 6371000.0;
+        $dLat = deg2rad($b->latitude - $a->latitude);
+        $dLng = deg2rad($b->longitude - $a->longitude);
+
+        $h = sin($dLat / 2) ** 2
+            + cos(deg2rad($a->latitude)) * cos(deg2rad($b->latitude)) * sin($dLng / 2) ** 2;
+
+        return $earthRadius * 2 * atan2(sqrt($h), sqrt(1 - $h));
+    }
 }

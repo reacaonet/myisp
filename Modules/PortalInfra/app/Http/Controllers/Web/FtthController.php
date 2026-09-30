@@ -511,7 +511,7 @@ class FtthController extends Controller
 
     public function mapData(Request $request)
     {
-        $queryCto = Cto::select('id', 'code', 'name', 'latitude', 'longitude', 'street', 'city', 'capacity', 'used_ports', 'status', 'caixa_emenda_id');
+        $queryCto = Cto::select('id', 'code', 'name', 'latitude', 'longitude', 'street', 'city', 'capacity', 'used_ports', 'status', 'color', 'caixa_emenda_id');
         $queryCaixa = CaixaEmenda::select('id', 'code', 'name', 'latitude', 'longitude', 'street', 'city', 'capacity', 'used_ports', 'status');
 
         if ($city = $request->get('city')) {
@@ -531,6 +531,7 @@ class FtthController extends Controller
             'capacity' => $c->capacity,
             'used' => $c->used_ports,
             'status' => $c->status,
+            'color' => $c->color,
             'caixa_id' => $c->caixa_emenda_id,
         ]);
 
@@ -781,15 +782,24 @@ class FtthController extends Controller
 
             $cityName = $request->input('city_name');
             $prefix = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $cityName), 0, 4));
-            $result = $generator->generateFromStreets(
+            $cityPolygon = $hasBounds ? null : $generator->getCityPolygon();
+
+            $result = $this->generateFromCityDemand(
+                $generator,
                 $streets,
-                $prefix,
                 $cityName,
                 $state,
+                $prefix,
                 $ctoCapacity,
                 $ctoInterval,
-                $hasBounds ? null : $generator->getCityPolygon(),
-                $ctosPerCaixa
+                $ctosPerCaixa,
+                $cityPolygon,
+                $hasBounds
+                    ? (float) $request->input('south')
+                    : null,
+                $hasBounds ? (float) $request->input('west') : null,
+                $hasBounds ? (float) $request->input('north') : null,
+                $hasBounds ? (float) $request->input('east') : null
             );
 
             $cityLabel = $hasBounds
@@ -838,7 +848,17 @@ class FtthController extends Controller
                 }
 
                 $cityPrefix = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $city), 0, 4));
-                $result = $generator->generateFromStreets($streets, $cityPrefix, $city, $state, $ctoCapacity, $ctoInterval, $generator->getCityPolygon(), $ctosPerCaixa);
+                $result = $this->generateFromCityDemand(
+                    $generator,
+                    $streets,
+                    $city,
+                    $state,
+                    $cityPrefix,
+                    $ctoCapacity,
+                    $ctoInterval,
+                    $ctosPerCaixa,
+                    $generator->getCityPolygon()
+                );
                 $project = $this->attachProject($city, $state, $cityPrefix, $result, false);
 
                 $allResults[] = [
@@ -954,5 +974,97 @@ class FtthController extends Controller
             'result' => $result,
             'street_name' => $request->input('street_name'),
         ]);
+    }
+
+    /**
+     * Gera a rede a partir de onde tem casa, e nao de onde a rua e longa.
+     *
+     * Quando o OSM nao tem predios mapeados, ou quando as casas nao chegam
+     * perto de nenhuma rua, cai na geracao por rua para nunca devolver uma
+     * cidade sem projeto nenhum.
+     */
+    private function generateFromCityDemand(
+        KmlNetworkGenerator $generator,
+        array $streets,
+        string $cityName,
+        string $state,
+        string $prefix,
+        int $ctoCapacity,
+        int $ctoInterval,
+        int $ctosPerCaixa,
+        ?array $cityPolygon,
+        ?float $south = null,
+        ?float $west = null,
+        ?float $north = null,
+        ?float $east = null
+    ): array {
+        $buildings = $this->fetchBuildingsForGeneration($generator, $cityPolygon, $south, $west, $north, $east);
+
+        if (empty($buildings)) {
+            return $generator->generateFromStreets(
+                $streets,
+                $prefix,
+                $cityName,
+                $state,
+                $ctoCapacity,
+                $ctoInterval,
+                $cityPolygon,
+                $ctosPerCaixa
+            );
+        }
+
+        $result = $generator->generateFromDemand(
+            $buildings,
+            $streets,
+            $prefix,
+            $cityName,
+            $state,
+            $ctoCapacity,
+            $ctoInterval,
+            $cityPolygon,
+            $ctosPerCaixa
+        );
+
+        if (($result['stats']['total_ctos'] ?? 0) === 0) {
+            return $generator->generateFromStreets(
+                $streets,
+                $prefix,
+                $cityName,
+                $state,
+                $ctoCapacity,
+                $ctoInterval,
+                $cityPolygon,
+                $ctosPerCaixa
+            );
+        }
+
+        $result['stats']['homes_considered'] = count($buildings);
+        $result['stats']['generated_by'] = 'demand';
+
+        return $result;
+    }
+
+    private function fetchBuildingsForGeneration(
+        KmlNetworkGenerator $generator,
+        ?array $cityPolygon,
+        ?float $south,
+        ?float $west,
+        ?float $north,
+        ?float $east
+    ): array {
+        try {
+            if ($cityPolygon !== null && ! empty($cityPolygon)) {
+                return $generator->fetchBuildingsByPolygon($cityPolygon);
+            }
+
+            if ($south !== null && $west !== null && $north !== null && $east !== null) {
+                return $generator->fetchBuildingsByBounds($south, $west, $north, $east);
+            }
+        } catch (\Throwable $e) {
+            // Sem buildings a geracao por rua ainda salva a operacao.
+            return [];
+        }
+
+        return [];
     }
 }

@@ -2,19 +2,40 @@
 
 namespace Modules\PortalInfra\Services;
 
-use Modules\PortalInfra\Models\Cto;
 use Modules\PortalInfra\Models\CaixaEmenda;
+use Modules\PortalInfra\Models\Cto;
+use Modules\PortalInfra\Models\FtthSplitter;
 
 class KmlNetworkGenerator
 {
     private const EARTH_RADIUS_KM = 6371.0;
-    private const CTOS_PER_CAIXA = 4;
+
+    /**
+     * CTOs que uma CEO atende. A CEO sempre nasce atendendo 8, mas o tecnico
+     * informa quantas no momento de gerar a rede, porque depende de quantos
+     * projetos de bairro existem naquele ponto.
+     */
+    private const CTOS_PER_CAIXA_PADRAO = 8;
+
+    /**
+     * Saidas por splitter dentro da CEO. A CEO concentra splitters 1x8, cada um
+     * alimentando 8 CTOs. Com 32 CTOs sao 4 splitters, que e o maximo de
+     * projetos que uma CEO costuma atender.
+     */
+    private const SAIDAS_POR_SPLITTER_CEO = 8;
+
     private const URBAN_CELL_SIZE_METERS = 400;
+
     private const URBAN_MIN_CELL_DENSITY_RATIO = 0.2;
+
     private const URBAN_MAX_CELL_DISTANCE = 1;
+
     private const STREET_SEGMENT_JOIN_METERS = 30;
+
     private const CTO_BASE_CODE = 'CTO';
+
     private const CAIXA_BASE_CODE = 'CE';
+
     private const OVERPASS_URLS = [
         'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
         'https://overpass-api.de/api/interpreter',
@@ -22,21 +43,43 @@ class KmlNetworkGenerator
     ];
 
     private int $ctoCount = 0;
+
     private int $totalCtos = 0;
+
     private int $totalCaixas = 0;
-    private int $ctoCapacity = 8;
+
+    private int $totalSplitters = 0;
+
+    private int $ctoCapacity = 16;
+
+    private int $ctosPerCaixa = self::CTOS_PER_CAIXA_PADRAO;
+
     private int $ctoIntervalMeters = 250;
+
     private array $pendingCtoCoords = [];
+
     private array $generatedCtos = [];
+
     private array $generatedCaixas = [];
+
+    private array $generatedSplitters = [];
+
     private string $streetName = '';
+
     private string $currentPrefix = '';
+
     private string $currentCity = '';
+
     private string $currentState = '';
+
     private ?array $cityPolygon = null;
+
     private int $skippedOutOfBound = 0;
+
     private int $skippedTooClose = 0;
+
     private array $streetCtoCoords = [];
+
     private array $chainCtoCoords = [];
 
     private function overpassQuery(string $query): array
@@ -47,7 +90,7 @@ class KmlNetworkGenerator
             $ch = curl_init($url);
             curl_setopt_array($ch, [
                 CURLOPT_POST => true,
-                CURLOPT_POSTFIELDS => 'data=' . urlencode($query),
+                CURLOPT_POSTFIELDS => 'data='.urlencode($query),
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_TIMEOUT => 60,
                 CURLOPT_SSL_VERIFYPEER => false,
@@ -64,23 +107,27 @@ class KmlNetworkGenerator
 
             if ($error) {
                 $lastError = "cURL error on {$url}: {$error}";
+
                 continue;
             }
 
             if ($httpCode === 429) {
                 $lastError = "Rate limited on {$url}";
+
                 continue;
             }
 
             if ($httpCode !== 200) {
                 $lastError = "HTTP {$httpCode} on {$url}";
+
                 continue;
             }
 
             $data = json_decode($body, true);
 
             if (json_last_error() !== JSON_ERROR_NONE) {
-                $lastError = "Invalid JSON from {$url}: " . json_last_error_msg();
+                $lastError = "Invalid JSON from {$url}: ".json_last_error_msg();
+
                 continue;
             }
 
@@ -99,40 +146,42 @@ class KmlNetworkGenerator
         // (o bounding box puro inclui municipios vizinhos).
         $geo = $this->geocodeWithNominatim($searchName);
 
-        if ($geo && !empty($geo['polygon'])) {
+        if ($geo && ! empty($geo['polygon'])) {
             $this->cityPolygon = $geo['polygon'];
 
             $streets = $this->fetchStreetsByPolygon($geo['polygon']);
             $streets = $this->filterStreetsByPolygon($streets, $geo['polygon']);
             $streets = $this->filterUrbanStreets($streets);
 
-            if (!empty($streets)) {
+            if (! empty($streets)) {
                 return $streets;
             }
 
             $streets = $this->fetchStreetsByBounds($geo['south'], $geo['west'], $geo['north'], $geo['east']);
             $streets = $this->filterStreetsByPolygon($streets, $geo['polygon']);
+
             return $this->filterUrbanStreets($streets);
         }
 
         if ($geo) {
-            if (!empty($geo['polygon'])) {
+            if (! empty($geo['polygon'])) {
                 $this->cityPolygon = $geo['polygon'];
                 $streets = $this->fetchStreetsByBounds($geo['south'], $geo['west'], $geo['north'], $geo['east']);
                 $streets = $this->filterStreetsByPolygon($streets, $geo['polygon']);
+
                 return $this->filterUrbanStreets($streets);
             }
 
             $streets = $this->fetchStreetsByBounds($geo['south'], $geo['west'], $geo['north'], $geo['east']);
-            if (!empty($streets)) {
+            if (! empty($streets)) {
                 return $this->filterUrbanStreets($streets);
             }
         }
 
         // Fallback: busca por area no OSM
         $queries = [
-            '[out:json][timeout:60];area["name"="' . $searchName . '"]["admin_level"~"^(7|8)$"]->.searchArea;(way["highway"~"^(residential|primary|secondary|tertiary|unclassified|living_street)$"]["name"](area.searchArea););out body;>;out skel qt;',
-            '[out:json][timeout:60];area["name"="' . $searchName . '"]->.searchArea;(way["highway"~"^(residential|primary|secondary|tertiary|unclassified|living_street)$"]["name"](area.searchArea););out body;>;out skel qt;',
+            '[out:json][timeout:60];area["name"="'.$searchName.'"]["admin_level"~"^(7|8)$"]->.searchArea;(way["highway"~"^(residential|primary|secondary|tertiary|unclassified|living_street)$"]["name"](area.searchArea););out body;>;out skel qt;',
+            '[out:json][timeout:60];area["name"="'.$searchName.'"]->.searchArea;(way["highway"~"^(residential|primary|secondary|tertiary|unclassified|living_street)$"]["name"](area.searchArea););out body;>;out skel qt;',
         ];
 
         foreach ($queries as $query) {
@@ -140,7 +189,7 @@ class KmlNetworkGenerator
                 $data = $this->overpassQuery($query);
                 $streets = $this->parseOverpassResponse($data);
 
-                if (!empty($streets)) {
+                if (! empty($streets)) {
                     return $this->filterUrbanStreets($streets);
                 }
             } catch (\RuntimeException $e) {
@@ -158,7 +207,7 @@ class KmlNetworkGenerator
 
     private function geocodeWithNominatim(string $query): ?array
     {
-        $url = 'https://nominatim.openstreetmap.org/search?q=' . urlencode($query) . '&format=json&limit=1&polygon_geojson=1&polygon_threshold=0.01';
+        $url = 'https://nominatim.openstreetmap.org/search?q='.urlencode($query).'&format=json&limit=1&polygon_geojson=1&polygon_threshold=0.01';
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
@@ -170,7 +219,7 @@ class KmlNetworkGenerator
         $body = curl_exec($ch);
         curl_close($ch);
 
-        if (!$body) {
+        if (! $body) {
             return null;
         }
 
@@ -195,7 +244,7 @@ class KmlNetworkGenerator
     {
         $geojson = $result['geojson'] ?? null;
 
-        if (!$geojson || !isset($geojson['type'])) {
+        if (! $geojson || ! isset($geojson['type'])) {
             return null;
         }
 
@@ -225,7 +274,7 @@ class KmlNetworkGenerator
             $ring = $largest;
         }
 
-        if (!$ring || count($ring) < 4) {
+        if (! $ring || count($ring) < 4) {
             return null;
         }
 
@@ -263,23 +312,25 @@ class KmlNetworkGenerator
             $points[] = "{$point['lat']} {$point['lng']}";
         }
 
-        $polyFilter = 'poly:"' . implode(' ', $points) . '"';
+        $polyFilter = 'poly:"'.implode(' ', $points).'"';
 
         $query = '[out:json][timeout:120];';
-        $query .= '(way["highway"~"^(residential|primary|secondary|tertiary|unclassified|living_street)$"]["name"](' . $polyFilter . '););';
+        $query .= '(way["highway"~"^(residential|primary|secondary|tertiary|unclassified|living_street)$"]["name"]('.$polyFilter.'););';
         $query .= 'out body;>;out skel qt;';
 
         $data = $this->overpassQuery($query);
+
         return $this->parseOverpassResponse($data);
     }
 
     public function fetchStreetsByBounds(float $south, float $west, float $north, float $east): array
     {
         $query = '[out:json][timeout:60];';
-        $query .= '(way["highway"~"^(residential|primary|secondary|tertiary|unclassified|living_street)$"]["name"](' . $south . ',' . $west . ',' . $north . ',' . $east . '););';
+        $query .= '(way["highway"~"^(residential|primary|secondary|tertiary|unclassified|living_street)$"]["name"]('.$south.','.$west.','.$north.','.$east.'););';
         $query .= 'out body;>;out skel qt;';
 
         $data = $this->overpassQuery($query);
+
         return $this->parseOverpassResponse($data);
     }
 
@@ -381,7 +432,7 @@ class KmlNetworkGenerator
         $visited = [$seedKey => true];
         $keptCells[$seedKey] = true;
 
-        while (!empty($queue)) {
+        while (! empty($queue)) {
             $key = array_pop($queue);
             [$cx, $cy] = explode(':', $key);
 
@@ -391,7 +442,7 @@ class KmlNetworkGenerator
                         continue;
                     }
 
-                    $nKey = ($cx + $dx) . ':' . ($cy + $dy);
+                    $nKey = ($cx + $dx).':'.($cy + $dy);
                     if (isset($visited[$nKey])) {
                         continue;
                     }
@@ -421,7 +472,7 @@ class KmlNetworkGenerator
                 $lngDeg = self::URBAN_CELL_SIZE_METERS / (111320.0 * cos(deg2rad((float) $lat)));
                 $cx = (int) floor((float) $lng / $lngDeg);
                 $cy = (int) floor((float) $lat / $latDeg);
-                $key = $cx . ':' . $cy;
+                $key = $cx.':'.$cy;
 
                 if (isset($keptCells[$key])) {
                     $keptNodes[] = $node;
@@ -454,7 +505,7 @@ class KmlNetworkGenerator
                 && ($lat < ($latJ - $latI) * ($lng - $lngI) / ($lngJ - $lngI) + $latI);
 
             if ($intersects) {
-                $inside = !$inside;
+                $inside = ! $inside;
             }
         }
 
@@ -497,14 +548,15 @@ class KmlNetworkGenerator
         return $streets;
     }
 
-    public function generateFromStreets(array $streets, string $prefix = '', string $city = '', string $state = '', int $ctoCapacity = 8, int $ctoIntervalMeters = 250, ?array $polygon = null): array
+    public function generateFromStreets(array $streets, string $prefix = '', string $city = '', string $state = '', int $ctoCapacity = 16, int $ctoIntervalMeters = 250, ?array $polygon = null, int $ctosPerCaixa = self::CTOS_PER_CAIXA_PADRAO): array
     {
         $this->reset();
         $this->currentPrefix = $prefix;
         $this->currentCity = $city;
         $this->currentState = $state;
-        $this->ctoCapacity = $ctoCapacity > 0 ? $ctoCapacity : 8;
+        $this->ctoCapacity = $ctoCapacity > 0 ? $ctoCapacity : 16;
         $this->ctoIntervalMeters = $ctoIntervalMeters >= 50 && $ctoIntervalMeters <= 1000 ? $ctoIntervalMeters : 250;
+        $this->ctosPerCaixa = $ctosPerCaixa > 0 ? $ctosPerCaixa : self::CTOS_PER_CAIXA_PADRAO;
         $this->cityPolygon = $polygon;
 
         // OSM entrega cada rua quebrada em varios ways (um por quadra/cruzamento).
@@ -528,9 +580,13 @@ class KmlNetworkGenerator
         return [
             'ctos' => $this->generatedCtos,
             'caixas' => $this->generatedCaixas,
+            'splitters' => $this->generatedSplitters,
             'stats' => [
                 'total_ctos' => $this->totalCtos,
                 'total_caixas' => $this->totalCaixas,
+                'total_splitters' => $this->totalSplitters,
+                'ctos_per_caixa' => $this->ctosPerCaixa,
+                'cto_capacity' => $this->ctoCapacity,
                 'total_streets' => count($mergedStreets),
                 'total_distance_km' => $this->calculateTotalDistance($mergedStreets),
                 'skipped_out_of_bound' => $this->skippedOutOfBound,
@@ -578,10 +634,10 @@ class KmlNetworkGenerator
         $seen = [];
         foreach ($segments as $seg) {
             $key = implode('|', array_map(
-                fn ($n) => round((float) ($n['lat'] ?? $n[0]), 6) . ',' . round((float) ($n['lng'] ?? $n[1]), 6),
+                fn ($n) => round((float) ($n['lat'] ?? $n[0]), 6).','.round((float) ($n['lng'] ?? $n[1]), 6),
                 $seg
             ));
-            if (!isset($seen[$key])) {
+            if (! isset($seen[$key])) {
                 $seen[$key] = true;
                 $unique[] = $seg;
             }
@@ -658,7 +714,7 @@ class KmlNetworkGenerator
         return $this->haversine($aLat, $aLng, $bLat, $bLng) <= self::STREET_SEGMENT_JOIN_METERS;
     }
 
-    public function generateFromCoordinates(array $coordinates, string $streetName = 'Rua Principal', string $prefix = '', int $ctoCapacity = 8, int $ctoIntervalMeters = 250): array
+    public function generateFromCoordinates(array $coordinates, string $streetName = 'Rua Principal', string $prefix = '', int $ctoCapacity = 16, int $ctoIntervalMeters = 250, int $ctosPerCaixa = self::CTOS_PER_CAIXA_PADRAO): array
     {
         $this->reset();
         $this->streetName = $streetName;
@@ -670,7 +726,7 @@ class KmlNetworkGenerator
             ],
         ];
 
-        return $this->generateFromStreets($streets, $prefix, '', '', $ctoCapacity, $ctoIntervalMeters);
+        return $this->generateFromStreets($streets, $prefix, '', '', $ctoCapacity, $ctoIntervalMeters, null, $ctosPerCaixa);
     }
 
     private function processStreet(array $nodes, string $prefix, int $chainIndex = 0): void
@@ -719,7 +775,7 @@ class KmlNetworkGenerator
             $lastPoint = $currentPoint;
         }
 
-        if (!$createdInStreet && $streetNodeCount > 0 && $lastPoint !== null) {
+        if (! $createdInStreet && $streetNodeCount > 0 && $lastPoint !== null) {
             foreach ($nodes as $node) {
                 $validLat = $node['lat'] ?? $node[0] ?? null;
                 $validLng = $node['lng'] ?? $node[1] ?? null;
@@ -736,8 +792,9 @@ class KmlNetworkGenerator
 
     private function createCto(float $lat, float $lng, string $prefix, float $distance, int $chainIndex = 0): bool
     {
-        if ($this->cityPolygon !== null && !$this->isPointInPolygon($lat, $lng, $this->cityPolygon)) {
+        if ($this->cityPolygon !== null && ! $this->isPointInPolygon($lat, $lng, $this->cityPolygon)) {
             $this->skippedOutOfBound++;
+
             return false;
         }
 
@@ -749,6 +806,7 @@ class KmlNetworkGenerator
         foreach ($this->chainCtoCoords[$chainIndex] ?? [] as $prevCoord) {
             if ($this->haversine($lat, $lng, $prevCoord['lat'], $prevCoord['lng']) < self::STREET_SEGMENT_JOIN_METERS) {
                 $this->skippedTooClose++;
+
                 return false;
             }
         }
@@ -756,6 +814,7 @@ class KmlNetworkGenerator
         foreach ($this->streetCtoCoords[$this->streetName] ?? [] as $prevCoord) {
             if ($this->haversine($lat, $lng, $prevCoord['lat'], $prevCoord['lng']) < self::STREET_SEGMENT_JOIN_METERS) {
                 $this->skippedTooClose++;
+
                 return false;
             }
         }
@@ -763,10 +822,10 @@ class KmlNetworkGenerator
         $this->chainCtoCoords[$chainIndex][] = ['lat' => $lat, 'lng' => $lng];
         $this->streetCtoCoords[$this->streetName][] = ['lat' => $lat, 'lng' => $lng];
 
-        $code = $prefix . self::CTO_BASE_CODE . str_pad($this->totalCtos + 1, 4, '0', STR_PAD_LEFT);
+        $code = $prefix.self::CTO_BASE_CODE.str_pad($this->totalCtos + 1, 4, '0', STR_PAD_LEFT);
 
         $cto = Cto::create([
-            'name' => "CTO {$this->currentCity} - {$this->streetName} #" . ($this->totalCtos + 1),
+            'name' => "CTO {$this->currentCity} - {$this->streetName} #".($this->totalCtos + 1),
             'code' => $code,
             'latitude' => $lat,
             'longitude' => $lng,
@@ -775,7 +834,9 @@ class KmlNetworkGenerator
             'street' => $this->streetName,
             'city' => $this->currentCity,
             'state' => $this->currentState,
-            'status' => 'active',
+            // Projeto planejado nao e rede construida: o tecnico ativa depois
+            // de lancar a fibra.
+            'status' => 'inactive',
             'distance_from_start' => round($distance, 2),
         ]);
 
@@ -784,7 +845,7 @@ class KmlNetworkGenerator
         $this->ctoCount++;
         $this->totalCtos++;
 
-        if ($this->ctoCount >= self::CTOS_PER_CAIXA) {
+        if ($this->ctoCount >= $this->ctosPerCaixa) {
             $this->flushPendingCaixa();
         }
 
@@ -798,7 +859,7 @@ class KmlNetworkGenerator
         }
 
         $centroid = $this->calculateCentroid($this->pendingCtoCoords);
-        $code = ($this->currentPrefix ?: '') . self::CAIXA_BASE_CODE . str_pad($this->totalCaixas + 1, 3, '0', STR_PAD_LEFT);
+        $code = ($this->currentPrefix ?: '').self::CAIXA_BASE_CODE.str_pad($this->totalCaixas + 1, 3, '0', STR_PAD_LEFT);
 
         $caixa = CaixaEmenda::create([
             'name' => "CE {$this->currentCity} - {$this->streetName} #{$code}",
@@ -810,7 +871,7 @@ class KmlNetworkGenerator
             'street' => $this->streetName,
             'city' => $this->currentCity,
             'state' => $this->currentState,
-            'status' => 'active',
+            'status' => 'inactive',
         ]);
 
         $pendingCtos = array_slice($this->generatedCtos, -$this->ctoCount);
@@ -818,10 +879,86 @@ class KmlNetworkGenerator
             $cto->update(['caixa_emenda_id' => $caixa->id]);
         }
 
+        $splitters = $this->createSplittersForCaixa($caixa, $pendingCtos);
+        $caixa->update([
+            'splitter_config' => $this->describeSplitters($splitters),
+        ]);
+
         $this->generatedCaixas[] = $caixa;
         $this->totalCaixas++;
         $this->ctoCount = 0;
         $this->pendingCtoCoords = [];
+    }
+
+    /**
+     * A CEO concentra os splitters que alimentam as suas CTOs: um 1x8 para cada
+     * grupo de 8 CTOs. Com 8 CTOs sai um splitter, com 32 saem 4, que e como
+     * uma CEO atende varios projetos de bairro ao mesmo tempo.
+     */
+    private function createSplittersForCaixa(CaixaEmenda $caixa, array $ctos): array
+    {
+        if (empty($ctos)) {
+            return [];
+        }
+
+        $grupos = array_chunk($ctos, self::SAIDAS_POR_SPLITTER_CEO);
+        $saidas = count($grupos) * self::SAIDAS_POR_SPLITTER_CEO;
+        $criados = [];
+
+        foreach ($grupos as $indice => $grupo) {
+            $this->totalSplitters++;
+
+            $base = ($this->currentPrefix ?: '').'SPT'.str_pad($this->totalSplitters, 4, '0', STR_PAD_LEFT);
+
+            $splitter = FtthSplitter::create([
+                'name' => sprintf('Splitter 1x%d %s', $saidas, $caixa->code),
+                'code' => $this->uniqueSplitterCode($base),
+                'parent_type' => 'caixa',
+                'parent_id' => $caixa->id,
+                // Deslocamento pequeno para o losango do splitter nao sumir
+                // exatamente em cima do quadrado da CEO.
+                'latitude' => $caixa->latitude + ($indice * 0.00015),
+                'longitude' => $caixa->longitude,
+                'input_ports' => 1,
+                'output_ports' => $saidas,
+                'ratio' => '1x'.$saidas,
+                'status' => 'ativo',
+            ]);
+
+            $criados[] = $splitter;
+            $this->generatedSplitters[] = $splitter;
+        }
+
+        return $criados;
+    }
+
+    /**
+     * ftth_splitters.code tem indice unico e o contador zera a cada geracao,
+     * entao gerar a mesma cidade de novo precisa de um sufixo em vez de
+     * estourar o indice.
+     */
+    private function uniqueSplitterCode(string $base): string
+    {
+        $code = $base;
+        $tentativas = 1;
+
+        while (FtthSplitter::withTrashed()->where('code', $code)->exists() && $tentativas < 1000) {
+            $tentativas++;
+            $code = $base.'-'.$tentativas;
+        }
+
+        return $code;
+    }
+
+    private function describeSplitters(array $splitters): ?string
+    {
+        if (empty($splitters)) {
+            return null;
+        }
+
+        $ratios = array_values(array_unique(array_map(fn ($s) => $s->ratio, $splitters)));
+
+        return count($splitters).'x '.implode(' + ', $ratios);
     }
 
     private function calculateCentroid(array $coords): array
@@ -883,9 +1020,11 @@ class KmlNetworkGenerator
         $this->ctoCount = 0;
         $this->totalCtos = 0;
         $this->totalCaixas = 0;
+        $this->totalSplitters = 0;
         $this->pendingCtoCoords = [];
         $this->generatedCtos = [];
         $this->generatedCaixas = [];
+        $this->generatedSplitters = [];
         $this->cityPolygon = null;
         $this->skippedOutOfBound = 0;
         $this->skippedTooClose = 0;

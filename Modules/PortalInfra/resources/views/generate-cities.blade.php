@@ -73,7 +73,7 @@
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Portas por CTO</label>
-                        <input type="number" name="cto_capacity" value="{{ old('cto_capacity', 8) }}" min="1" max="256"
+                        <input type="number" name="cto_capacity" value="{{ old('cto_capacity', 16) }}" min="1" max="256"
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
 
@@ -81,6 +81,13 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">Intervalo CTOs (metros)</label>
                         <input type="number" name="cto_interval" value="{{ old('cto_interval', 250) }}" min="50" max="1000" step="10"
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">CTOs por CEO</label>
+                        <input type="number" name="ctos_per_caixa" value="{{ old('ctos_per_caixa', 8) }}" min="1" max="64"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <p class="text-xs text-gray-500 mt-1">A CEO sempre atende 8. Informe mais se ela concentrar outros projetos de bairro: 16 CTOs viram 2 splitters 1x8, 32 CTOs viram 4.</p>
                     </div>
                 </div>
 

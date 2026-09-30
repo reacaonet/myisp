@@ -17,6 +17,14 @@
     .marker-caixa { background: #22c55e; width: 15px; height: 15px; border-radius: 3px; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
     .marker-splitter { background: #8b5cf6; width: 14px; height: 14px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
     .marker-inactive { opacity: 0.4; }
+    .popup-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .popup-actions button { border: 0; border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; color: #fff; }
+    .act-edit { background: #2563eb; }
+    .act-connect { background: #f59e0b; }
+    .act-split { background: #7c3aed; }
+    .act-delete { background: #dc2626; }
+    .popup-meta { margin-top: 6px; font-size: 12px; color: #6b7280; }
+    .popup-meta b { color: #374151; }
     .toolbar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 500; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.15); display: flex; gap: 4px; padding: 6px 8px; }
     .toolbar button { padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 500; border: none; cursor: pointer; transition: all .15s; }
     .toolbar button.active { background: #2563eb; color: #fff; }
@@ -39,7 +47,7 @@
 <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
     <div>
         <h1 class="text-2xl font-bold text-gray-900">Editor de Rede FTTH</h1>
-        <p class="text-gray-500 text-sm">Arraste CTOs, Caixas e Splitters. Desenhe o traçado da fibra lançada.</p>
+        <p class="text-gray-500 text-sm">Clique numa CEO ou CTO para editar, conectar ou colocar um splitter dentro dela. Desenhe o traçado da fibra lançada.</p>
     </div>
     <div class="flex items-center gap-3">
         <select id="citySelect" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
@@ -92,7 +100,7 @@
     <div class="toolbar">
         <button id="btnMove" class="active">Mover</button>
         <button id="btnFiber">Desenhar Fibra</button>
-        <button id="btnAddSplitter">Adicionar Splitter</button>
+        <button id="btnAddSplitter" title="Abra o popup de uma CEO ou CTO e escolha Adicionar splitter">Adicionar Splitter</button>
         <button id="btnConnect">Conectar</button>
         <button id="btnCancel">Cancelar</button>
     </div>
@@ -158,6 +166,90 @@
     </div>
 </div>
 
+<div id="elementModal" class="fixed inset-0 z-[1500] hidden items-center justify-center bg-black/50 p-4">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-gray-900" id="elementModalTitle">Editar</h3>
+            <button id="btnCloseElementModal" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+        <div class="space-y-3">
+            <div>
+                <label class="text-xs font-semibold uppercase text-gray-500">Nome</label>
+                <input id="elName" class="px-2 py-2 border border-gray-300 rounded-lg text-sm w-full">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs font-semibold uppercase text-gray-500">Código</label>
+                    <input id="elCode" class="px-2 py-2 border border-gray-300 rounded-lg text-sm w-full">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold uppercase text-gray-500">Capacidade</label>
+                    <input id="elCapacity" type="number" min="1" max="1024" class="px-2 py-2 border border-gray-300 rounded-lg text-sm w-full">
+                </div>
+            </div>
+            <div>
+                <label class="text-xs font-semibold uppercase text-gray-500">Status</label>
+                <select id="elStatus" class="px-2 py-2 border border-gray-300 rounded-lg text-sm w-full">
+                    <option value="active">Ativa (fibra lançada)</option>
+                    <option value="inactive">Inativa (projeto, sem fibra lançada)</option>
+                </select>
+            </div>
+            <div id="elColorRow">
+                <label class="text-xs font-semibold uppercase text-gray-500">Cor da CTO</label>
+                <input id="elColor" type="color" value="#ef4444" class="w-12 h-8 border border-gray-300 rounded-lg">
+                <span class="text-xs text-gray-500 ml-2">Use a cor para identificar a CTO no mapa.</span>
+            </div>
+            <div>
+                <label class="text-xs font-semibold uppercase text-gray-500">Rua</label>
+                <input id="elStreet" class="px-2 py-2 border border-gray-300 rounded-lg text-sm w-full">
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button id="btnSaveElement" class="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm font-semibold hover:bg-blue-700">Salvar</button>
+                <button id="btnCancelElement" class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="splitterModal" class="fixed inset-0 z-[1500] hidden items-center justify-center bg-black/50 p-4">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-gray-900">Editar Splitter</h3>
+            <button id="btnCloseSplitterModal" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+        <div class="space-y-3">
+            <div>
+                <label class="text-xs font-semibold uppercase text-gray-500">Nome</label>
+                <input id="spName" class="px-2 py-2 border border-gray-300 rounded-lg text-sm w-full">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs font-semibold uppercase text-gray-500">Código</label>
+                    <input id="spCode" class="px-2 py-2 border border-gray-300 rounded-lg text-sm w-full">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold uppercase text-gray-500">Saídas</label>
+                    <select id="spOutputs" class="px-2 py-2 border border-gray-300 rounded-lg text-sm w-full">
+                        <option value="8">1x8</option>
+                        <option value="16">1x16</option>
+                        <option value="32">1x32</option>
+                        <option value="64">1x64</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="text-xs font-semibold uppercase text-gray-500">Progenitor</label>
+                <select id="spParent" class="px-2 py-2 border border-gray-300 rounded-lg text-sm w-full"></select>
+                <p class="text-xs text-gray-500 mt-1">O splitter pertence à CEO ou CTO escolhida.</p>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button id="btnSaveSplitter" class="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm font-semibold hover:bg-blue-700">Salvar</button>
+                <button id="btnCancelSplitter" class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 @push('scripts')
@@ -170,7 +262,9 @@
     const fiberUpdateUrl = '{{ route("infra.ftth.editor.fibers.update", ["id" => "__ID__"]) }}';
     const fiberDeleteUrl = '{{ route("infra.ftth.editor.fibers.destroy", ["id" => "__ID__"]) }}';
     const splitterStoreUrl = '{{ route("infra.ftth.editor.splitters.store") }}';
+    const splitterUpdateUrl = '{{ route("infra.ftth.editor.splitters.update", ["id" => "__ID__"]) }}';
     const splitterDeleteUrl = '{{ route("infra.ftth.editor.splitters.destroy", ["id" => "__ID__"]) }}';
+    const elementUpdateUrl = '{{ route("infra.ftth.editor.elements.update", ["type" => "__TYPE__", "id" => "__ID__"]) }}';
     const connectionStoreUrl = '{{ route("infra.ftth.editor.connections.store") }}';
     const connectionDeleteUrl = '{{ route("infra.ftth.editor.connections.destroy", ["id" => "__ID__"]) }}';
     const reportUrl = '{{ route("infra.ftth.editor.report", ["city" => "__CITY__"]) }}';
@@ -217,7 +311,22 @@
 
     const ctoIcon = L.divIcon({ className: 'marker-cto', iconSize: [13, 13], iconAnchor: [7, 7] });
     const caixaIcon = L.divIcon({ className: 'marker-caixa', iconSize: [15, 15], iconAnchor: [8, 8] });
+    const caixaInactiveIcon = L.divIcon({ className: 'marker-caixa marker-inactive', iconSize: [15, 15], iconAnchor: [8, 8] });
     const splitterIcon = L.divIcon({ className: 'marker-splitter', iconSize: [14, 14], iconAnchor: [7, 7] });
+
+    // A CTO e o unico elemento com cor propria: cada CTO nasce com a cor que
+    // o tecnico escolheu para separar visualmente as CTOs da mesma CEO.
+    function ctoIconFor(color, inactive) {
+        return L.divIcon({
+            className: 'marker-cto-dyn' + (inactive ? ' marker-inactive' : ''),
+            html: '<span style="display:block;width:13px;height:13px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);background:' + escHtml(color || '#ef4444') + '"></span>',
+            iconSize: [13, 13],
+            iconAnchor: [7, 7]
+        });
+    }
+
+    let editingElement = null;
+    let editingSplitter = null;
 
     function showToast(msg) {
         const el = document.getElementById('toast');
@@ -284,6 +393,49 @@
         return el ? [el.lat, el.lng] : null;
     }
 
+    // Popups: a CEO e a CTO sao o ponto de partida da obra. Clicar nelas abre
+    // editar, conectar e adicionar splitter dentro delas.
+    function elementActions(type, id) {
+        return '<div class="popup-actions">' +
+            '<button class="act-edit" data-action="edit" data-type="' + type + '" data-id="' + id + '">Editar</button>' +
+            '<button class="act-connect" data-action="connect" data-type="' + type + '" data-id="' + id + '">Conectar</button>' +
+            '<button class="act-split" data-action="splitter" data-type="' + type + '" data-id="' + id + '">Adicionar splitter</button>' +
+            '</div>';
+    }
+
+    function ctoPopup(c) {
+        return '<div style="min-width:210px">' +
+            '<b style="color:#dc2626">' + escHtml(c.code) + '</b> — CTO<br>' +
+            escHtml(c.name) + '<br>' + escHtml(c.street || '') + '<br>' +
+            '<div class="popup-meta">Portas: <b>' + c.used + '/' + c.capacity + '</b> • Splitters: <b>' + (c.splitter_count || 0) + '</b><br>' +
+            'Status: <b>' + (c.status === 'active' ? 'ativa' : 'inativa (sem fibra lançada)') + '</b><br>' +
+            'Cor: <span style="display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:middle;border:1px solid #d1d5db;background:' + escHtml(c.color || '#ef4444') + '"></span></div>' +
+            elementActions('cto', c.id) +
+            '</div>';
+    }
+
+    function caixaPopup(c) {
+        return '<div style="min-width:210px">' +
+            '<b style="color:#16a34a">' + escHtml(c.code) + '</b> — CEO / Caixa de Emenda<br>' +
+            escHtml(c.name) + '<br>' + escHtml(c.street || '') + '<br>' +
+            '<div class="popup-meta">CTOs: <b>' + (c.cto_count || 0) + '</b> • Splitters: <b>' + (c.splitter_count || 0) + '</b><br>' +
+            'Status: <b>' + (c.status === 'active' ? 'ativa' : 'inativa (sem fibra lançada)') + '</b></div>' +
+            elementActions('caixa', c.id) +
+            '</div>';
+    }
+
+    function splitterPopup(s) {
+        const parentLabel = s.parent_type === 'caixa' ? 'CEO' : 'CTO';
+        return '<div style="min-width:200px">' +
+            '<b style="color:#7c3aed">' + escHtml(s.code || s.name) + '</b><br>' +
+            escHtml(s.name) + '<br>Splitter ' + escHtml(s.ratio) + '<br>' +
+            '<div class="popup-meta">Dentro da ' + parentLabel + ': <b>' + escHtml(s.parent_code || '?') + '</b></div>' +
+            '<div class="popup-actions">' +
+            '<button class="act-edit" data-action="splitter-edit" data-id="' + s.id + '">Editar</button>' +
+            '<button class="act-delete" data-action="splitter-delete" data-id="' + s.id + '">Excluir</button>' +
+            '</div></div>';
+    }
+
     function renderConnection(cnx) {
         const start = findPos(cnx.source_type, cnx.source_id);
         const end = findPos(cnx.target_type, cnx.target_id);
@@ -331,23 +483,23 @@
 
                 let bounds = [];
                 (data.ctos || []).forEach(c => {
-                    const marker = L.marker([c.lat, c.lng], { icon: ctoIcon, draggable: true }).addTo(ctoLayer);
+                    const marker = L.marker([c.lat, c.lng], { icon: ctoIconFor(c.color, c.status === 'inactive'), draggable: true }).addTo(ctoLayer);
                     marker.on('dragend', e => saveMove('cto', c.id, e.target.getLatLng()));
-                    marker.bindPopup('<div><b style="color:#dc2626">' + c.code + '</b><br>' + c.name + '<br>' + (c.street || '') + '<br>Portas: ' + c.used + '/' + c.capacity + '</div>');
+                    marker.bindPopup(ctoPopup(c));
                     bounds.push([c.lat, c.lng]);
                 });
 
                 (data.caixas || []).forEach(c => {
-                    const marker = L.marker([c.lat, c.lng], { icon: caixaIcon, draggable: true }).addTo(caixaLayer);
+                    const marker = L.marker([c.lat, c.lng], { icon: c.status === 'inactive' ? caixaInactiveIcon : caixaIcon, draggable: true }).addTo(caixaLayer);
                     marker.on('dragend', e => saveMove('caixa', c.id, e.target.getLatLng()));
-                    marker.bindPopup('<div><b style="color:#16a34a">' + c.code + '</b><br>' + c.name + '<br>' + (c.street || '') + '<br>Portas: ' + c.used + '/' + c.capacity + '</div>');
+                    marker.bindPopup(caixaPopup(c));
                     bounds.push([c.lat, c.lng]);
                 });
 
                 (data.splitters || []).forEach(s => {
                     const marker = L.marker([s.lat, s.lng], { icon: splitterIcon, draggable: true }).addTo(splitterLayer);
                     marker.on('dragend', e => saveMove('splitter', s.id, e.target.getLatLng()));
-                    marker.bindPopup('<div><b style="color:#7c3aed">' + (s.code || s.name) + '</b><br>' + s.name + '<br>Splitter ' + s.ratio + '<br><button class="btn-delete-splitter" data-id="' + s.id + '" style="margin-top:6px;background:#dc2626;color:#fff;border:0;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer">Excluir</button></div>');
+                    marker.bindPopup(splitterPopup(s));
                     bounds.push([s.lat, s.lng]);
                 });
 
@@ -450,15 +602,6 @@
                 headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
             }).then(r => { if (!r.ok) throw new Error(); return r.json(); })
                 .then(() => { showToast('Fibra excluída.'); loadData(); })
-                .catch(() => showToast('Falha ao excluir.'));
-        }
-        if (e.target.classList.contains('btn-delete-splitter')) {
-            if (!confirm('Excluir este splitter?')) return;
-            fetch(splitterDeleteUrl.replace('__ID__', e.target.dataset.id), {
-                method: 'DELETE',
-                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
-            }).then(r => { if (!r.ok) throw new Error(); return r.json(); })
-                .then(() => { showToast('Splitter excluído.'); loadData(); })
                 .catch(() => showToast('Falha ao excluir.'));
         }
         if (e.target.classList.contains('btn-delete-connection')) {
@@ -595,31 +738,195 @@
     document.getElementById('btnCancel').addEventListener('click', () => setMode('move'));
 
     document.getElementById('btnAddSplitter').addEventListener('click', () => {
-        const ratio = prompt('Dimensão do splitter?\n1 = entrada, saídas (8, 16, 32 ou 64):', '16');
-        const outputs = parseInt(ratio, 10);
+        showToast('Abra o popup de uma CEO ou CTO e escolha "Adicionar splitter".');
+    });
+
+    // Ações dos popups. O Leaflet bloqueia a propagação do clique dentro do
+    // popup, então este listener não compete com o desenho de fibra.
+    document.getElementById('map').addEventListener('click', function (e) {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+
+        const action = btn.dataset.action;
+        const id = Number(btn.dataset.id);
+        const type = btn.dataset.type;
+
+        if (action === 'edit') {
+            openElementModal(type, id);
+        } else if (action === 'connect') {
+            openConnectModal();
+            const side = type === 'splitter' ? 'srcType' : 'dstType';
+            document.getElementById(side).value = type;
+            document.getElementById(side).dispatchEvent(new Event('change'));
+            document.getElementById(side === 'srcType' ? 'srcElement' : 'dstElement').value = id;
+        } else if (action === 'splitter') {
+            startAddSplitter(type, id);
+        } else if (action === 'splitter-edit') {
+            openSplitterModal(id);
+        } else if (action === 'splitter-delete') {
+            if (!confirm('Excluir este splitter?')) return;
+            fetch(splitterDeleteUrl.replace('__ID__', id), {
+                method: 'DELETE',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+            })
+                .then(r => r.json())
+                .then(json => { showToast(json.message || 'Splitter removido.'); loadData(); })
+                .catch(err => showToast('Erro: ' + err.message));
+        }
+    });
+
+    function findElement(type, id) {
+        const list = type === 'cto' ? ctos : caixas;
+        return list.find(e => e.id === Number(id)) || null;
+    }
+
+    // Splitter sempre nasce dentro de uma CEO ou CTO. O progenitor vem do
+    // popup; o ponto no mapa so define onde ele fica no mapa.
+    function startAddSplitter(type, id) {
+        const parent = findElement(type, id);
+        if (!parent) { showToast('Escolha uma CEO ou CTO do mapa.'); return; }
+
+        const outputs = parseInt(prompt('Splitter dentro de ' + (parent.code || parent.name) + '.\nSaídas (8, 16, 32 ou 64):', '8'), 10);
         if (![8, 16, 32, 64].includes(outputs)) { showToast('Use 8, 16, 32 ou 64.'); return; }
+
         const name = prompt('Nome do splitter:', 'Splitter 1x' + outputs);
         if (!name) return;
-        map.once('click', function(e) {
+
+        showToast('Clique no mapa para posicionar o splitter.');
+        map.once('click', function (e) {
             fetch(splitterStoreUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
                 body: JSON.stringify({
                     city: currentCity,
                     name: name,
+                    parent_type: type,
+                    parent_id: id,
                     lat: e.latlng.lat,
                     lng: e.latlng.lng,
                     input_ports: 1,
                     output_ports: outputs
                 })
             })
-                .then(r => r.json())
-                .then(() => { showToast('Splitter adicionado. Clique no mapa antes de arrastá-lo.'); loadData(); })
+                .then(r => Promise.all([r.ok, r.json()]))
+                .then(([ok, json]) => {
+                    if (!ok) { throw new Error(json.message || 'Erro ao criar splitter.'); }
+                    showToast(json.message);
+                    loadData();
+                })
                 .catch(err => showToast('Erro: ' + err.message));
         });
-        setMode('move');
-        document.getElementById('btnMove').classList.add('active');
+    }
+
+    function openElementModal(type, id) {
+        const el = findElement(type, id);
+        if (!el) return;
+
+        editingElement = { type: type, id: id };
+        document.getElementById('elementModalTitle').textContent = type === 'cto' ? 'Editar CTO' : 'Editar CEO / Caixa de Emenda';
+        document.getElementById('elName').value = el.name || '';
+        document.getElementById('elCode').value = el.code || '';
+        document.getElementById('elCapacity').value = el.capacity || 1;
+        document.getElementById('elStatus').value = el.status || 'inactive';
+        document.getElementById('elStreet').value = el.street || '';
+        // CEO usa a cor padrao do mapa: a cor editavel e so da CTO.
+        document.getElementById('elColorRow').style.display = type === 'cto' ? 'block' : 'none';
+        document.getElementById('elColor').value = el.color || '#ef4444';
+
+        openModal('elementModal');
+    }
+
+    document.getElementById('btnSaveElement').addEventListener('click', () => {
+        if (!editingElement) return;
+
+        const payload = {
+            name: document.getElementById('elName').value,
+            code: document.getElementById('elCode').value,
+            capacity: Number(document.getElementById('elCapacity').value),
+            status: document.getElementById('elStatus').value,
+            street: document.getElementById('elStreet').value
+        };
+
+        if (editingElement.type === 'cto') {
+            payload.color = document.getElementById('elColor').value;
+        }
+
+        fetch(elementUpdateUrl.replace('__TYPE__', editingElement.type).replace('__ID__', editingElement.id), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+            body: JSON.stringify(payload)
+        })
+            .then(r => Promise.all([r.ok, r.json()]))
+            .then(([ok, json]) => {
+                if (!ok) { throw new Error(json.message || 'Erro ao salvar.'); }
+                showToast(json.message);
+                closeModal('elementModal');
+                loadData();
+            })
+            .catch(err => showToast('Erro: ' + err.message));
     });
+
+    document.getElementById('btnCloseElementModal').addEventListener('click', () => closeModal('elementModal'));
+    document.getElementById('btnCancelElement').addEventListener('click', () => closeModal('elementModal'));
+
+    function openSplitterModal(id) {
+        const s = splitters.find(e => e.id === Number(id));
+        if (!s) return;
+
+        editingSplitter = s;
+        document.getElementById('spName').value = s.name || '';
+        document.getElementById('spCode').value = s.code || '';
+        document.getElementById('spOutputs').value = s.output_ports;
+
+        const opts = caixas.map(c => '<option value="caixa:' + c.id + '">CEO ' + escHtml(c.code) + '</option>').join('')
+            + ctos.map(c => '<option value="cto:' + c.id + '">CTO ' + escHtml(c.code) + '</option>').join('');
+        document.getElementById('spParent').innerHTML = opts;
+        document.getElementById('spParent').value = s.parent_type + ':' + s.parent_id;
+
+        openModal('splitterModal');
+    }
+
+    document.getElementById('btnSaveSplitter').addEventListener('click', () => {
+        if (!editingSplitter) return;
+
+        const [parentType, parentId] = document.getElementById('spParent').value.split(':');
+
+        fetch(splitterUpdateUrl.replace('__ID__', editingSplitter.id), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+            body: JSON.stringify({
+                name: document.getElementById('spName').value,
+                code: document.getElementById('spCode').value,
+                input_ports: 1,
+                output_ports: Number(document.getElementById('spOutputs').value),
+                parent_type: parentType,
+                parent_id: Number(parentId)
+            })
+        })
+            .then(r => Promise.all([r.ok, r.json()]))
+            .then(([ok, json]) => {
+                if (!ok) { throw new Error(json.message || 'Erro ao salvar.'); }
+                showToast(json.message);
+                closeModal('splitterModal');
+                loadData();
+            })
+            .catch(err => showToast('Erro: ' + err.message));
+    });
+
+    document.getElementById('btnCloseSplitterModal').addEventListener('click', () => closeModal('splitterModal'));
+    document.getElementById('btnCancelSplitter').addEventListener('click', () => closeModal('splitterModal'));
+
+    function openModal(id) {
+        const el = document.getElementById(id);
+        el.classList.remove('hidden');
+        el.classList.add('flex');
+    }
+
+    function closeModal(id) {
+        const el = document.getElementById(id);
+        el.classList.add('hidden');
+        el.classList.remove('flex');
+    }
 
     // Desenho de fibra
     map.on('click', function(e) {

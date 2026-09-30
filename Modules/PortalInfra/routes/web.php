@@ -190,10 +190,12 @@ Route::prefix('infra')->name('infra.')->group(function () {
             Route::get('/editor', [FtthEditorController::class, 'index'])->name('editor.index');
             Route::get('/editor/api/data', [FtthEditorController::class, 'data'])->name('editor.data');
             Route::put('/editor/api/mover/{type}/{id}', [FtthEditorController::class, 'move'])->name('editor.move');
+            Route::put('/editor/api/elementos/{type}/{id}', [FtthEditorController::class, 'updateElement'])->name('editor.elements.update');
             Route::post('/editor/api/fibras', [FtthEditorController::class, 'storeFiber'])->name('editor.fibers.store');
             Route::put('/editor/api/fibras/{id}', [FtthEditorController::class, 'updateFiber'])->name('editor.fibers.update');
             Route::delete('/editor/api/fibras/{id}', [FtthEditorController::class, 'destroyFiber'])->name('editor.fibers.destroy');
             Route::post('/editor/api/splitters', [FtthEditorController::class, 'storeSplitter'])->name('editor.splitters.store');
+            Route::put('/editor/api/splitters/{id}', [FtthEditorController::class, 'updateSplitter'])->name('editor.splitters.update');
             Route::delete('/editor/api/splitters/{id}', [FtthEditorController::class, 'destroySplitter'])->name('editor.splitters.destroy');
             Route::post('/editor/api/conexoes', [FtthEditorController::class, 'storeConnection'])->name('editor.connections.store');
             Route::delete('/editor/api/conexoes/{id}', [FtthEditorController::class, 'destroyConnection'])->name('editor.connections.destroy');

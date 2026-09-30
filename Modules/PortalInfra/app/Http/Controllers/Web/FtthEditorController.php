@@ -4,13 +4,12 @@ namespace Modules\PortalInfra\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Modules\PortalInfra\Models\Cto;
 use Modules\PortalInfra\Models\CaixaEmenda;
-use Modules\PortalInfra\Models\FtthProject;
-use Modules\PortalInfra\Models\FtthFiberLink;
-use Modules\PortalInfra\Models\FtthSplitter;
+use Modules\PortalInfra\Models\Cto;
 use Modules\PortalInfra\Models\FtthConnection;
+use Modules\PortalInfra\Models\FtthFiberLink;
+use Modules\PortalInfra\Models\FtthProject;
+use Modules\PortalInfra\Models\FtthSplitter;
 
 class FtthEditorController extends Controller
 {
@@ -31,7 +30,7 @@ class FtthEditorController extends Controller
         $cities = Cto::whereNull('deleted_at')->whereNotNull('city')->where('city', '!=', '')
             ->distinct()->orderBy('city')->pluck('city')->values();
 
-        if (!$city) {
+        if (! $city) {
             return response()->json([
                 'cities' => $cities,
                 'city' => $cities->first() ?: null,
@@ -54,7 +53,9 @@ class FtthEditorController extends Controller
                 'capacity' => $c->capacity,
                 'used' => $c->used_ports,
                 'status' => $c->status,
+                'color' => $c->color,
                 'caixa_id' => $c->caixa_emenda_id,
+                'splitter_count' => $c->splitters()->count(),
             ]);
 
         $caixas = CaixaEmenda::whereNull('deleted_at')->where('city', $city)
@@ -69,21 +70,14 @@ class FtthEditorController extends Controller
                 'capacity' => $c->capacity,
                 'used' => $c->used_ports,
                 'status' => $c->status,
+                'cto_count' => $c->ctos()->count(),
+                'splitter_count' => $c->splitters()->count(),
             ]);
 
         $project = $this->findCityProject($city);
 
         $splitters = $project
-            ? $project->splitters()->get()->map(fn ($s) => [
-                'type' => 'splitter',
-                'id' => $s->id,
-                'code' => $s->code,
-                'name' => $s->name,
-                'lat' => (float) $s->latitude,
-                'lng' => (float) $s->longitude,
-                'ratio' => $s->ratio,
-                'output_ports' => $s->output_ports,
-            ])
+            ? $project->splitters()->get()->map(fn ($s) => $this->splitterPayload($s))
             : collect();
 
         $fibers = $project
@@ -127,7 +121,7 @@ class FtthEditorController extends Controller
 
     private function elementCode(string $type, ?int $id): ?string
     {
-        if (!$id) {
+        if (! $id) {
             return null;
         }
 
@@ -154,7 +148,7 @@ class FtthEditorController extends Controller
         }
 
         return FtthProject::create([
-            'name' => 'Rede ' . $city,
+            'name' => 'Rede '.$city,
             'city' => $city,
             'state' => null,
             'prefix' => null,
@@ -272,36 +266,162 @@ class FtthEditorController extends Controller
             'city' => 'required|string|max:255',
             'name' => 'required|string|max:255',
             'code' => 'nullable|string|max:20',
-            'lat' => 'required|numeric|between:-90,90',
-            'lng' => 'required|numeric|between:-180,180',
+            // O splitter nasce dentro de uma CEO ou de uma CTO, nunca solto.
+            'parent_type' => 'required|in:caixa,cto',
+            'parent_id' => 'required|integer',
+            'lat' => 'nullable|numeric|between:-90,90',
+            'lng' => 'nullable|numeric|between:-180,180',
             'input_ports' => 'required|integer|min:1|max:4',
             'output_ports' => 'required|integer|in:8,16,32,64',
         ]);
 
+        $parent = $this->assertParent($request->input('parent_type'), $request->input('parent_id'));
+
+        // Sem coordenada no mapa, o splitter nasce em cima de quem o alimenta.
+        $lat = $request->filled('lat') ? (float) $request->input('lat') : (float) $parent->latitude;
+        $lng = $request->filled('lng') ? (float) $request->input('lng') : (float) $parent->longitude;
+
         $splitter = FtthSplitter::create([
-            'ftth_project_id' => $this->ensureCityProject($request->input('city'))->id,
+            'ftth_project_id' => $parent->ftth_project_id
+                ?: $this->ensureCityProject($request->input('city'))->id,
             'name' => $request->input('name'),
             'code' => $request->input('code'),
-            'latitude' => (float) $request->input('lat'),
-            'longitude' => (float) $request->input('lng'),
+            'parent_type' => $request->input('parent_type'),
+            'parent_id' => $parent->id,
+            'latitude' => $lat,
+            'longitude' => $lng,
             'input_ports' => $request->input('input_ports'),
             'output_ports' => $request->input('output_ports'),
-            'ratio' => $request->input('input_ports') . 'x' . $request->input('output_ports'),
+            'ratio' => $request->input('input_ports').'x'.$request->input('output_ports'),
         ]);
 
         return response()->json([
             'message' => 'Splitter adicionado.',
-            'splitter' => [
-                'type' => 'splitter',
-                'id' => $splitter->id,
-                'code' => $splitter->code,
-                'name' => $splitter->name,
-                'lat' => (float) $splitter->latitude,
-                'lng' => (float) $splitter->longitude,
-                'ratio' => $splitter->ratio,
-                'output_ports' => $splitter->output_ports,
-            ],
+            'splitter' => $this->splitterPayload($splitter),
         ], 201);
+    }
+
+    public function updateSplitter(Request $request, int $id)
+    {
+        $splitter = FtthSplitter::findOrFail($id);
+
+        $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'code' => 'nullable|string|max:20',
+            'input_ports' => 'sometimes|required|integer|min:1|max:4',
+            'output_ports' => 'sometimes|required|integer|in:8,16,32,64',
+            'parent_type' => 'sometimes|required|in:caixa,cto',
+            'parent_id' => 'sometimes|required|integer',
+        ]);
+
+        $data = $request->only(['name', 'code', 'input_ports', 'output_ports']);
+
+        if ($request->has('output_ports') || $request->has('input_ports')) {
+            $data['ratio'] = (int) ($data['input_ports'] ?? $splitter->input_ports)
+                .'x'.(int) ($data['output_ports'] ?? $splitter->output_ports);
+        }
+
+        // Trocar de progenitor: CEO e CTO trocam de lugar o splitter.
+        if ($request->filled('parent_type') || $request->filled('parent_id')) {
+            $parent = $this->assertParent(
+                $request->input('parent_type', $splitter->parent_type),
+                $request->input('parent_id', $splitter->parent_id)
+            );
+
+            $data['parent_type'] = $request->input('parent_type', $splitter->parent_type);
+            $data['parent_id'] = $parent->id;
+        }
+
+        $splitter->update($data);
+
+        return response()->json([
+            'message' => 'Splitter atualizado.',
+            'splitter' => $this->splitterPayload($splitter->fresh()),
+        ]);
+    }
+
+    /**
+     * Edicao de CEO/CTO pelo popup do mapa. A CTO e o unico elemento com cor
+     * propria: o tecnico usa a cor para identificar a CTO no mapa.
+     */
+    public function updateElement(Request $request, string $type, int $id)
+    {
+        $model = match ($type) {
+            'cto' => Cto::findOrFail($id),
+            'caixa' => CaixaEmenda::findOrFail($id),
+            default => abort(422, 'Tipo inválido.'),
+        };
+
+        $rules = [
+            'name' => 'sometimes|required|string|max:255',
+            'code' => 'nullable|string|max:20',
+            'street' => 'nullable|string|max:255',
+            'capacity' => 'sometimes|required|integer|min:1|max:1024',
+            'status' => 'sometimes|required|in:active,inactive',
+            'notes' => 'nullable|string|max:1000',
+        ];
+
+        if ($type === 'cto') {
+            $rules['color'] = 'nullable|string|regex:/^#[0-9a-fA-F]{6}$/';
+        }
+
+        $request->validate($rules);
+
+        $data = $request->only(array_keys($rules));
+
+        if ($request->has('capacity')) {
+            $data['capacity'] = (int) $request->input('capacity');
+        }
+
+        if ($type === 'cto' && $request->has('color')) {
+            $data['color'] = $request->input('color') ?: null;
+        }
+
+        $model->update($data);
+
+        return response()->json([
+            'message' => ($type === 'cto' ? 'CTO' : 'CEO').' atualizada.',
+            'element' => [
+                'type' => $type,
+                'id' => $model->id,
+                'code' => $model->code,
+                'name' => $model->name,
+                'street' => $model->street,
+                'capacity' => $model->capacity,
+                'status' => $model->status,
+                'color' => $type === 'cto' ? $model->color : null,
+            ],
+        ]);
+    }
+
+    private function assertParent(string $type, $id): Cto|CaixaEmenda
+    {
+        $parent = match ($type) {
+            'cto' => Cto::find($id),
+            'caixa' => CaixaEmenda::find($id),
+            default => null,
+        };
+
+        abort_unless($parent, 422, 'Progenitor não encontrado. Escolha uma CEO ou CTO existente.');
+
+        return $parent;
+    }
+
+    private function splitterPayload(FtthSplitter $splitter): array
+    {
+        return [
+            'type' => 'splitter',
+            'id' => $splitter->id,
+            'code' => $splitter->code,
+            'name' => $splitter->name,
+            'lat' => (float) $splitter->latitude,
+            'lng' => (float) $splitter->longitude,
+            'ratio' => $splitter->ratio,
+            'output_ports' => $splitter->output_ports,
+            'parent_type' => $splitter->parent_type,
+            'parent_id' => $splitter->parent_id,
+            'parent_code' => $splitter->parentLabel(),
+        ];
     }
 
     public function destroySplitter(int $id)
@@ -336,7 +456,7 @@ class FtthEditorController extends Controller
 
         // Validação de capacidade dos splitters
         foreach ([['type' => $sourceType, 'id' => $request->input('source_id'), 'port' => $request->input('source_port')],
-                  ['type' => $targetType, 'id' => $request->input('target_id'), 'port' => $request->input('target_port')]] as $ep) {
+            ['type' => $targetType, 'id' => $request->input('target_id'), 'port' => $request->input('target_port')]] as $ep) {
             if ($ep['type'] !== 'splitter') {
                 continue;
             }
@@ -491,7 +611,7 @@ class FtthEditorController extends Controller
     {
         $project = $this->findCityProject($city);
 
-        if (!$project) {
+        if (! $project) {
             return response()->json(['city' => $city, 'issues' => collect()]);
         }
 
@@ -505,7 +625,7 @@ class FtthEditorController extends Controller
         foreach ($connections as $c) {
             foreach (['source' => $c->source_type, 'target' => $c->target_type] as $side => $type) {
                 if (in_array($type, ['cto', 'caixa', 'splitter'])) {
-                    $id = $c->{$side . '_id'};
+                    $id = $c->{$side.'_id'};
                     $exists = match ($type) {
                         'cto' => Cto::withTrashed()->whereKey($id)->whereNotNull('deleted_at')->exists(),
                         'caixa' => CaixaEmenda::withTrashed()->whereKey($id)->whereNotNull('deleted_at')->exists(),
@@ -521,7 +641,7 @@ class FtthEditorController extends Controller
                     }
                 }
             }
-            if ($c->fiber_link_id && !$fibers->contains('id', $c->fiber_link_id)) {
+            if ($c->fiber_link_id && ! $fibers->contains('id', $c->fiber_link_id)) {
                 $issues->push([
                     'level' => 'erro',
                     'type' => 'fibra_inexistente',
@@ -534,7 +654,7 @@ class FtthEditorController extends Controller
         $seen = [];
         foreach ($connections as $c) {
             if ($c->source_type === 'splitter' && $c->source_port !== null) {
-                $key = $c->source_id . ':' . $c->source_port;
+                $key = $c->source_id.':'.$c->source_port;
                 if (isset($seen[$key])) {
                     $issues->push([
                         'level' => 'erro',
@@ -545,7 +665,7 @@ class FtthEditorController extends Controller
                 $seen[$key] = true;
             }
             if ($c->target_type === 'splitter' && $c->target_port !== null && $c->target_port > 0) {
-                $key = 't:' . $c->target_id . ':' . $c->target_port;
+                $key = 't:'.$c->target_id.':'.$c->target_port;
                 if (isset($seen[$key])) {
                     $issues->push([
                         'level' => 'erro',
@@ -559,8 +679,7 @@ class FtthEditorController extends Controller
 
         // Splitters excedendo entrada (mais de 1 conexão de entrada)
         foreach ($splitters as $splitter) {
-            $inputs = $connections->filter(fn ($c) =>
-                ($c->target_type === 'splitter' && $c->target_id === $splitter->id && $c->target_port == 0)
+            $inputs = $connections->filter(fn ($c) => ($c->target_type === 'splitter' && $c->target_id === $splitter->id && $c->target_port == 0)
                 || ($c->source_type === 'splitter' && $c->source_id === $splitter->id && $c->source_port == 0)
             )->count();
             if ($inputs > 1) {
@@ -570,6 +689,20 @@ class FtthEditorController extends Controller
                     'message' => "Splitter {$splitter->name} (#{$splitter->id}) tem {$inputs} conexões na entrada (permitido: 1).",
                 ]);
             }
+        }
+
+        // Splitter sem progenitor: nao pertence a nenhuma CEO nem CTO, entao
+        // nao da para saber de onde sai a fibra.
+        foreach ($splitters as $splitter) {
+            if ($splitter->parent_type && $splitter->parent_id) {
+                continue;
+            }
+
+            $issues->push([
+                'level' => 'erro',
+                'type' => 'splitter_sem_progenitor',
+                'message' => "Splitter {$splitter->name} (#{$splitter->id}) não pertence a nenhuma CEO ou CTO.",
+            ]);
         }
 
         return response()->json(['city' => $city, 'issues' => $issues->values()]);
@@ -590,11 +723,11 @@ class FtthEditorController extends Controller
 
         $xml = $this->buildKml($city, $ctos, $caixas, $fibers, $splitters, $connections);
 
-        $filename = 'FTTH_editado_' . preg_replace('/[^a-zA-Z0-9]/', '_', $city) . '_' . date('Ymd_His') . '.kml';
+        $filename = 'FTTH_editado_'.preg_replace('/[^a-zA-Z0-9]/', '_', $city).'_'.date('Ymd_His').'.kml';
 
         return response($xml, 200)
             ->header('Content-Type', 'application/vnd.google-earth.kml+xml')
-            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+            ->header('Content-Disposition', 'attachment; filename="'.$filename.'"');
     }
 
     public function exportCsv(string $city)
@@ -606,9 +739,9 @@ class FtthEditorController extends Controller
         $splitters = $project ? $project->splitters()->get() : collect();
         $connections = $project ? $project->connections()->get() : collect();
 
-        $filename = 'FTTH_editado_' . preg_replace('/[^a-zA-Z0-9]/', '_', $city) . '_' . date('Ymd_His') . '.csv';
+        $filename = 'FTTH_editado_'.preg_replace('/[^a-zA-Z0-9]/', '_', $city).'_'.date('Ymd_His').'.csv';
 
-        return response()->streamDownload(function () use ($city, $ctos, $caixas, $fibers, $splitters, $connections) {
+        return response()->streamDownload(function () use ($ctos, $caixas, $fibers, $splitters, $connections) {
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF");
 
@@ -618,45 +751,45 @@ class FtthEditorController extends Controller
             };
 
             // CTOs
-            $writeSection('CTOS (' . $ctos->count() . ')');
+            $writeSection('CTOS ('.$ctos->count().')');
             fputcsv($out, ['Codigo', 'Nome', 'Rua', 'Latitude', 'Longitude', 'Capacidade', 'Portas Usadas', 'Status']);
             foreach ($ctos as $c) {
                 fputcsv($out, [$c->code, $c->name, $c->street, $c->latitude, $c->longitude, $c->capacity, $c->used_ports, $c->status]);
             }
 
             // Caixas de emenda
-            $writeSection('CAIXAS DE EMENDA (' . $caixas->count() . ')');
+            $writeSection('CAIXAS DE EMENDA ('.$caixas->count().')');
             fputcsv($out, ['Codigo', 'Nome', 'Rua', 'Latitude', 'Longitude', 'Capacidade', 'Portas Usadas', 'Status']);
             foreach ($caixas as $c) {
                 fputcsv($out, [$c->code, $c->name, $c->street, $c->latitude, $c->longitude, $c->capacity, $c->used_ports, $c->status]);
             }
 
             // Splitters
-            $writeSection('SPLITTERS (' . $splitters->count() . ')');
+            $writeSection('SPLITTERS ('.$splitters->count().')');
             fputcsv($out, ['Codigo', 'Nome', 'Latitude', 'Longitude', 'Splitter', 'Portas Saida']);
             foreach ($splitters as $s) {
-                fputcsv($out, [$s->code, $s->name, $s->latitude, $s->longitude, $s->ratio ?: ($s->input_ports . 'x' . $s->output_ports), $s->output_ports]);
+                fputcsv($out, [$s->code, $s->name, $s->latitude, $s->longitude, $s->ratio ?: ($s->input_ports.'x'.$s->output_ports), $s->output_ports]);
             }
 
             // Fibras
-            $writeSection('FIBRA LANCADA (' . $fibers->count() . ') - ' . number_format((float) $fibers->sum('length_meters'), 0) . 'm');
+            $writeSection('FIBRA LANCADA ('.$fibers->count().') - '.number_format((float) $fibers->sum('length_meters'), 0).'m');
             fputcsv($out, ['Nome', 'Tipo', 'Comprimento (m)', 'Qtde Fibras', 'Cor Tubo', 'Pontos (lat,lng)']);
             foreach ($fibers as $f) {
                 $pts = collect((array) ($f->geometry ?? []))
-                    ->map(fn ($p) => (float) ($p['lat'] ?? $p[0] ?? 0) . ',' . (float) ($p['lng'] ?? $p[1] ?? 0))
+                    ->map(fn ($p) => (float) ($p['lat'] ?? $p[0] ?? 0).','.(float) ($p['lng'] ?? $p[1] ?? 0))
                     ->implode(';');
                 fputcsv($out, [$f->name, $f->type, (float) $f->length_meters, $f->fiber_count, $f->tube_color, $pts]);
             }
 
             // Conexões
-            $writeSection('CONEXOES (' . $connections->count() . ')');
+            $writeSection('CONEXOES ('.$connections->count().')');
             fputcsv($out, ['Origem', 'Porta', 'Fibra Id', 'Destino', 'Porta']);
             foreach ($connections as $cnx) {
                 fputcsv($out, [
-                    $cnx->source_type . '#' . ($cnx->source_id ?? '-') . ($this->elementCode($cnx->source_type, $cnx->source_id) ? ' (' . $this->elementCode($cnx->source_type, $cnx->source_id) . ')' : ''),
+                    $cnx->source_type.'#'.($cnx->source_id ?? '-').($this->elementCode($cnx->source_type, $cnx->source_id) ? ' ('.$this->elementCode($cnx->source_type, $cnx->source_id).')' : ''),
                     $cnx->source_port ?? '',
                     $cnx->fiber_link_id ?? '',
-                    $cnx->target_type . '#' . ($cnx->target_id ?? '-') . ($this->elementCode($cnx->target_type, $cnx->target_id) ? ' (' . $this->elementCode($cnx->target_type, $cnx->target_id) . ')' : ''),
+                    $cnx->target_type.'#'.($cnx->target_id ?? '-').($this->elementCode($cnx->target_type, $cnx->target_id) ? ' ('.$this->elementCode($cnx->target_type, $cnx->target_id).')' : ''),
                     $cnx->target_port ?? '',
                 ]);
             }
@@ -669,11 +802,11 @@ class FtthEditorController extends Controller
     {
         $codeTotal = $splitters->count() + $fibers->count();
 
-        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
-        $xml .= '<kml xmlns="http://www.opengis.net/kml/2.2">' . "\n";
-        $xml .= '<Document>' . "\n";
-        $xml .= '  <name>FTTH editado - ' . htmlspecialchars($city) . '</name>' . "\n";
-        $xml .= '  <description>Rede FTTH editada no Editor de Rede. ' . $ctos->count() . ' CTOs, ' . $caixas->count() . ' CE, ' . $splitters->count() . ' splitters, ' . $fibers->count() . ' fibras.</description>' . "\n";
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>'."\n";
+        $xml .= '<kml xmlns="http://www.opengis.net/kml/2.2">'."\n";
+        $xml .= '<Document>'."\n";
+        $xml .= '  <name>FTTH editado - '.htmlspecialchars($city).'</name>'."\n";
+        $xml .= '  <description>Rede FTTH editada no Editor de Rede. '.$ctos->count().' CTOs, '.$caixas->count().' CE, '.$splitters->count().' splitters, '.$fibers->count().' fibras.</description>'."\n";
 
         // Estilos
         foreach ([
@@ -681,90 +814,92 @@ class FtthEditorController extends Controller
             'caixa-style' => ['color' => 'ff00ff00', 'icon' => 'square.png', 'scale' => '1.0', 'label' => '0.8'],
             'splitter-style' => ['color' => 'ff8f5bff', 'icon' => 'diamond3.png', 'scale' => '1.1', 'label' => '0.8'],
         ] as $id => $st) {
-            $xml .= '  <Style id="' . $id . '">' . "\n";
-            $xml .= '    <IconStyle><color>' . $st['color'] . '</color><scale>' . $st['scale'] . '</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/' . $st['icon'] . '</href></Icon></IconStyle>' . "\n";
-            $xml .= '    <LabelStyle><scale>' . $st['label'] . '</scale></LabelStyle>' . "\n";
-            $xml .= '  </Style>' . "\n";
+            $xml .= '  <Style id="'.$id.'">'."\n";
+            $xml .= '    <IconStyle><color>'.$st['color'].'</color><scale>'.$st['scale'].'</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/'.$st['icon'].'</href></Icon></IconStyle>'."\n";
+            $xml .= '    <LabelStyle><scale>'.$st['label'].'</scale></LabelStyle>'."\n";
+            $xml .= '  </Style>'."\n";
         }
-        $xml .= '  <Style id="fiber-line">' . "\n";
-        $xml .= '    <LineStyle><color>ff00aaff</color><width>3</width></LineStyle>' . "\n";
-        $xml .= '  </Style>' . "\n";
-        $xml .= '  <Style id="conn-line">' . "\n";
-        $xml .= '    <LineStyle><color>ff00e6ff</color><width>2</width></LineStyle>' . "\n";
-        $xml .= '  </Style>' . "\n";
+        $xml .= '  <Style id="fiber-line">'."\n";
+        $xml .= '    <LineStyle><color>ff00aaff</color><width>3</width></LineStyle>'."\n";
+        $xml .= '  </Style>'."\n";
+        $xml .= '  <Style id="conn-line">'."\n";
+        $xml .= '    <LineStyle><color>ff00e6ff</color><width>2</width></LineStyle>'."\n";
+        $xml .= '  </Style>'."\n";
 
         // Caixas
-        $xml .= '  <Folder><name>Caixas de Emenda (' . $caixas->count() . ')</name>' . "\n";
+        $xml .= '  <Folder><name>Caixas de Emenda ('.$caixas->count().')</name>'."\n";
         foreach ($caixas as $caixa) {
-            $xml .= '    <Placemark>' . "\n";
-            $xml .= '      <name>' . htmlspecialchars($caixa->code) . ' - ' . htmlspecialchars($caixa->street ?? '') . '</name>' . "\n";
-            $xml .= '      <styleUrl>#caixa-style</styleUrl>' . "\n";
-            $xml .= '      <description><![CDATA[<b>Codigo:</b> ' . htmlspecialchars($caixa->code) . '<br/><b>Nome:</b> ' . htmlspecialchars($caixa->name) . '<br/><b>Rua:</b> ' . htmlspecialchars($caixa->street ?? '-') . '<br/><b>Capacidade:</b> ' . $caixa->capacity . '<br/><b>Portas usadas:</b> ' . $caixa->used_ports . ']]></description>' . "\n";
-            $xml .= '      <Point><coordinates>' . $caixa->longitude . ',' . $caixa->latitude . ',0</coordinates></Point>' . "\n";
-            $xml .= '    </Placemark>' . "\n";
+            $xml .= '    <Placemark>'."\n";
+            $xml .= '      <name>'.htmlspecialchars($caixa->code).' - '.htmlspecialchars($caixa->street ?? '').'</name>'."\n";
+            $xml .= '      <styleUrl>#caixa-style</styleUrl>'."\n";
+            $xml .= '      <description><![CDATA[<b>Codigo:</b> '.htmlspecialchars($caixa->code).'<br/><b>Nome:</b> '.htmlspecialchars($caixa->name).'<br/><b>Rua:</b> '.htmlspecialchars($caixa->street ?? '-').'<br/><b>Capacidade:</b> '.$caixa->capacity.'<br/><b>Portas usadas:</b> '.$caixa->used_ports.']]></description>'."\n";
+            $xml .= '      <Point><coordinates>'.$caixa->longitude.','.$caixa->latitude.',0</coordinates></Point>'."\n";
+            $xml .= '    </Placemark>'."\n";
         }
-        $xml .= '  </Folder>' . "\n";
+        $xml .= '  </Folder>'."\n";
 
         // CTOs
-        $xml .= '  <Folder><name>CTOs (' . $ctos->count() . ')</name>' . "\n";
+        $xml .= '  <Folder><name>CTOs ('.$ctos->count().')</name>'."\n";
         foreach ($ctos as $cto) {
-            $xml .= '    <Placemark>' . "\n";
-            $xml .= '      <name>' . htmlspecialchars($cto->code) . ' - ' . htmlspecialchars($cto->street ?? '') . '</name>' . "\n";
-            $xml .= '      <styleUrl>#cto-style</styleUrl>' . "\n";
-            $xml .= '      <description><![CDATA[<b>Codigo:</b> ' . htmlspecialchars($cto->code) . '<br/><b>Rua:</b> ' . htmlspecialchars($cto->street ?? '-') . '<br/><b>Capacidade:</b> ' . $cto->capacity . '<br/><b>Portas usadas:</b> ' . $cto->used_ports . ']]></description>' . "\n";
-            $xml .= '      <Point><coordinates>' . $cto->longitude . ',' . $cto->latitude . ',0</coordinates></Point>' . "\n";
-            $xml .= '    </Placemark>' . "\n";
+            $xml .= '    <Placemark>'."\n";
+            $xml .= '      <name>'.htmlspecialchars($cto->code).' - '.htmlspecialchars($cto->street ?? '').'</name>'."\n";
+            $xml .= '      <styleUrl>#cto-style</styleUrl>'."\n";
+            $xml .= '      <description><![CDATA[<b>Codigo:</b> '.htmlspecialchars($cto->code).'<br/><b>Rua:</b> '.htmlspecialchars($cto->street ?? '-').'<br/><b>Capacidade:</b> '.$cto->capacity.'<br/><b>Portas usadas:</b> '.$cto->used_ports.']]></description>'."\n";
+            $xml .= '      <Point><coordinates>'.$cto->longitude.','.$cto->latitude.',0</coordinates></Point>'."\n";
+            $xml .= '    </Placemark>'."\n";
         }
-        $xml .= '  </Folder>' . "\n";
+        $xml .= '  </Folder>'."\n";
 
         // Splitters
-        $xml .= '  <Folder><name>Splitters (' . $splitters->count() . ')</name>' . "\n";
+        $xml .= '  <Folder><name>Splitters ('.$splitters->count().')</name>'."\n";
         foreach ($splitters as $splitter) {
-            $xml .= '    <Placemark>' . "\n";
-            $xml .= '      <name>' . htmlspecialchars($splitter->code ?: $splitter->name) . '</name>' . "\n";
-            $xml .= '      <styleUrl>#splitter-style</styleUrl>' . "\n";
-            $xml .= '      <description><![CDATA[<b>Nome:</b> ' . htmlspecialchars($splitter->name) . '<br/><b>Splitter:</b> ' . htmlspecialchars($splitter->ratio ?: ($splitter->input_ports . 'x' . $splitter->output_ports)) . '<br/><b>Saidas:</b> ' . $splitter->output_ports . ']]></description>' . "\n";
-            $xml .= '      <Point><coordinates>' . $splitter->longitude . ',' . $splitter->latitude . ',0</coordinates></Point>' . "\n";
-            $xml .= '    </Placemark>' . "\n";
+            $xml .= '    <Placemark>'."\n";
+            $xml .= '      <name>'.htmlspecialchars($splitter->code ?: $splitter->name).'</name>'."\n";
+            $xml .= '      <styleUrl>#splitter-style</styleUrl>'."\n";
+            $xml .= '      <description><![CDATA[<b>Nome:</b> '.htmlspecialchars($splitter->name).'<br/><b>Splitter:</b> '.htmlspecialchars($splitter->ratio ?: ($splitter->input_ports.'x'.$splitter->output_ports)).'<br/><b>Saidas:</b> '.$splitter->output_ports.']]></description>'."\n";
+            $xml .= '      <Point><coordinates>'.$splitter->longitude.','.$splitter->latitude.',0</coordinates></Point>'."\n";
+            $xml .= '    </Placemark>'."\n";
         }
-        $xml .= '  </Folder>' . "\n";
+        $xml .= '  </Folder>'."\n";
 
         // Fibras (polilinhas)
-        $xml .= '  <Folder><name>Fibra lancada (' . $fibers->count() . ') ' . number_format($fibers->sum('length_meters'), 0) . 'm</name>' . "\n";
+        $xml .= '  <Folder><name>Fibra lancada ('.$fibers->count().') '.number_format($fibers->sum('length_meters'), 0).'m</name>'."\n";
         foreach ($fibers as $fiber) {
             $pts = (array) ($fiber->geometry ?? []);
             if (count($pts) < 2) {
                 continue;
             }
-            $coords = implode(' ', array_map(fn ($p) => (float) ($p['lng'] ?? $p[1] ?? 0) . ',' . (float) ($p['lat'] ?? $p[0] ?? 0) . ',0', $pts));
-            $xml .= '    <Placemark>' . "\n";
-            $xml .= '      <name>' . htmlspecialchars($fiber->name ?: ('Fibra ' . $fiber->type)) . '</name>' . "\n";
-            $xml .= '      <styleUrl>#fiber-line</styleUrl>' . "\n";
-            $xml .= '      <description><![CDATA[<b>Tipo:</b> ' . htmlspecialchars($fiber->type) . '<br/><b>Comprimento:</b> ' . number_format((float) $fiber->length_meters, 0) . 'm<br/><b>Fibras:</b> ' . htmlspecialchars((string) ($fiber->fiber_count ?: '-')) . ']]></description>' . "\n";
-            $xml .= '      <LineString><tessellate>1</tessellate><coordinates>' . $coords . '</coordinates></LineString>' . "\n";
-            $xml .= '    </Placemark>' . "\n";
+            $coords = implode(' ', array_map(fn ($p) => (float) ($p['lng'] ?? $p[1] ?? 0).','.(float) ($p['lat'] ?? $p[0] ?? 0).',0', $pts));
+            $xml .= '    <Placemark>'."\n";
+            $xml .= '      <name>'.htmlspecialchars($fiber->name ?: ('Fibra '.$fiber->type)).'</name>'."\n";
+            $xml .= '      <styleUrl>#fiber-line</styleUrl>'."\n";
+            $xml .= '      <description><![CDATA[<b>Tipo:</b> '.htmlspecialchars($fiber->type).'<br/><b>Comprimento:</b> '.number_format((float) $fiber->length_meters, 0).'m<br/><b>Fibras:</b> '.htmlspecialchars((string) ($fiber->fiber_count ?: '-')).']]></description>'."\n";
+            $xml .= '      <LineString><tessellate>1</tessellate><coordinates>'.$coords.'</coordinates></LineString>'."\n";
+            $xml .= '    </Placemark>'."\n";
         }
-        $xml .= '  </Folder>' . "\n";
+        $xml .= '  </Folder>'."\n";
 
         // Conexões (representadas como linha entre pontos dos elementos)
         if ($connections->isNotEmpty()) {
-            $xml .= '  <Folder><name>Conexoes (' . $connections->count() . ')</name>' . "\n";
+            $xml .= '  <Folder><name>Conexoes ('.$connections->count().')</name>'."\n";
             $positionCache = [];
             foreach ($connections as $cnx) {
                 $start = $this->connectionPosition($cnx, 'source', $positionCache);
                 $end = $this->connectionPosition($cnx, 'target', $positionCache);
-                if (!$start) continue;
+                if (! $start) {
+                    continue;
+                }
                 $end = $end ?: $start;
-                $xml .= '    <Placemark>' . "\n";
-                $xml .= '      <name>' . htmlspecialchars((string) ($cnx->source_type . ' p' . ($cnx->source_port ?? '-'))) . ' → ' . htmlspecialchars((string) ($cnx->target_type . ' p' . ($cnx->target_port ?? '-'))) . '</name>' . "\n";
-                $xml .= '      <styleUrl>#conn-line</styleUrl>' . "\n";
-                $xml .= '      <LineString><tessellate>1</tessellate><coordinates>' . $start[1] . ',' . $start[0] . ',0 ' . $end[1] . ',' . $end[0] . ',0</coordinates></LineString>' . "\n";
-                $xml .= '    </Placemark>' . "\n";
+                $xml .= '    <Placemark>'."\n";
+                $xml .= '      <name>'.htmlspecialchars((string) ($cnx->source_type.' p'.($cnx->source_port ?? '-'))).' → '.htmlspecialchars((string) ($cnx->target_type.' p'.($cnx->target_port ?? '-'))).'</name>'."\n";
+                $xml .= '      <styleUrl>#conn-line</styleUrl>'."\n";
+                $xml .= '      <LineString><tessellate>1</tessellate><coordinates>'.$start[1].','.$start[0].',0 '.$end[1].','.$end[0].',0</coordinates></LineString>'."\n";
+                $xml .= '    </Placemark>'."\n";
             }
-            $xml .= '  </Folder>' . "\n";
+            $xml .= '  </Folder>'."\n";
         }
 
-        $xml .= '</Document>' . "\n";
+        $xml .= '</Document>'."\n";
         $xml .= '</kml>';
 
         return $xml;
@@ -772,9 +907,9 @@ class FtthEditorController extends Controller
 
     private function connectionPosition(FtthConnection $cnx, string $side, array &$cache): ?array
     {
-        $type = $cnx->{$side . '_type'};
-        $id = $cnx->{$side . '_id'};
-        $key = $side . '_' . $type . '_' . $id;
+        $type = $cnx->{$side.'_type'};
+        $id = $cnx->{$side.'_id'};
+        $key = $side.'_'.$type.'_'.$id;
 
         if (isset($cache[$key])) {
             return $cache[$key];

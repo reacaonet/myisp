@@ -3,9 +3,9 @@
 namespace Modules\PortalInfra\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class CaixaEmenda extends Model
 {
@@ -59,6 +59,16 @@ class CaixaEmenda extends Model
         return $this->hasMany(FtthFusion::class);
     }
 
+    /**
+     * Splitter dentro desta CEO. A CEO agrupa as CTOs do bairro e e ela que
+     * concentra os 1x8 que alimentam cada CTO.
+     */
+    public function splitters(): HasMany
+    {
+        return $this->hasMany(FtthSplitter::class, 'parent_id')
+            ->where('parent_type', 'caixa');
+    }
+
     public function getFullAddressAttribute(): string
     {
         $parts = array_filter([
@@ -68,6 +78,7 @@ class CaixaEmenda extends Model
             $this->city,
             $this->state,
         ]);
+
         return implode(', ', $parts) ?: 'Sem endereco';
     }
 

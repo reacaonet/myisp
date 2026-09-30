@@ -27,8 +27,14 @@
         </div>
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
             <p class="text-2xl font-bold text-green-600">{{ $stats['total_caixas'] }}</p>
-            <p class="text-xs text-gray-500 mt-1">Caixas Criadas</p>
+            <p class="text-xs text-gray-500 mt-1">CEO Criadas</p>
         </div>
+        @if(isset($stats['total_splitters']))
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
+            <p class="text-2xl font-bold text-indigo-600">{{ $stats['total_splitters'] }}</p>
+            <p class="text-xs text-gray-500 mt-1">Splitters nas CEO</p>
+        </div>
+        @endif
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
             <p class="text-2xl font-bold text-orange-600">{{ number_format($stats['total_distance_km'], 1) }} km</p>
             <p class="text-xs text-gray-500 mt-1">Distancia Total</p>
@@ -75,7 +81,10 @@
             <div class="flex items-center gap-3 text-sm">
                 <a href="{{ route('infra.ftth.projects.show', $cityData['project']) }}" class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-medium hover:bg-blue-200">{{ $cityData['project']->name }}</a>
                 <span class="bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-medium">{{ $cityData['result']['stats']['total_ctos'] }} CTOs</span>
-                <span class="bg-green-100 text-green-700 px-2 py-0.5 rounded font-medium">{{ $cityData['result']['stats']['total_caixas'] }} Caixas</span>
+                <span class="bg-green-100 text-green-700 px-2 py-0.5 rounded font-medium">{{ $cityData['result']['stats']['total_caixas'] }} CEO</span>
+                    @if(isset($cityData['result']['stats']['total_splitters']))
+                    <span class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-medium">{{ $cityData['result']['stats']['total_splitters'] }} splitters</span>
+                    @endif
             </div>
         </div>
 

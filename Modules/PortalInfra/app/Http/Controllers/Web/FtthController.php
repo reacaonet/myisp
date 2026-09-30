@@ -9,6 +9,7 @@ use Modules\PortalInfra\Models\CaixaEmenda;
 use Modules\PortalInfra\Models\Cto;
 use Modules\PortalInfra\Models\FtthFusion;
 use Modules\PortalInfra\Models\FtthProject;
+use Modules\PortalInfra\Models\FtthSplitter;
 use Modules\PortalInfra\Services\KmlNetworkGenerator;
 
 class FtthController extends Controller
@@ -749,11 +750,12 @@ class FtthController extends Controller
 
         $prefix = $request->input('prefix') ?? '';
         $state = $request->input('state') ?? 'MA';
-        $ctoCapacity = $request->input('cto_capacity') ?? 8;
+        $ctoCapacity = $request->input('cto_capacity') ?? 16;
         $ctoInterval = $request->input('cto_interval') ?? 250;
+        $ctosPerCaixa = $request->input('ctos_per_caixa') ?? 8;
 
         if ($hasMultipleCities) {
-            return $this->runGenerateMultipleCities($request, $state, $prefix, $ctoCapacity, $ctoInterval);
+            return $this->runGenerateMultipleCities($request, $state, $prefix, $ctoCapacity, $ctoInterval, $ctosPerCaixa);
         }
 
         try {
@@ -786,7 +788,8 @@ class FtthController extends Controller
                 $state,
                 $ctoCapacity,
                 $ctoInterval,
-                $hasBounds ? null : $generator->getCityPolygon()
+                $hasBounds ? null : $generator->getCityPolygon(),
+                $ctosPerCaixa
             );
 
             $cityLabel = $hasBounds
@@ -812,12 +815,13 @@ class FtthController extends Controller
         }
     }
 
-    private function runGenerateMultipleCities(Request $request, string $state, string $prefix, $ctoCapacity = 8, $ctoInterval = 250)
+    private function runGenerateMultipleCities(Request $request, string $state, string $prefix, $ctoCapacity = 8, $ctoInterval = 250, $ctosPerCaixa = 8)
     {
         $cities = $request->input('city_name');
         $allResults = [];
         $totalCtos = 0;
         $totalCaixas = 0;
+        $totalSplitters = 0;
         $totalStreets = 0;
         $totalDistance = 0;
         $errors = [];
@@ -834,7 +838,7 @@ class FtthController extends Controller
                 }
 
                 $cityPrefix = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $city), 0, 4));
-                $result = $generator->generateFromStreets($streets, $cityPrefix, $city, $state, $ctoCapacity, $ctoInterval, $generator->getCityPolygon());
+                $result = $generator->generateFromStreets($streets, $cityPrefix, $city, $state, $ctoCapacity, $ctoInterval, $generator->getCityPolygon(), $ctosPerCaixa);
                 $project = $this->attachProject($city, $state, $cityPrefix, $result, false);
 
                 $allResults[] = [
@@ -845,6 +849,7 @@ class FtthController extends Controller
 
                 $totalCtos += $result['stats']['total_ctos'];
                 $totalCaixas += $result['stats']['total_caixas'];
+                $totalSplitters += $result['stats']['total_splitters'] ?? 0;
                 $totalStreets += $result['stats']['total_streets'] ?? 0;
                 $totalDistance += $result['stats']['total_distance_km'];
             } catch (\RuntimeException $e) {
@@ -863,6 +868,7 @@ class FtthController extends Controller
                 'total_cities' => count($allResults),
                 'total_ctos' => $totalCtos,
                 'total_caixas' => $totalCaixas,
+                'total_splitters' => $totalSplitters,
                 'total_streets' => $totalStreets,
                 'total_distance_km' => $totalDistance,
             ],
@@ -894,6 +900,13 @@ class FtthController extends Controller
             CaixaEmenda::whereIn('id', $caixaIds)->update(['ftth_project_id' => $project->id]);
         }
 
+        // Os splitters nascem dentro das CEs, mas so entram no projeto depois
+        // que ele existe, entao o vinculo acontece aqui.
+        $splitterIds = collect($result['splitters'] ?? [])->pluck('id')->filter()->all();
+        if (! empty($splitterIds)) {
+            FtthSplitter::whereIn('id', $splitterIds)->update(['ftth_project_id' => $project->id]);
+        }
+
         return $project;
     }
 
@@ -905,6 +918,7 @@ class FtthController extends Controller
             'prefix' => 'nullable|string|max:10',
             'cto_capacity' => 'nullable|integer|min:1|max:256',
             'cto_interval' => 'nullable|integer|min:50|max:1000',
+            'ctos_per_caixa' => 'nullable|integer|min:1|max:64',
         ]);
 
         $raw = $request->input('coordinates');
@@ -931,8 +945,9 @@ class FtthController extends Controller
             $coordinates,
             $request->input('street_name'),
             $request->input('prefix', ''),
-            $request->input('cto_capacity', 8),
-            $request->input('cto_interval', 250)
+            $request->input('cto_capacity', 16),
+            $request->input('cto_interval', 250),
+            $request->input('ctos_per_caixa', 8)
         );
 
         return view('infra::generate-result', [

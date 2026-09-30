@@ -20,8 +20,14 @@
                 </div>
                 <div class="bg-green-50 rounded-lg p-4 text-center">
                     <p class="text-3xl font-bold text-green-600">{{ $result['stats']['total_caixas'] }}</p>
-                    <p class="text-sm text-green-700 mt-1">Caixas de Emenda</p>
+                    <p class="text-sm text-green-700 mt-1">Caixas de Emenda (CEO)</p>
                 </div>
+                @if(isset($result['stats']['total_splitters']))
+                <div class="bg-indigo-50 rounded-lg p-4 text-center">
+                    <p class="text-3xl font-bold text-indigo-600">{{ $result['stats']['total_splitters'] }}</p>
+                    <p class="text-sm text-indigo-700 mt-1">Splitters 1x8 nas CEO</p>
+                </div>
+                @endif
                 <div class="bg-purple-50 rounded-lg p-4 text-center">
                     <p class="text-3xl font-bold text-purple-600">{{ number_format($result['stats']['total_distance_km'], 2, ',', '.') }} m</p>
                     <p class="text-sm text-purple-700 mt-1">Distancia Total</p>

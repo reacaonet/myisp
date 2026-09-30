@@ -3,9 +3,9 @@
 namespace Modules\PortalInfra\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Cto extends Model
 {
@@ -21,6 +21,7 @@ class Cto extends Model
         'latitude',
         'longitude',
         'capacity',
+        'color',
         'used_ports',
         'fiber_fusions',
         'splitter_config',
@@ -62,6 +63,16 @@ class Cto extends Model
         return $this->hasMany(FtthFusion::class);
     }
 
+    /**
+     * Splitter que esta dentro desta CTO. Na distribuicao real a CTO mae recebe
+     * o link e concentra os splitters que alimentam as demais.
+     */
+    public function splitters(): HasMany
+    {
+        return $this->hasMany(FtthSplitter::class, 'parent_id')
+            ->where('parent_type', 'cto');
+    }
+
     public function getFullAddressAttribute(): string
     {
         $parts = array_filter([
@@ -71,6 +82,7 @@ class Cto extends Model
             $this->city,
             $this->state,
         ]);
+
         return implode(', ', $parts) ?: 'Sem endereco';
     }
 

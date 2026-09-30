@@ -45,7 +45,13 @@ return Application::configure(basePath: dirname(__DIR__))
         });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Rotas /api/*, os endpoints api/ dentro dos modulos (ex: o editor FTTH
+        // em infra/editor/api/*) e qualquer chamada AJAX precisam de resposta
+        // JSON. Sem isso, um erro de validacao vem como redirect e o JS quebra
+        // ao tentar ler o corpo.
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*'),
+            fn (Request $request) => $request->is('api/*')
+                || $request->is('*/api/*')
+                || $request->expectsJson(),
         );
     })->create();

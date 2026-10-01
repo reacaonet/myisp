@@ -793,13 +793,7 @@ class FtthController extends Controller
                 $ctoCapacity,
                 $ctoInterval,
                 $ctosPerCaixa,
-                $cityPolygon,
-                $hasBounds
-                    ? (float) $request->input('south')
-                    : null,
-                $hasBounds ? (float) $request->input('west') : null,
-                $hasBounds ? (float) $request->input('north') : null,
-                $hasBounds ? (float) $request->input('east') : null
+                $cityPolygon
             );
 
             $cityLabel = $hasBounds
@@ -982,6 +976,13 @@ class FtthController extends Controller
      * Quando o OSM nao tem predios mapeados, ou quando as casas nao chegam
      * perto de nenhuma rua, cai na geracao por rua para nunca devolver uma
      * cidade sem projeto nenhum.
+     *
+     * Gera a rede a partir das ruas do OSM.
+     *
+     * Antes essa rota tentava os predios do OSM primeiro e so caia para as ruas
+     * quando a consulta voltava vazia. Em cidade pequena do Maranhao o OSM nao
+     * tem predios mapeados, entao o caminho por buildings so gastava uma
+     * consulta pesada no Overpass e devolvia nada.
      */
     private function generateFromCityDemand(
         KmlNetworkGenerator $generator,
@@ -992,29 +993,9 @@ class FtthController extends Controller
         int $ctoCapacity,
         int $ctoInterval,
         int $ctosPerCaixa,
-        ?array $cityPolygon,
-        ?float $south = null,
-        ?float $west = null,
-        ?float $north = null,
-        ?float $east = null
+        ?array $cityPolygon
     ): array {
-        $buildings = $this->fetchBuildingsForGeneration($generator, $cityPolygon, $south, $west, $north, $east);
-
-        if (empty($buildings)) {
-            return $generator->generateFromStreets(
-                $streets,
-                $prefix,
-                $cityName,
-                $state,
-                $ctoCapacity,
-                $ctoInterval,
-                $cityPolygon,
-                $ctosPerCaixa
-            );
-        }
-
-        $result = $generator->generateFromDemand(
-            $buildings,
+        return $generator->generateFromStreets(
             $streets,
             $prefix,
             $cityName,
@@ -1024,47 +1005,5 @@ class FtthController extends Controller
             $cityPolygon,
             $ctosPerCaixa
         );
-
-        if (($result['stats']['total_ctos'] ?? 0) === 0) {
-            return $generator->generateFromStreets(
-                $streets,
-                $prefix,
-                $cityName,
-                $state,
-                $ctoCapacity,
-                $ctoInterval,
-                $cityPolygon,
-                $ctosPerCaixa
-            );
-        }
-
-        $result['stats']['homes_considered'] = count($buildings);
-        $result['stats']['generated_by'] = 'demand';
-
-        return $result;
-    }
-
-    private function fetchBuildingsForGeneration(
-        KmlNetworkGenerator $generator,
-        ?array $cityPolygon,
-        ?float $south,
-        ?float $west,
-        ?float $north,
-        ?float $east
-    ): array {
-        try {
-            if ($cityPolygon !== null && ! empty($cityPolygon)) {
-                return $generator->fetchBuildingsByPolygon($cityPolygon);
-            }
-
-            if ($south !== null && $west !== null && $north !== null && $east !== null) {
-                return $generator->fetchBuildingsByBounds($south, $west, $north, $east);
-            }
-        } catch (\Throwable $e) {
-            // Sem buildings a geracao por rua ainda salva a operacao.
-            return [];
-        }
-
-        return [];
     }
 }

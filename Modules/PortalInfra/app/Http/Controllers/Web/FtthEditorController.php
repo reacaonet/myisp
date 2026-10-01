@@ -394,6 +394,124 @@ class FtthEditorController extends Controller
         ]);
     }
 
+    /**
+     * Duplica CEO ou CTO a partir do popup do mapa. A copia nasce no ponto que
+     * o tecnico clicar, repetindo os dados da original: e o atalho para montar
+     * um trecho de rede copiando um padrao que ja funciona.
+     *
+     * Splitters e conexoes nao vem junto. A copia entra zerada e sem filha:
+     * replicar a arvore inteira multiplica portas e SPLs na mao, e quem monta
+     * o trecho decide o que precisa. A copia tambem mantem o status da
+     * original, que e o status que a rede planejada usa.
+     */
+    public function duplicateElement(Request $request, string $type, int $id)
+    {
+        $request->validate([
+            'lat' => 'required|numeric|between:-90,90',
+            'lng' => 'required|numeric|between:-180,180',
+            // O tecnico pode renomear a copia no prompt. Vazio mantem o nome da
+            // original como base.
+            'name' => 'nullable|string|max:255',
+        ]);
+
+        $source = match ($type) {
+            'cto' => Cto::findOrFail($id),
+            'caixa' => CaixaEmenda::findOrFail($id),
+            default => abort(422, 'Tipo inválido.'),
+        };
+
+        $model = $type === 'cto' ? Cto::class : CaixaEmenda::class;
+
+        $copy = $model::create($this->copyAttributes(
+            $type,
+            $source,
+            (float) $request->input('lat'),
+            (float) $request->input('lng'),
+            $request->input('name') ?: $source->name
+        ));
+
+        return response()->json([
+            'message' => ($type === 'cto' ? 'CTO' : 'CEO').' duplicada.',
+            'element' => [
+                'type' => $type,
+                'id' => $copy->id,
+                'code' => $copy->code,
+                'name' => $copy->name,
+                'lat' => (float) $copy->latitude,
+                'lng' => (float) $copy->longitude,
+                'capacity' => $copy->capacity,
+                'status' => $copy->status,
+                'color' => $type === 'cto' ? $copy->color : null,
+            ],
+        ], 201);
+    }
+
+    /**
+     * Campos que a copia herda. used_ports, fusoes, splitter_config e olt_port
+     * ficam de fora de proposito: sao o estado de uso da original e nao fazem
+     * sentido numa copia que ainda nao tem nada ligado. distance_from_start
+     * tambem, porque e a posicao do poste ao longo da rua original.
+     */
+    private function copyAttributes(string $type, Cto|CaixaEmenda $source, float $lat, float $lng, string $nameBase): array
+    {
+        $model = $type === 'cto' ? Cto::class : CaixaEmenda::class;
+
+        $attributes = [
+            'ftth_project_id' => $source->ftth_project_id,
+            'name' => $this->freeCopyName($nameBase, $model),
+            'code' => $this->freeCopyCode($source->code, $model),
+            'latitude' => $lat,
+            'longitude' => $lng,
+            'capacity' => $source->capacity,
+            'status' => $source->status,
+            'street' => $source->street,
+            'number' => $source->number,
+            'neighborhood' => $source->neighborhood,
+            'city' => $source->city,
+            'state' => $source->state,
+            'zipcode' => $source->zipcode,
+            'notes' => $source->notes,
+        ];
+
+        if ($type === 'cto') {
+            // A copia nasce na mesma CEO para o agrupamento continuar valendo.
+            $attributes['caixa_emenda_id'] = $source->caixa_emenda_id;
+            $attributes['color'] = $source->color;
+        }
+
+        return $attributes;
+    }
+
+    /**
+     * code e unico na tabela e o original ja ocupa o valor, entao a copia
+     * recebe o sufixo -C. Duplicar a mesma CTO varias vezes empilha -C2, -C3.
+     */
+    private function freeCopyCode(string $base, string $model): string
+    {
+        $code = $base.'-C';
+        $tentativas = 1;
+
+        while ($model::withTrashed()->where('code', $code)->exists() && $tentativas < 1000) {
+            $tentativas++;
+            $code = $base.'-C'.$tentativas;
+        }
+
+        return $code;
+    }
+
+    private function freeCopyName(string $base, string $model): string
+    {
+        $name = $base.' (cópia)';
+        $tentativas = 1;
+
+        while ($model::where('name', $name)->exists() && $tentativas < 1000) {
+            $tentativas++;
+            $name = $base.' (cópia '.$tentativas.')';
+        }
+
+        return $name;
+    }
+
     private function assertParent(string $type, $id): Cto|CaixaEmenda
     {
         $parent = match ($type) {

@@ -19,6 +19,7 @@
     .act-edit { background: #2563eb; }
     .act-connect { background: #f59e0b; }
     .act-split { background: #7c3aed; }
+    .act-duplicate { background: #0d9488; }
     .act-delete { background: #dc2626; }
     .popup-meta { margin-top: 6px; font-size: 12px; color: #6b7280; }
     .popup-meta b { color: #374151; }
@@ -262,6 +263,7 @@
     const splitterUpdateUrl = '{{ route("infra.ftth.editor.splitters.update", ["id" => "__ID__"]) }}';
     const splitterDeleteUrl = '{{ route("infra.ftth.editor.splitters.destroy", ["id" => "__ID__"]) }}';
     const elementUpdateUrl = '{{ route("infra.ftth.editor.elements.update", ["type" => "__TYPE__", "id" => "__ID__"]) }}';
+    const elementDuplicateUrl = '{{ route("infra.ftth.editor.elements.duplicate", ["type" => "__TYPE__", "id" => "__ID__"]) }}';
     const connectionStoreUrl = '{{ route("infra.ftth.editor.connections.store") }}';
     const connectionDeleteUrl = '{{ route("infra.ftth.editor.connections.destroy", ["id" => "__ID__"]) }}';
     const reportUrl = '{{ route("infra.ftth.editor.report", ["city" => "__CITY__"]) }}';
@@ -417,12 +419,13 @@
     }
 
     // Popups: a CEO e a CTO sao o ponto de partida da obra. Clicar nelas abre
-    // editar, conectar e adicionar splitter dentro delas.
+    // editar, conectar, adicionar splitter e duplicar.
     function elementActions(type, id) {
         return '<div class="popup-actions">' +
             '<button class="act-edit" data-action="edit" data-type="' + type + '" data-id="' + id + '">Editar</button>' +
             '<button class="act-connect" data-action="connect" data-type="' + type + '" data-id="' + id + '">Conectar</button>' +
             '<button class="act-split" data-action="splitter" data-type="' + type + '" data-id="' + id + '">Adicionar splitter</button>' +
+            '<button class="act-duplicate" data-action="duplicate" data-type="' + type + '" data-id="' + id + '">Duplicar</button>' +
             '</div>';
     }
 
@@ -792,6 +795,8 @@ function renderConnection(cnx) {
             document.getElementById(side === 'srcType' ? 'srcElement' : 'dstElement').value = id;
         } else if (action === 'splitter') {
             startAddSplitter(type, id);
+        } else if (action === 'duplicate') {
+            startDuplicateElement(type, id);
         } else if (action === 'splitter-edit') {
             openSplitterModal(id);
         } else if (action === 'splitter-delete') {
@@ -850,6 +855,40 @@ function renderConnection(cnx) {
                 .then(r => Promise.all([r.ok, r.json()]))
                 .then(([ok, json]) => {
                     if (!ok) { throw new Error(json.message || 'Erro ao criar splitter.'); }
+                    showToast(json.message);
+                    loadData();
+                })
+                .catch(err => showToast('Erro: ' + err.message));
+        });
+    }
+
+    // Duplicar repete os dados da CEO/CTO e pergunta onde a copia entra. O
+    // ponto vem do clique porque escolher no mapa e mais rapido do que arrastar
+    // a copia depois de criada. Splitters e conexoes nao vem junto.
+    function startDuplicateElement(type, id) {
+        const source = findElement(type, id);
+        if (!source) { showToast('Escolha uma CEO ou CTO do mapa.'); return; }
+
+        const label = type === 'cto' ? 'CTO' : 'CEO';
+        // O "(cópia)" fica por conta do servidor, que ainda resolve nome
+        // repetido. Aqui vai so a base que o tecnico quiser usar.
+        const nome = prompt('Duplicar ' + (source.code || source.name) + ' (' + label + ').\nNome da cópia:', source.name || label);
+        if (!nome) return;
+
+        showToast('Clique no mapa para posicionar a cópia.');
+        map.once('click', function (e) {
+            fetch(elementDuplicateUrl.replace('__TYPE__', type).replace('__ID__', id), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                body: JSON.stringify({
+                    name: nome,
+                    lat: e.latlng.lat,
+                    lng: e.latlng.lng
+                })
+            })
+                .then(r => Promise.all([r.ok, r.json()]))
+                .then(([ok, json]) => {
+                    if (!ok) { throw new Error(json.message || 'Erro ao duplicar.'); }
                     showToast(json.message);
                     loadData();
                 })

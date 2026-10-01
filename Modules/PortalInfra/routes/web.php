@@ -191,6 +191,7 @@ Route::prefix('infra')->name('infra.')->group(function () {
             Route::get('/editor/api/data', [FtthEditorController::class, 'data'])->name('editor.data');
             Route::put('/editor/api/mover/{type}/{id}', [FtthEditorController::class, 'move'])->name('editor.move');
             Route::put('/editor/api/elementos/{type}/{id}', [FtthEditorController::class, 'updateElement'])->name('editor.elements.update');
+            Route::post('/editor/api/elementos/{type}/{id}/duplicar', [FtthEditorController::class, 'duplicateElement'])->name('editor.elements.duplicate');
             Route::post('/editor/api/fibras', [FtthEditorController::class, 'storeFiber'])->name('editor.fibers.store');
             Route::put('/editor/api/fibras/{id}', [FtthEditorController::class, 'updateFiber'])->name('editor.fibers.update');
             Route::delete('/editor/api/fibras/{id}', [FtthEditorController::class, 'destroyFiber'])->name('editor.fibers.destroy');

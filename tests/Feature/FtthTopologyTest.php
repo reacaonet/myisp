@@ -249,6 +249,199 @@ class FtthTopologyTest extends TestCase
         );
     }
 
+    public function test_duplicar_cto_copia_dados_e_nasce_no_ponto_escolhido(): void
+    {
+        $this->actingAs($this->operadorFtth());
+
+        $caixa = CaixaEmenda::create([
+            'name' => 'CEO Origem',
+            'code' => 'CE-DUP-001',
+            'latitude' => -4.30,
+            'longitude' => -46.50,
+            'capacity' => 48,
+            'city' => 'Teste',
+            'status' => 'inactive',
+        ]);
+
+        $cto = Cto::create([
+            'name' => 'CTO Origem',
+            'code' => 'CTO-DUP-001',
+            'latitude' => -4.30,
+            'longitude' => -46.50,
+            'capacity' => 16,
+            'used_ports' => 12,
+            'color' => '#2563eb',
+            'caixa_emenda_id' => $caixa->id,
+            'street' => 'Rua Original',
+            'city' => 'Teste',
+            'status' => 'inactive',
+        ]);
+
+        $this->postJson(route('infra.ftth.editor.elements.duplicate', ['type' => 'cto', 'id' => $cto->id]), [
+            'lat' => -4.25,
+            'lng' => -46.40,
+        ])->assertCreated()->assertJsonPath('element.type', 'cto');
+
+        $copia = Cto::where('code', '!=', $cto->code)->latest('id')->first();
+
+        $this->assertNotNull($copia);
+        $this->assertSame('CTO Origem (cópia)', $copia->name);
+        $this->assertSame($cto->code.'-C', $copia->code);
+        $this->assertSame(-4.25, (float) $copia->latitude);
+        $this->assertSame(-46.40, (float) $copia->longitude);
+        $this->assertSame(16, (int) $copia->capacity);
+        $this->assertSame('#2563eb', $copia->color);
+        $this->assertSame('Rua Original', $copia->street);
+        $this->assertSame('Teste', $copia->city);
+
+        // A copia continua na mesma CEO, mas nasce sem uso e sem o estado de
+        // uso da original: nao ha fibra nem splitter apontando para ela.
+        $this->assertSame($caixa->id, $copia->caixa_emenda_id);
+        $this->assertSame(0, (int) $copia->used_ports);
+        $this->assertNull($copia->fiber_fusions);
+        $this->assertNull($copia->splitter_config);
+        $this->assertSame(0, $copia->splitters()->count());
+        $this->assertSame(0, $copia->fusions()->count());
+
+        // A rede planejada nasce inativa, entao a copia mantem o status.
+        $this->assertSame('inactive', $copia->status);
+    }
+
+    public function test_duplicar_aceita_nome_proprio_e_nao_repete_nem_codigo_nem_nome(): void
+    {
+        $this->actingAs($this->operadorFtth());
+
+        $cto = Cto::create([
+            'name' => 'CTO Base',
+            'code' => 'CTO-DUP-002',
+            'latitude' => -4.30,
+            'longitude' => -46.50,
+            'city' => 'Teste',
+            'status' => 'inactive',
+        ]);
+
+        $url = route('infra.ftth.editor.elements.duplicate', ['type' => 'cto', 'id' => $cto->id]);
+
+        $this->postJson($url, ['lat' => -4.31, 'lng' => -46.51, 'name' => 'CTO do Bairro Novo'])->assertCreated();
+        $this->postJson($url, ['lat' => -4.32, 'lng' => -46.52, 'name' => 'CTO do Bairro Novo'])->assertCreated();
+        $this->postJson($url, ['lat' => -4.33, 'lng' => -46.53, 'name' => 'CTO do Bairro Novo'])->assertCreated();
+
+        $copias = Cto::where('code', 'like', $cto->code.'-C%')->orderBy('id')->get();
+
+        $this->assertCount(3, $copias);
+
+        // code e unique na tabela: as tres copias precisam de sufixo proprio.
+        $this->assertSame(
+            [$cto->code.'-C', $cto->code.'-C2', $cto->code.'-C3'],
+            $copias->pluck('code')->all()
+        );
+
+        // O nome vem do prompt, e o "(cópia)" evita embatido.
+        $this->assertSame(
+            ['CTO do Bairro Novo (cópia)', 'CTO do Bairro Novo (cópia 2)', 'CTO do Bairro Novo (cópia 3)'],
+            $copias->pluck('name')->all()
+        );
+
+        $this->assertSame(0, $copias->pluck('code')->duplicates()->count());
+    }
+
+    public function test_duplicar_ceo_nao_copia_splitters_das_ctos_dela(): void
+    {
+        $this->actingAs($this->operadorFtth());
+
+        $caixa = CaixaEmenda::create([
+            'name' => 'CEO Com Splitter',
+            'code' => 'CE-DUP-003',
+            'latitude' => -4.30,
+            'longitude' => -46.50,
+            'capacity' => 48,
+            'used_ports' => 20,
+            'city' => 'Teste',
+            'status' => 'inactive',
+        ]);
+
+        $cto = Cto::create([
+            'name' => 'CTO Da CEO',
+            'code' => 'CTO-DUP-003',
+            'latitude' => -4.3005,
+            'longitude' => -46.50,
+            'caixa_emenda_id' => $caixa->id,
+            'city' => 'Teste',
+            'status' => 'inactive',
+        ]);
+
+        FtthSplitter::create([
+            'name' => 'Splitter 1x8',
+            'code' => 'SPT-DUP-003',
+            'parent_type' => 'caixa',
+            'parent_id' => $caixa->id,
+            'latitude' => -4.30,
+            'longitude' => -46.50,
+            'input_ports' => 1,
+            'output_ports' => 8,
+        ]);
+
+        $this->postJson(route('infra.ftth.editor.elements.duplicate', ['type' => 'caixa', 'id' => $caixa->id]), [
+            'lat' => -4.35,
+            'lng' => -46.45,
+        ])->assertCreated();
+
+        $copia = CaixaEmenda::where('code', $caixa->code.'-C')->first();
+
+        $this->assertNotNull($copia);
+        $this->assertSame(-4.35, (float) $copia->latitude);
+        $this->assertSame(48, (int) $copia->capacity);
+        $this->assertSame(0, (int) $copia->used_ports);
+
+        // CEO duplicada comeca vazia: sem CTO, sem splitter.
+        $this->assertSame(0, $copia->ctos()->count());
+        $this->assertSame(0, $copia->splitters()->count());
+        $this->assertSame(1, Cto::count());
+        $this->assertSame(1, FtthSplitter::count());
+    }
+
+    public function test_duplicar_exige_ponto_valido_e_tipo_conhecido(): void
+    {
+        $this->actingAs($this->operadorFtth());
+
+        $cto = Cto::create([
+            'name' => 'CTO Sem Ponto',
+            'code' => 'CTO-DUP-004',
+            'latitude' => -4.30,
+            'longitude' => -46.50,
+            'city' => 'Teste',
+            'status' => 'inactive',
+        ]);
+
+        $url = route('infra.ftth.editor.elements.duplicate', ['type' => 'cto', 'id' => $cto->id]);
+
+        // Sem clique no mapa nao ha onde a copia nascer.
+        $this->assertErroDeValidacao($this->postJson($url, []), 'lat');
+        $this->assertErroDeValidacao($this->postJson($url, ['lat' => 200, 'lng' => -46.5]), 'lat');
+
+        $this->postJson(
+            route('infra.ftth.editor.elements.duplicate', ['type' => 'poste', 'id' => $cto->id]),
+            ['lat' => -4.3, 'lng' => -46.5]
+        )->assertStatus(422);
+
+        $this->assertSame(1, Cto::count());
+    }
+
+    public function test_editor_oferece_duplicar_ao_lado_das_outras_acoes(): void
+    {
+        $this->actingAs($this->operadorFtth());
+
+        $html = $this->get(route('infra.ftth.editor.index'))->assertOk()->getContent();
+
+        // O botao fica no mesmo grupo de editar, conectar e adicionar splitter,
+        // e vale para CTO e para CEO porque os dois usam elementActions().
+        $this->assertStringContainsString('data-action="duplicate"', $html);
+        $this->assertStringContainsString('>Duplicar</button>', $html);
+        $this->assertStringContainsString('act-duplicate', $html);
+        $this->assertStringContainsString('startDuplicateElement', $html);
+        $this->assertStringContainsString('elementos/__TYPE__/__ID__/duplicar', $html);
+    }
+
     public function test_ceo_nao_guarda_cor_e_splitter_orphan_aparece_na_validacao(): void
     {
         $this->actingAs($this->operadorFtth());

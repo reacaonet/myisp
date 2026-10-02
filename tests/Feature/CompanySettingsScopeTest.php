@@ -342,4 +342,73 @@ class CompanySettingsScopeTest extends TestCase
         $this->get(route('landing.investors'))->assertRedirect(route('landing.index'));
         $this->get('/')->assertOk()->assertDontSee(route('landing.investors'));
     }
+
+    public function test_menu_da_landing_sublinha_uma_secao_por_vez(): void
+    {
+        SystemSetting::set('landing_enabled', '1', 'text', 'landing');
+        // "Sobre" so entra no menu com o bloco da aba About habilitado.
+        SystemSetting::set('landing_about', 'Sobre a Raiz', 'text', 'landing');
+
+        $html = $this->get('/')->assertOk()->getContent();
+
+        // Sobre, Para Voce, Para Sua Empresa e Planos sao ancoras da propria
+        // home. Marcar active pela rota sublinhava as quatro de uma vez,
+        // porque todas respondem a landing.index.
+        foreach (['sobre', 'para-voce', 'empresas', 'planos'] as $secao) {
+            $this->assertStringContainsString('data-section="'.$secao.'"', $html);
+            $this->assertStringNotContainsString(
+                'data-section="'.$secao.'" data-active',
+                $html,
+                'A ancora nao pode chegar com active pronto pelo servidor.'
+            );
+        }
+
+        $this->assertSame(
+            0,
+            preg_match_all('/<a class="nav-link active"/', $html),
+            'Nenhum item de ancora pode nascer ativo na home.'
+        );
+
+        // Quem decide a secao em tela e o scroll spy, nao o Blade.
+        $this->assertStringContainsString('a.nav-link[data-section]', $html);
+        $this->assertStringContainsString("link.classList.toggle('active', on)", $html);
+
+        // Investidores e SAC sao paginas proprias: a rota continua decidindo,
+        // e na home nenhum dos dois pode aparecer ativo.
+        $this->assertStringContainsString('>Investidores</a>', $html);
+        $this->assertStringContainsString('>SAC</a>', $html);
+    }
+
+    public function test_menu_da_landing_marca_so_o_item_ativo_da_pagina(): void
+    {
+        SystemSetting::set('landing_enabled', '1', 'text', 'landing');
+        SystemSetting::set('landing_investors_enabled', '1', 'text', 'landing');
+
+        $sac = $this->get(route('landing.sac'))->assertOk()->getContent();
+
+        $this->assertSame(1, preg_match_all('/<a class="nav-link active"/', $sac));
+        $this->assertStringContainsString(
+            'href="'.route('landing.sac').'"',
+            $sac
+        );
+    }
+
+    public function test_menu_da_landing_tem_botao_para_o_celular(): void
+    {
+        SystemSetting::set('landing_enabled', '1', 'text', 'landing');
+        SystemSetting::set('landing_about', 'Sobre a Raiz', 'text', 'landing');
+
+        $html = $this->get('/')->assertOk()->getContent();
+
+        // Ate 900px os links de menu viravam display:none e o celular ficava
+        // so com a logo e o botao de login. O painel precisa de um botao.
+        $this->assertStringContainsString('class="nav-toggle"', $html);
+        $this->assertStringContainsString('aria-controls="landing-nav"', $html);
+        $this->assertStringContainsString('id="landing-nav"', $html);
+        $this->assertStringContainsString('nav.site.is-open', $html);
+        $this->assertStringContainsString("nav.classList.toggle('is-open', aberto)", $html);
+
+        // Painel que nao fecha sozinho cobre o conteudo em cima.
+        $this->assertStringContainsString('abrir(false)', $html);
+    }
 }

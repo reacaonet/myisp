@@ -58,7 +58,16 @@
         nav.site a.nav-link:hover { color: var(--c-primary); }
         nav.site a.nav-link:hover::after, nav.site a.nav-link.active::after { transform: scaleX(1); }
         nav.site a.nav-link.active { color: var(--c-primary); }
+        /* Passando o mouse pelo menu, o item apontado toma o sublinhado e a
+           secao em tela sai. Sem isso o ativo e o hover viram dois tracos. */
+        nav.site.is-hovering a.nav-link.active:not(:hover)::after { transform: scaleX(0); }
         nav.site .btn { padding: 11px 20px; font-size: 0.88rem; }
+        /* Botao do menu: some no desktop, e o que segura os links no celular. */
+        .nav-toggle { display: none; flex-direction: column; justify-content: center; gap: 4px; width: 42px; height: 42px; padding: 0; border: 1px solid rgba(226,232,240,0.9); border-radius: 10px; background: #fff; cursor: pointer; }
+        .nav-toggle span { display: block; width: 18px; height: 2px; margin: 0 auto; border-radius: 2px; background: #0f172a; transition: transform 0.22s, opacity 0.18s; }
+        .nav-toggle[aria-expanded="true"] span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+        .nav-toggle[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+        .nav-toggle[aria-expanded="true"] span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
 
         /* ------------------------------------------------------------------ */
         /* Hero / Slider                                                       */
@@ -256,7 +265,16 @@
         .fab a:hover { transform: scale(1.1); box-shadow: 0 14px 34px rgba(34,197,94,0.55); }
 
         @media (max-width: 900px) {
-            nav.site a.nav-link { display: none; }
+            /* O menu vira painel suspenso abaixo do header, que e sticky e
+               por isso serve de referencia para o top: 100%. */
+            .nav-toggle { display: flex; }
+            nav.site { position: absolute; top: 100%; left: 0; right: 0; flex-direction: column; align-items: stretch; gap: 0; padding: 6px 18px 18px; background: rgba(255,255,255,0.98); border-bottom: 1px solid rgba(226,232,240,0.8); box-shadow: 0 18px 30px rgba(15,23,42,0.10); display: none; }
+            nav.site.is-open { display: flex; }
+            /* O sublinhado de secao e reta embaixo do texto, que nao faz
+               sentido em item empilhado: aqui o ativo se marca pela cor. */
+            nav.site a.nav-link { padding: 13px 0; border-bottom: 1px solid rgba(226,232,240,0.55); }
+            nav.site a.nav-link::after { display: none; }
+            nav.site .btn { margin-top: 16px; justify-content: center; }
             .about-wrap { grid-template-columns: 1fr; }
             .footer-grid { grid-template-columns: 1fr 1fr; }
             .container { padding: 0 18px; }

@@ -179,6 +179,22 @@ class TenantContext
         return self::isSuperadmin();
     }
 
+    /**
+     * O vinculo em `branch_user` restringe ate onde o usuario enxerga dentro da
+     * empresa. Sem nenhum vinculo de filial a empresa vale inteira: e assim que
+     * um supervisor de matriz continua alcancando todas as lojas.
+     */
+    public static function isBranchScoped(?Authenticatable $user = null): bool
+    {
+        $user ??= Auth::user();
+
+        if (! $user || self::isSuperadmin($user) || ! method_exists($user, 'branches')) {
+            return false;
+        }
+
+        return $user->branches()->exists();
+    }
+
     protected static function scopeFor(int $companyId): array
     {
         $branch = Branch::query()

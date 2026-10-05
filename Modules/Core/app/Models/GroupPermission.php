@@ -28,6 +28,7 @@ class GroupPermission extends Model
             'dashboard' => 'Dashboard',
             'clients' => 'Clientes',
             'plans' => 'Planos',
+            'plans_manage' => 'Planos (criar e editar)',
             'contracts' => 'Contratos',
             'service_orders' => 'Ordens de Servico',
             'technicians' => 'Tecnicos',
@@ -50,6 +51,7 @@ class GroupPermission extends Model
             'newsletter' => 'Mala Direta',
             'backups' => 'Backups MikroTik',
             'site_blocking' => 'Bloqueio de Sites',
+            'franchisees' => 'Franqueados',
             'settings' => 'Configuracoes',
             'stock' => 'Estoque',
         ];

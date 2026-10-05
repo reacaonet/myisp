@@ -65,4 +65,14 @@ class Branch extends Model
     {
         return $this->parent_id === null;
     }
+
+    /**
+     * A filial e a propria unidade, entao o corte por filial incide sobre `id`.
+     * Sem isto um usuario de loja veria as filiais das outras lojas da empresa
+     * nos filtros de cliente, contrato e ordem de servico.
+     */
+    protected function tenantBranchColumn(): ?string
+    {
+        return 'id';
+    }
 }

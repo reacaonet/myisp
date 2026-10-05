@@ -2,6 +2,7 @@
 
 namespace Modules\Billing\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Modules\Core\Models\Concerns\BelongsToTenant;
@@ -9,6 +10,26 @@ use Modules\Core\Models\Concerns\BelongsToTenant;
 class CashBookEntry extends Model
 {
     use BelongsToTenant;
+
+    /**
+     * Lancamento e dado da filial. O saldo anterior da tela de livro caixa
+     * tambem passa por aqui: sem o corte, a soma de entrada e saida da rede
+     * inteira aparece no topo do usuario de uma loja.
+     */
+    protected function tenantBranchColumn(): ?string
+    {
+        return 'branch_id';
+    }
+
+    public static function scoped(?Builder $query = null): Builder
+    {
+        return ($query ?? static::query())->forTenant();
+    }
+
+    public static function findScopedOrFail(int $id): self
+    {
+        return static::scoped()->findOrFail($id);
+    }
 
     protected $fillable = [
         'company_id', 'branch_id',

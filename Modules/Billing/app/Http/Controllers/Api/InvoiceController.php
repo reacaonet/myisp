@@ -3,6 +3,7 @@
 namespace Modules\Billing\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use Closure;
 use Illuminate\Http\Request;
 use Modules\Billing\Models\Invoice;
 use Modules\Core\Services\TenantContext;
@@ -12,13 +13,15 @@ class InvoiceController extends Controller
 {
     public function index()
     {
-        return Invoice::with('client', 'contract.plan', 'payments')->paginate();
+        return Invoice::scoped()
+            ->with('client', 'contract.plan', 'payments')
+            ->paginate();
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'client_id' => 'required|exists:clients,id',
+            'client_id' => ['required', $this->scopedClientRule()],
             'contract_id' => 'nullable|exists:contracts,id',
             'amount' => 'required|numeric|min:0',
             'discount' => 'nullable|numeric|min:0',
@@ -32,7 +35,7 @@ class InvoiceController extends Controller
 
         $validated['discount'] ??= 0;
         $validated['total'] = $validated['amount'] - $validated['discount'];
-        $client = isset($validated['client_id']) ? Client::find($validated['client_id']) : null;
+        $client = Client::scoped()->find($validated['client_id']);
         $companyId = $client?->company_id ?? TenantContext::companyId() ?? 0;
         $validated['invoice_number'] = Invoice::nextNumber($companyId, $validated['due_date'] ?? now());
 
@@ -43,15 +46,17 @@ class InvoiceController extends Controller
 
     public function show($id)
     {
-        return Invoice::with('client', 'contract.plan', 'payments')->findOrFail($id);
+        return Invoice::scoped()
+            ->with('client', 'contract.plan', 'payments')
+            ->findOrFail($id);
     }
 
     public function update(Request $request, $id)
     {
-        $invoice = Invoice::findOrFail($id);
+        $invoice = Invoice::findScopedOrFail((int) $id);
 
         $validated = $request->validate([
-            'client_id' => 'exists:clients,id',
+            'client_id' => [$this->scopedClientRule()],
             'contract_id' => 'nullable|exists:contracts,id',
             'amount' => 'numeric|min:0',
             'discount' => 'nullable|numeric|min:0',
@@ -74,10 +79,29 @@ class InvoiceController extends Controller
 
     public function destroy($id)
     {
-        $invoice = Invoice::findOrFail($id);
+        $invoice = Invoice::findScopedOrFail((int) $id);
         $invoice->payments()->delete();
         $invoice->delete();
 
         return response()->noContent();
+    }
+
+    /**
+     * A listagem vinha sem filtro nenhum e o `client_id` aceitava qualquer id.
+     * Agora a fatura nasce e continua presa a um cliente da filial do usuario.
+     */
+    private function scopedClientRule(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail) {
+            if (! $value) {
+                $fail('Escolha um cliente.');
+
+                return;
+            }
+
+            if (! Client::scoped()->whereKey($value)->exists()) {
+                $fail('Cliente invalido.');
+            }
+        };
     }
 }

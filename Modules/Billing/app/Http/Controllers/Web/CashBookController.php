@@ -11,11 +11,7 @@ class CashBookController extends Controller
 {
     public function index(Request $request)
     {
-        $query = CashBookEntry::with('invoice');
-
-        if (! TenantContext::isCrossTenant()) {
-            $query->forCompany(TenantContext::companyId());
-        }
+        $query = CashBookEntry::with('invoice')->forTenant();
 
         if ($request->get('start_date')) {
             $query->where('entry_date', '>=', $request->start_date);
@@ -35,21 +31,23 @@ class CashBookController extends Controller
         $startDate = $request->get('start_date', now()->startOfMonth()->toDateString());
         $endDate = $request->get('end_date', now()->toDateString());
 
-        $summary = CashBookEntry::query()
-            ->when(! TenantContext::isCrossTenant(), fn ($query) => $query->forCompany(TenantContext::companyId()))
-            ->whereBetween('entry_date', [$startDate, $endDate]);
+        $summary = CashBookEntry::scoped()->whereBetween('entry_date', [$startDate, $endDate]);
 
         $totalEntradas = (clone $summary)->where('type', 'entrada')->sum('amount');
         $totalSaidas = (clone $summary)->where('type', 'saida')->sum('amount');
         $saldo = $totalEntradas - $totalSaidas;
 
-        $previousBalance = CashBookEntry::where('entry_date', '<', $startDate)
+        // Este saldo e o que fica no topo da tela. Sem escopo ele somava a rede
+        // inteira, e o usuario de uma loja via o resultado da matriz junto.
+        $previousBalance = CashBookEntry::scoped()
+            ->where('entry_date', '<', $startDate)
             ->selectRaw("SUM(CASE WHEN type = 'entrada' THEN amount ELSE 0 END) - SUM(CASE WHEN type = 'saida' THEN amount ELSE 0 END) as balance")
             ->value('balance') ?? 0;
 
         $saldoAcumulado = $previousBalance + $saldo;
 
-        $categories = CashBookEntry::whereNotNull('category')
+        $categories = CashBookEntry::scoped()
+            ->whereNotNull('category')
             ->distinct()
             ->pluck('category')
             ->sort()
@@ -88,21 +86,21 @@ class CashBookController extends Controller
 
     public function show($id)
     {
-        $entry = CashBookEntry::with('invoice')->findOrFail($id);
+        $entry = CashBookEntry::scoped()->with('invoice')->findOrFail($id);
 
         return view('billing::cash-book.show', compact('entry'));
     }
 
     public function edit($id)
     {
-        $entry = CashBookEntry::findOrFail($id);
+        $entry = CashBookEntry::findScopedOrFail((int) $id);
 
         return view('billing::cash-book.edit', compact('entry'));
     }
 
     public function update(Request $request, $id)
     {
-        $entry = CashBookEntry::findOrFail($id);
+        $entry = CashBookEntry::findScopedOrFail((int) $id);
 
         $validated = $request->validate([
             'type' => 'required|in:entrada,saida',
@@ -123,7 +121,7 @@ class CashBookController extends Controller
 
     public function destroy($id)
     {
-        $entry = CashBookEntry::findOrFail($id);
+        $entry = CashBookEntry::findScopedOrFail((int) $id);
         $entry->delete();
 
         return redirect()->route('billing.cash-book.index')

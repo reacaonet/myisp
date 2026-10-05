@@ -162,8 +162,10 @@ class InvoiceListFilter
      */
     public function branches(): Collection
     {
+        // `forTenant` e o que corta pela filial do usuario. Com `forCompany` o
+        // filtro de filial oferecia as lojas da rede inteira.
         return Branch::query()
-            ->when(! TenantContext::isCrossTenant(), fn ($query) => $query->forCompany(TenantContext::companyId()))
+            ->forTenant()
             ->orderByRaw('parent_id is null desc')
             ->orderBy('name')
             ->get();

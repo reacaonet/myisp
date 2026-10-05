@@ -19,11 +19,7 @@ class BoletoController extends Controller
         $filter = new InvoiceListFilter;
         $filters = $request->validate($filter->rules($request, boletos: true));
 
-        $query = Invoice::with('client', 'contract.plan', 'gateway');
-
-        if (! TenantContext::isCrossTenant()) {
-            $query->forCompany(TenantContext::companyId());
-        }
+        $query = Invoice::with('client', 'contract.plan', 'gateway')->forTenant();
 
         $filter->apply($query, $filters, boletos: true);
 
@@ -56,7 +52,7 @@ class BoletoController extends Controller
 
     public function print($id)
     {
-        $invoice = Invoice::with('client', 'gateway')->findOrFail($id);
+        $invoice = Invoice::scoped()->with('client', 'gateway')->findOrFail($id);
 
         $bankSettings = $this->bankSettings($invoice->company_id);
 
@@ -130,7 +126,7 @@ class BoletoController extends Controller
 
     public function generateBoleto(Request $request, $id)
     {
-        $invoice = Invoice::findOrFail($id);
+        $invoice = Invoice::findScopedOrFail((int) $id);
 
         $validated = $request->validate([
             'gateway_id' => 'required|exists:payment_gateways,id',
@@ -158,7 +154,7 @@ class BoletoController extends Controller
 
     public function generatePix(Request $request, $id)
     {
-        $invoice = Invoice::findOrFail($id);
+        $invoice = Invoice::findScopedOrFail((int) $id);
 
         $validated = $request->validate([
             'gateway_id' => 'required|exists:payment_gateways,id',
@@ -186,7 +182,7 @@ class BoletoController extends Controller
 
     public function refreshStatus($id)
     {
-        $invoice = Invoice::findOrFail($id);
+        $invoice = Invoice::findScopedOrFail((int) $id);
 
         if (! $invoice->gateway_id || ! $invoice->boleto_numero) {
             return back()->with('error', 'Nenhum gateway vinculado a esta fatura.');
@@ -211,7 +207,7 @@ class BoletoController extends Controller
 
     public function cancelPayment($id)
     {
-        $invoice = Invoice::findOrFail($id);
+        $invoice = Invoice::findScopedOrFail((int) $id);
 
         if (! $invoice->gateway_id || ! $invoice->boleto_numero) {
             return back()->with('error', 'Nenhum gateway vinculado a esta fatura.');
@@ -248,7 +244,7 @@ class BoletoController extends Controller
 
     public function deletePayment($id)
     {
-        $invoice = Invoice::findOrFail($id);
+        $invoice = Invoice::findScopedOrFail((int) $id);
 
         $invoice->update([
             'gateway_id' => null,

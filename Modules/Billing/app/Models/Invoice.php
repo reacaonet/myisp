@@ -2,6 +2,7 @@
 
 namespace Modules\Billing\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Modules\Core\Models\Concerns\BelongsToTenant;
 use Modules\Core\Services\TenantContext;
@@ -11,6 +12,34 @@ use Modules\CRM\Models\Contract;
 class Invoice extends Model
 {
     use BelongsToTenant;
+
+    /**
+     * Fatura e dado da filial: o corte usa `branch_id`, e nao so a empresa.
+     */
+    protected function tenantBranchColumn(): ?string
+    {
+        return 'branch_id';
+    }
+
+    /**
+     * Funil unico de listagem e acesso por id. Controllers que reimplementam o
+     * filtro com `forCompany` deixam de fora o corte por filial, e o usuario de
+     * uma loja volta a ver a cobranca das outras.
+     */
+    public static function scoped(?Builder $query = null): Builder
+    {
+        return ($query ?? static::query())->forTenant();
+    }
+
+    public static function findScoped(int $id): ?self
+    {
+        return static::scoped()->find($id);
+    }
+
+    public static function findScopedOrFail(int $id): self
+    {
+        return static::scoped()->findOrFail($id);
+    }
 
     protected $fillable = [
         'company_id', 'branch_id',
@@ -71,7 +100,7 @@ class Invoice extends Model
     public static function bulkDelete(array $ids): int
     {
         $invoices = static::query()
-            ->when(! TenantContext::isCrossTenant(), fn ($query) => $query->forCompany(TenantContext::companyId()))
+            ->forTenant()
             ->whereIn('id', $ids)
             ->get(['id']);
 

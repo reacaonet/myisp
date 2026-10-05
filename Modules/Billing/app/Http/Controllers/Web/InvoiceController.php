@@ -23,20 +23,13 @@ class InvoiceController extends Controller
         $filter = new InvoiceListFilter;
         $filters = $request->validate($filter->rules($request));
 
-        $query = Invoice::with('client', 'contract.plan');
-
-        if (! TenantContext::isCrossTenant()) {
-            $query->forCompany(TenantContext::companyId());
-        }
+        $query = Invoice::with('client', 'contract.plan')->forTenant();
 
         $filter->apply($query, $filters);
 
         $invoices = $query->latest()->paginate(15);
 
-        $scoped = fn () => Invoice::query()->when(
-            ! TenantContext::isCrossTenant(),
-            fn ($q) => $q->forCompany(TenantContext::companyId())
-        );
+        $scoped = fn () => Invoice::scoped();
 
         $stats = [
             'pending' => $scoped()->where('status', 'pending')->sum('total'),
@@ -52,9 +45,7 @@ class InvoiceController extends Controller
 
     public function create()
     {
-        $clients = Client::orderBy('name')
-            ->when(! TenantContext::isCrossTenant(), fn ($query) => $query->forCompany(TenantContext::companyId()))
-            ->get();
+        $clients = Client::scoped()->orderBy('name')->get();
 
         return view('billing::invoices.create', compact('clients'));
     }
@@ -101,14 +92,14 @@ class InvoiceController extends Controller
 
     public function show($id)
     {
-        $invoice = Invoice::with(['client.addresses', 'contract.plan', 'contract.server', 'payments'])->findOrFail($id);
+        $invoice = Invoice::scoped()->with(['client.addresses', 'contract.plan', 'contract.server', 'payments'])->findOrFail($id);
 
         return view('billing::invoices.show', compact('invoice'));
     }
 
     public function edit($id)
     {
-        $invoice = Invoice::with('client', 'contract')->findOrFail($id);
+        $invoice = Invoice::scoped()->with('client', 'contract')->findOrFail($id);
         $clients = Client::orderBy('name')->get();
         $contracts = Contract::where('client_id', $invoice->client_id)->with('plan')->get();
 
@@ -117,7 +108,7 @@ class InvoiceController extends Controller
 
     public function update(Request $request, $id)
     {
-        $invoice = Invoice::findOrFail($id);
+        $invoice = Invoice::findScopedOrFail((int) $id);
 
         $validated = $request->validate([
             'client_id' => 'exists:clients,id',
@@ -150,9 +141,7 @@ class InvoiceController extends Controller
 
     public function destroy($id)
     {
-        $invoice = Invoice::query()
-            ->when(! TenantContext::isCrossTenant(), fn ($query) => $query->forCompany(TenantContext::companyId()))
-            ->findOrFail($id);
+        $invoice = Invoice::findScopedOrFail((int) $id);
 
         $invoice->payments()->delete();
         $invoice->delete();
@@ -180,7 +169,7 @@ class InvoiceController extends Controller
 
     public function registerPayment(Request $request, $id)
     {
-        $invoice = Invoice::findOrFail($id);
+        $invoice = Invoice::findScopedOrFail((int) $id);
 
         $validated = $request->validate([
             'amount' => 'required|numeric|min:0',
@@ -232,7 +221,7 @@ class InvoiceController extends Controller
 
     public function block($id)
     {
-        $invoice = Invoice::findOrFail($id);
+        $invoice = Invoice::findScopedOrFail((int) $id);
         $contract = $invoice->contract;
 
         $mikrotikServer = $contract?->provisionedMikrotikServer();
@@ -296,7 +285,7 @@ class InvoiceController extends Controller
 
     public function unblock($id)
     {
-        $invoice = Invoice::findOrFail($id);
+        $invoice = Invoice::findScopedOrFail((int) $id);
         $contract = $invoice->contract;
 
         if (! $contract) {
@@ -343,7 +332,7 @@ class InvoiceController extends Controller
 
     public function receipt($id)
     {
-        $invoice = Invoice::with(['client', 'contract.plan', 'payments'])->findOrFail($id);
+        $invoice = Invoice::scoped()->with(['client', 'contract.plan', 'payments'])->findOrFail($id);
 
         if ($invoice->status !== 'paid') {
             return redirect()->route('billing.invoices.show', $invoice)

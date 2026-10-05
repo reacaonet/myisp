@@ -8,15 +8,20 @@
         <h2 class="text-xl font-bold text-gray-900">Rede FTTH</h2>
         <p class="text-sm text-gray-500 mt-1">Dados de projeto das CTOs e Caixas de Emenda. Clique para ver localizacao e plano de fusao.</p>
     </div>
-    <form method="GET" action="{{ route('technician.portal.ftth') }}" class="flex items-center gap-2">
-        <select name="project" onchange="this.form.submit()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
-            <option value="">Todos os Projetos</option>
-            @foreach($projects as $project)
-                <option value="{{ $project->id }}" @selected(request('project') == $project->id)>{{ $project->name }}</option>
-            @endforeach
-        </select>
-    </form>
-</div>
+    <div class="flex flex-wrap items-center gap-2">
+        <a href="{{ route('technician.portal.ftth.map', request()->only('project')) }}" class="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 19.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+            Ver no mapa
+        </a>
+        <form method="GET" action="{{ route('technician.portal.ftth') }}" class="flex items-center gap-2">
+            <select name="project" onchange="this.form.submit()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+                <option value="">Todos os Projetos</option>
+                @foreach($projects as $project)
+                    <option value="{{ $project->id }}" @selected(request('project') == $project->id)>{{ $project->name }}</option>
+                @endforeach
+            </select>
+        </form>
+    </div>
 
 <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

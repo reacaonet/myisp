@@ -7,7 +7,9 @@
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
         <h2 class="text-xl font-bold text-gray-900">Minhas Ordens de Servico</h2>
         <div class="flex items-center gap-2 flex-wrap">
-            <a href="{{ route('technician.portal.service-orders') }}" class="px-3 py-1.5 text-xs font-medium rounded-lg {{ !request('status') ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">Todas</a>
+            {{-- `Todas` precisa olhar `situacao`: os chips ao lado filtram por ela, entao
+                     testar `status` mantinha "Todas" destacado junto com o chip escolhido. --}}
+            <a href="{{ route('technician.portal.service-orders') }}" class="px-3 py-1.5 text-xs font-medium rounded-lg {{ !request('situacao') ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">Todas</a>
             <a href="{{ route('technician.portal.service-orders', ['situacao' => 'O']) }}" class="px-3 py-1.5 text-xs font-medium rounded-lg {{ request('situacao') === 'O' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">Abertas</a>
             <a href="{{ route('technician.portal.service-orders', ['situacao' => 'A']) }}" class="px-3 py-1.5 text-xs font-medium rounded-lg {{ request('situacao') === 'A' ? 'bg-yellow-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">Em Andamento</a>
             <a href="{{ route('technician.portal.service-orders', ['situacao' => 'F']) }}" class="px-3 py-1.5 text-xs font-medium rounded-lg {{ request('situacao') === 'F' ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">Finalizadas</a>

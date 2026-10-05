@@ -3,160 +3,209 @@
 @section('title', 'Dashboard')
 
 @php
-    $todayOrders = $serviceOrders->filter(fn($os) => $os->data_agendamento && $os->data_agendamento->isToday());
+    $todayOrders = $serviceOrders->filter(fn($os) => $os->data_agendamento && $os->data_agendamento->isToday())
+        ->sortBy(fn($os) => $os->hora_agendamento ?: '99:99');
+
     $inProgressOrders = $serviceOrders->filter(fn($os) => $os->situacao === 'A');
+
+    // `situacao` e a etapa do atendimento (O/A/F) e `status` e o estado do
+    // registro (active/closed/canceled). Os dois canais aparecem lado a lado na
+    // tela antiga, sem rotulo, e era impossible saber qual olhar. Aqui cada um
+    // tem nome proprio.
+    $etapaLabels = ['O' => 'Aberta', 'A' => 'Em andamento', 'F' => 'Finalizada'];
+    $etapaClasses = [
+        'O' => 'bg-blue-100 text-blue-700',
+        'A' => 'bg-amber-100 text-amber-700',
+        'F' => 'bg-green-100 text-green-700',
+    ];
+    $statusLabels = ['active' => 'Ativo', 'closed' => 'Encerrado', 'canceled' => 'Cancelado'];
+    $statusClasses = [
+        'active' => 'bg-gray-100 text-gray-700',
+        'closed' => 'bg-green-100 text-green-700',
+        'canceled' => 'bg-red-100 text-red-700',
+    ];
 @endphp
 
 @section('content')
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-    <div class="flex items-center justify-between">
-        <div>
-            <h2 class="text-xl font-bold text-gray-900">Bem-vindo, {{ $technician->name }}</h2>
-            <p class="text-sm text-gray-500 mt-1">{{ $technician->cargo ?? 'Tecnico' }} &middot; {{ $technician->email ?? '-' }} &middot; {{ $technician->cellphone ?? $technician->phone ?? '-' }}</p>
-        </div>
-        <div class="text-right">
-            <p class="text-sm text-gray-500">{{ now()->format('d/m/Y') }}</p>
-            <p class="text-xs text-gray-400">{{ now()->translatedFormat('l') }}</p>
-        </div>
-    </div>
+{{-- Cabecalho enxuto: nome e contato numa linha, sem caixa vazia ocupando a
+     tela toda. A data ja aparece no relogio do topo. --}}
+<div class="mb-5">
+    <h2 class="text-xl font-bold text-gray-900 sm:text-2xl">Ola, {{ \Illuminate\Support\Str::before($technician->name, ' ') }}</h2>
+    <p class="mt-1 text-sm text-gray-500">
+        {{ $technician->cargo ?? 'Tecnico' }}
+        @if($technician->email)<span class="hidden sm:inline"> &middot; {{ $technician->email }}</span>@endif
+        @if($technician->cellphone ?? $technician->phone)<span class="hidden sm:inline"> &middot; {{ $technician->cellphone ?? $technician->phone }}</span>@endif
+    </p>
 </div>
 
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="text-sm font-medium text-gray-500">OS Atribuidas</p>
-                <p class="text-3xl font-bold text-gray-900 mt-1">{{ $stats['total_assigned'] }}</p>
-            </div>
-            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
-            </div>
-        </div>
-    </div>
-
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="text-sm font-medium text-gray-500">Em Aberto</p>
-                <p class="text-3xl font-bold text-blue-600 mt-1">{{ $stats['open'] }}</p>
-            </div>
-            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            </div>
-        </div>
-    </div>
-
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="text-sm font-medium text-gray-500">Em Andamento</p>
-                <p class="text-3xl font-bold text-yellow-600 mt-1">{{ $stats['in_progress'] }}</p>
-            </div>
-            <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            </div>
-        </div>
-    </div>
-
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="text-sm font-medium text-gray-500">Concluidas (Hoje)</p>
-                <p class="text-3xl font-bold text-green-600 mt-1">{{ $stats['completed_today'] }}</p>
-            </div>
-            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            </div>
-        </div>
-    </div>
-</div>
-
+{{-- Prioridade: o que o tecnico precisa fazer agora fica acima de tudo, com
+     acao direta. A versao antiga escondia isso abaixo de quatro cards iguais e
+     de um grid de atalhos que so repetia a sidebar. --}}
 @if($inProgressOrders->isNotEmpty())
-<div class="bg-yellow-50 rounded-xl shadow-sm border border-yellow-200 p-6 mb-6">
-    <h3 class="text-lg font-semibold text-yellow-800 mb-4">Em Andamento Agora</h3>
-    <div class="space-y-3">
-        @foreach($inProgressOrders as $os)
-        <a href="{{ route('technician.portal.service-orders.show', $os) }}" class="flex items-center justify-between p-3 bg-white rounded-lg border border-yellow-200 hover:shadow-sm transition">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-                    <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                </div>
-                <div>
-                    <p class="font-medium text-gray-900">{{ $os->codigo }}</p>
-                    <p class="text-sm text-gray-500">{{ $os->client?->name }} - {{ $os->servico ?? $os->tipo_servico }}</p>
-                </div>
-            </div>
-            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-        </a>
-        @endforeach
+<div class="mb-5 overflow-hidden rounded-xl border border-amber-300 bg-white shadow-sm">
+    <div class="flex items-center gap-3 border-b border-amber-200 bg-amber-50 px-4 py-3 sm:px-5">
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100">
+            <svg class="h-5 w-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <div class="min-w-0 flex-1">
+            <h3 class="font-semibold text-amber-900">Em andamento agora</h3>
+            <p class="text-xs text-amber-700">{{ $inProgressOrders->count() === 1 ? '1 ordem em execucao' : $inProgressOrders->count().' ordens em execucao' }}</p>
+
+        </div>
     </div>
+    <ul class="divide-y divide-gray-100">
+        @foreach($inProgressOrders as $os)
+        <li>
+            <a href="{{ route('technician.portal.service-orders.show', $os) }}" class="flex items-center gap-3 px-4 py-3.5 transition hover:bg-amber-50/60 sm:px-5">
+                <div class="min-w-0 flex-1">
+                    <p class="truncate text-sm font-semibold text-gray-900">
+                        {{ $os->codigo }}
+                        <span class="font-normal text-gray-500">&middot; {{ $os->servico ?? $os->tipo_servico ?? 'Servico' }}</span>
+                    </p>
+                    <p class="mt-0.5 truncate text-sm text-gray-500">{{ $os->client?->name ?? 'Cliente nao informado' }}</p>
+                </div>
+                <span class="hidden shrink-0 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-blue-700 sm:inline-flex">Continuar</span>
+                <svg class="h-5 w-5 shrink-0 text-gray-400 sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+        </li>
+        @endforeach
+    </ul>
 </div>
 @endif
+
+{{-- Os tres filtros apontam para `situacao`, nunca para `status`: o enum de
+     registro (active/closed/canceled) nao tem valor "aberta" nem "em
+     andamento", entao filtrar por ele devolvia lista vazia. Os atalhos antigos
+     faziam exatamente isso. --}}
+<div class="mb-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+    <a href="{{ route('technician.portal.service-orders') }}" class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-blue-300 hover:shadow">
+        <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Minhas OS</p>
+        <p class="mt-1 text-2xl font-bold text-gray-900">{{ $stats['total_assigned'] }}</p>
+    </a>
+    <a href="{{ route('technician.portal.service-orders', ['situacao' => 'O']) }}" class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-blue-300 hover:shadow">
+        <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Em aberto</p>
+        <p class="mt-1 text-2xl font-bold text-blue-600">{{ $stats['open'] }}</p>
+    </a>
+    <a href="{{ route('technician.portal.service-orders', ['situacao' => 'A']) }}" class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-amber-300 hover:shadow">
+        <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Em andamento</p>
+        <p class="mt-1 text-2xl font-bold text-amber-600">{{ $stats['in_progress'] }}</p>
+    </a>
+    <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Concluidas hoje</p>
+        <p class="mt-1 text-2xl font-bold text-green-600">{{ $stats['completed_today'] }}</p>
+    </div>
+</div>
 
 @if($todayOrders->isNotEmpty())
-<div class="bg-blue-50 rounded-xl shadow-sm border border-blue-200 p-6 mb-6">
-    <h3 class="text-lg font-semibold text-blue-800 mb-4">Agenda de Hoje</h3>
-    <div class="space-y-3">
-        @foreach($todayOrders as $os)
-        <a href="{{ route('technician.portal.service-orders.show', $os) }}" class="flex items-center justify-between p-3 bg-white rounded-lg border border-blue-200 hover:shadow-sm transition">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                </div>
-                <div>
-                    <p class="font-medium text-gray-900">{{ $os->codigo }} @if($os->hora_agendamento) <span class="text-sm text-gray-500">as {{ $os->hora_agendamento }}</span> @endif</p>
-                    <p class="text-sm text-gray-500">{{ $os->client?->name }} - {{ $os->servico ?? $os->tipo_servico }}</p>
-                </div>
-            </div>
-            <span class="px-2 py-0.5 rounded-full text-xs font-medium {{ $os->situacao === 'O' ? 'bg-blue-100 text-blue-700' : ($os->situacao === 'A' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700') }}">
-                {{ $os->situacao === 'O' ? 'Aberta' : ($os->situacao === 'A' ? 'Em Andamento' : 'Finalizada') }}
-            </span>
-        </a>
-        @endforeach
+<div class="mb-5 rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 sm:px-5">
+        <h3 class="font-semibold text-gray-800">Agenda de hoje</h3>
+        <span class="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">{{ $todayOrders->count() }}</span>
     </div>
+    <ul class="divide-y divide-gray-100">
+        @foreach($todayOrders as $os)
+        <li>
+            <a href="{{ route('technician.portal.service-orders.show', $os) }}" class="flex items-center gap-4 px-4 py-3.5 transition hover:bg-gray-50 sm:px-5">
+                <div class="w-16 shrink-0 text-center">
+                    <p class="text-sm font-bold text-gray-900">{{ $os->hora_agendamento ?? '--:--' }}</p>
+                </div>
+                <div class="min-w-0 flex-1 border-l border-gray-100 pl-4">
+                    <p class="truncate text-sm font-semibold text-gray-900">{{ $os->codigo }} &middot; {{ $os->servico ?? $os->tipo_servico ?? 'Servico' }}</p>
+                    <p class="mt-0.5 truncate text-sm text-gray-500">{{ $os->client?->name ?? 'Cliente nao informado' }}</p>
+                </div>
+                <span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium {{ $etapaClasses[$os->situacao] ?? 'bg-gray-100 text-gray-700' }}">
+                    {{ $etapaLabels[$os->situacao] ?? 'Finalizada' }}
+                </span>
+            </a>
+        </li>
+        @endforeach
+    </ul>
 </div>
 @endif
 
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-    <h3 class="text-lg font-semibold text-gray-800 mb-4">Minhas Ordens de Servico</h3>
+<div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 sm:px-5">
+        <h3 class="font-semibold text-gray-800">Todas as ordens de servico</h3>
+        <a href="{{ route('technician.portal.service-orders') }}" class="shrink-0 text-sm font-medium text-blue-600 hover:underline">Ver lista</a>
+    </div>
+
     @if($serviceOrders->isEmpty())
-        <p class="text-gray-500 text-center py-8">Nenhuma ordem de servico atribuida.</p>
+        <div class="px-4 py-12 text-center">
+            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+                <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+            </div>
+            <p class="mt-3 text-sm font-medium text-gray-700">Nenhuma OS atribuida</p>
+            <p class="mx-auto mt-1 max-w-xs text-sm text-gray-500">Quando o atendimento designar uma ordem de servico, ela aparece aqui.</p>
+        </div>
     @else
-        <div class="overflow-x-auto">
+        {{-- Mobile: cards. Uma tabela de 7 colunas virava scroll horizontal e o
+             técnico lia codigo e cliente fora da tela. --}}
+        <ul class="divide-y divide-gray-100 md:hidden">
+            @foreach($serviceOrders as $os)
+            <li>
+                <a href="{{ route('technician.portal.service-orders.show', $os) }}" class="block px-4 py-4 transition active:bg-gray-50">
+                    <div class="flex items-start justify-between gap-3">
+                        <p class="font-semibold text-gray-900">{{ $os->codigo }}</p>
+                        <span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium {{ $etapaClasses[$os->situacao] ?? 'bg-gray-100 text-gray-700' }}">
+                            {{ $etapaLabels[$os->situacao] ?? 'Finalizada' }}
+                        </span>
+                    </div>
+                    <p class="mt-1 text-sm text-gray-700">{{ $os->servico ?? $os->tipo_servico ?? 'Servico' }}</p>
+                    <p class="mt-0.5 truncate text-sm text-gray-500">{{ $os->client?->name ?? 'Cliente nao informado' }}</p>
+                    <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+                        @if($os->data_agendamento)
+                        <span class="inline-flex items-center gap-1">
+                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            {{ $os->data_agendamento->format('d/m/Y') }}@if($os->hora_agendamento) {{ $os->hora_agendamento }}@endif
+                        </span>
+                        @endif
+                        <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 {{ $statusClasses[$os->status] ?? 'bg-gray-100 text-gray-700' }}">
+                            {{ $statusLabels[$os->status] ?? ucfirst((string) $os->status) }}
+                        </span>
+                    </div>
+                </a>
+            </li>
+            @endforeach
+        </ul>
+
+        {{-- Desktop: tabela --}}
+        <div class="hidden overflow-x-auto md:block">
             <table class="w-full">
                 <thead>
-                    <tr class="text-left text-sm text-gray-500 border-b border-gray-200">
-                        <th class="pb-3 font-medium">Código</th>
-                        <th class="pb-3 font-medium">Cliente</th>
-                        <th class="pb-3 font-medium">Serviço</th>
-                        <th class="pb-3 font-medium">Agendamento</th>
-                        <th class="pb-3 font-medium">Situação</th>
-                        <th class="pb-3 font-medium">Status</th>
-                        <th class="pb-3 font-medium text-right">Ações</th>
+                    <tr class="border-b border-gray-100 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        <th class="px-5 py-3">Codigo</th>
+                        <th class="px-5 py-3">Cliente</th>
+                        <th class="px-5 py-3">Servico</th>
+                        <th class="px-5 py-3">Agendamento</th>
+                        <th class="px-5 py-3">Etapa</th>
+                        <th class="px-5 py-3">Status</th>
+                        <th class="px-5 py-3 text-right">Acao</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     @foreach($serviceOrders as $os)
-                    <tr class="hover:bg-gray-50">
-                        <td class="py-3 text-sm font-medium text-gray-900">{{ $os->codigo }}</td>
-                        <td class="py-3 text-sm text-gray-600">{{ $os->client?->name }}</td>
-                        <td class="py-3 text-sm text-gray-600">{{ $os->servico ?? $os->tipo_servico }}</td>
-                        <td class="py-3 text-sm text-gray-600">
-                            {{ $os->data_agendamento?->format('d/m/Y') }}
-                            @if($os->hora_agendamento) &nbsp;{{ $os->hora_agendamento }} @endif
+                    <tr class="transition hover:bg-gray-50">
+                        <td class="whitespace-nowrap px-5 py-3 text-sm font-semibold text-gray-900">{{ $os->codigo }}</td>
+                        <td class="px-5 py-3 text-sm text-gray-600">{{ $os->client?->name ?? '-' }}</td>
+                        <td class="px-5 py-3 text-sm text-gray-600">{{ $os->servico ?? $os->tipo_servico ?? '-' }}</td>
+                        <td class="whitespace-nowrap px-5 py-3 text-sm text-gray-600">
+                            {{ $os->data_agendamento?->format('d/m/Y') ?? '-' }}
+                            @if($os->hora_agendamento)<span class="text-gray-400">{{ $os->hora_agendamento }}</span>@endif
                         </td>
-                        <td class="py-3 text-sm">
-                            <span class="px-2.5 py-0.5 rounded-full text-xs font-medium {{ $os->situacao === 'O' ? 'bg-blue-100 text-blue-700' : ($os->situacao === 'A' ? 'bg-yellow-100 text-yellow-700' : ($os->situacao === 'F' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700')) }}">
-                                {{ $os->situacao === 'O' ? 'Aberta' : ($os->situacao === 'A' ? 'Em Andamento' : ($os->situacao === 'F' ? 'Finalizada' : 'Cancelada')) }}
+                        <td class="px-5 py-3">
+                            <span class="inline-block rounded-full px-2.5 py-1 text-xs font-medium {{ $etapaClasses[$os->situacao] ?? 'bg-gray-100 text-gray-700' }}">
+                                {{ $etapaLabels[$os->situacao] ?? 'Finalizada' }}
                             </span>
                         </td>
-                        <td class="py-3 text-sm">
-                            <span class="px-2.5 py-0.5 rounded-full text-xs font-medium {{ $os->status === 'active' ? 'bg-blue-100 text-blue-700' : ($os->status === 'closed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700') }}">
-                                {{ ucfirst($os->status) }}
+                        <td class="px-5 py-3">
+                            <span class="inline-block rounded-full px-2.5 py-1 text-xs font-medium {{ $statusClasses[$os->status] ?? 'bg-gray-100 text-gray-700' }}">
+                                {{ $statusLabels[$os->status] ?? ucfirst((string) $os->status) }}
                             </span>
                         </td>
-                        <td class="py-3 text-sm text-right">
-                            <a href="{{ route('technician.portal.service-orders.show', $os) }}" title="Ver" class="p-1.5 rounded hover:bg-blue-50 text-blue-600 inline-flex"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></a>
+                        <td class="px-5 py-3 text-right">
+                            <a href="{{ route('technician.portal.service-orders.show', $os) }}" title="Ver OS" aria-label="Ver OS {{ $os->codigo }}" class="inline-flex rounded-lg p-2 text-blue-600 transition hover:bg-blue-50">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                            </a>
                         </td>
                     </tr>
                     @endforeach
@@ -164,23 +213,5 @@
             </table>
         </div>
     @endif
-</div>
-
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-    <h3 class="text-lg font-semibold text-gray-800 mb-4">Atalhos Rapidos</h3>
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <a href="{{ route('technician.portal.service-orders') }}" class="p-4 bg-blue-50 rounded-lg text-center hover:bg-blue-100 transition">
-            <p class="font-medium text-blue-700 text-sm">Todas as Minhas OS</p>
-        </a>
-        <a href="{{ route('technician.portal.service-orders', ['status' => 'open']) }}" class="p-4 bg-yellow-50 rounded-lg text-center hover:bg-yellow-100 transition">
-            <p class="font-medium text-yellow-700 text-sm">OS em Aberto</p>
-        </a>
-        <a href="{{ route('technician.portal.service-orders', ['status' => 'in_progress']) }}" class="p-4 bg-purple-50 rounded-lg text-center hover:bg-purple-100 transition">
-            <p class="font-medium text-purple-700 text-sm">Em Andamento</p>
-        </a>
-        <a href="{{ route('technician.portal.dashboard') }}" class="p-4 bg-green-50 rounded-lg text-center hover:bg-green-100 transition">
-            <p class="font-medium text-green-700 text-sm">Dashboard</p>
-        </a>
-    </div>
 </div>
 @endsection

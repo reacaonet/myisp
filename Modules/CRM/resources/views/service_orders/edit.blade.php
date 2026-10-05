@@ -43,6 +43,7 @@
                         <option value="A" @selected($order->situacao == 'A')>Aprovado</option>
                         <option value="CS" @selected($order->situacao == 'CS')>Cancelamento</option>
                         <option value="C" @selected($order->situacao == 'C')>Cancelada</option>
+                <option value="F" @selected($order->situacao == 'F')>Finalizada</option>
                     </select>
                 </div>
                 <div>

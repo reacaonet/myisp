@@ -172,16 +172,23 @@
             </nav>
             <div class="p-4 border-t border-gray-700">
                 <div class="flex items-center gap-3 text-sm text-gray-400">
-                    <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">{{ substr(Auth::user()?->name ?? 'A', 0, 1) }}</div>
+                    @if(Auth::user()?->avatarUrl())
+                        <img src="{{ Auth::user()->avatarUrl() }}" alt="{{ Auth::user()->name }}" class="w-8 h-8 rounded-full object-cover shrink-0">
+                    @else
+                        <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold shrink-0">{{ Auth::user()?->initials() ?? 'A' }}</div>
+                    @endif
                     <div class="flex-1 min-w-0">
-                        <p class="truncate text-white">{{ Auth::user()?->name ?? 'Administrador' }}</p>
+                        <a href="{{ route('core.profile.edit') }}" class="block truncate text-white hover:underline">{{ Auth::user()?->name ?? 'Administrador' }}</a>
                         @if(Auth::user()?->group)
                             <p class="text-xs text-gray-500">{{ Auth::user()->group->name }}</p>
                         @endif
-                        <form method="POST" action="{{ route('infra.logout') }}" class="inline">
-                            @csrf
-                            <button type="submit" class="text-xs text-gray-500 hover:text-gray-300">Sair</button>
-                        </form>
+                        <div class="flex items-center gap-3 mt-0.5">
+                            <a href="{{ route('core.profile.edit') }}" class="text-xs text-gray-500 hover:text-gray-300">Meu perfil</a>
+                            <form method="POST" action="{{ route('infra.logout') }}" class="inline">
+                                @csrf
+                                <button type="submit" class="text-xs text-gray-500 hover:text-gray-300">Sair</button>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>

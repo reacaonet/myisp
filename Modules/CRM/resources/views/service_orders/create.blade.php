@@ -44,6 +44,7 @@
                         <option value="A">Aprovado</option>
                         <option value="CS">Cancelamento</option>
                         <option value="C">Cancelada</option>
+                <option value="F">Finalizada</option>
                     </select>
                 </div>
                 <div>

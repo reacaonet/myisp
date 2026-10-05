@@ -168,7 +168,6 @@ OS - {{ $serviceOrder->codigo }}
                 <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
                 <select name="status" class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="active" {{ $serviceOrder->status === 'active' ? 'selected' : '' }}>Ativa</option>
-                    <option value="in_progress" {{ $serviceOrder->status === 'in_progress' ? 'selected' : '' }}>Em Andamento</option>
                     <option value="closed" {{ $serviceOrder->status === 'closed' ? 'selected' : '' }}>Fechada</option>
                     <option value="canceled" {{ $serviceOrder->status === 'canceled' ? 'selected' : '' }}>Cancelada</option>
                 </select>
@@ -193,8 +192,10 @@ OS - {{ $serviceOrder->codigo }}
         </div>
 
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Preco (R$)</label>
-            <input type="number" step="0.01" name="preco" value="{{ $serviceOrder->preco }}" class="w-full max-w-xs px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            {{-- Valor comercial: o tecnico consulta mas nao edita. `disabled` impede que
+                 o campo entre no POST, e o controller tambem nao aceita mais `preco`. --}}
+            <label class="block text-sm font-medium text-gray-700 mb-1">Preco (R$) <span class="text-xs font-normal text-gray-400">— definido pelo escritorio</span></label>
+            <input type="text" disabled value="{{ number_format((float) $serviceOrder->preco, 2, ',', '.') }}" class="w-full max-w-xs px-4 py-2 border border-gray-200 bg-gray-50 rounded-lg text-sm text-gray-500 cursor-not-allowed">
         </div>
 
         <div class="flex justify-end gap-1 pt-4 border-t border-gray-200">

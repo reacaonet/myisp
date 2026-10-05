@@ -3,6 +3,7 @@
 namespace Modules\PortalInfra\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Modules\Core\Services\TenantContext;
@@ -17,11 +18,7 @@ class ProvisionController extends Controller
 {
     public function index(Request $request)
     {
-        $query = ProvisioningRecord::with(['mikrotikServer', 'client', 'contract']);
-
-        if (! TenantContext::isCrossTenant()) {
-            $query->whereIn('mikrotik_server_id', MikrotikServer::scoped()->pluck('id'));
-        }
+        $query = $this->scopedRecords();
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -43,6 +40,26 @@ class ProvisionController extends Controller
     }
 
     /**
+     * `ProvisioningRecord` nao tem `company_id`: o dono dela e o servidor
+     * Mikrotik. Sem esta passagem, `edit`, `update`, `destroy` e `block`
+     * aceitavam qualquer id e o usuario de uma filial desligava o acesso de
+     * cliente das outras lojas pelo simples id.
+     */
+    private function scopedRecords(): Builder
+    {
+        return ProvisioningRecord::query()
+            ->when(
+                ! TenantContext::isCrossTenant(),
+                fn (Builder $query) => $query->whereIn('mikrotik_server_id', MikrotikServer::scoped()->select('id'))
+            );
+    }
+
+    private function findScopedRecord(int $id): ProvisioningRecord
+    {
+        return $this->scopedRecords()->findOrFail($id);
+    }
+
+    /**
      * Cliente do provisionamento precisa estar na mesma empresa e na mesma filial
      * do servidor escolhido: e a filial que define em qual RB o usuario entra.
      *
@@ -54,7 +71,7 @@ class ProvisionController extends Controller
             return [null, null, null];
         }
 
-        $client = Client::query()
+        $client = Client::scoped()
             ->where('company_id', $server->company_id)
             ->find($clientId);
 
@@ -223,7 +240,7 @@ class ProvisionController extends Controller
 
     public function edit($id)
     {
-        $record = ProvisioningRecord::with(['mikrotikServer', 'client'])->findOrFail($id);
+        $record = $this->scopedRecords()->with(['mikrotikServer', 'client'])->findOrFail($id);
         $servers = MikrotikServer::scoped()->where('is_active', true)->orderBy('name')->get();
         $clients = Client::scoped()->orderBy('name')->get();
 
@@ -232,7 +249,7 @@ class ProvisionController extends Controller
 
     public function update(Request $request, $id)
     {
-        $record = ProvisioningRecord::findOrFail($id);
+        $record = $this->findScopedRecord((int) $id);
 
         $validated = $request->validate([
             'mikrotik_server_id' => 'required|exists:mikrotik_servers,id',
@@ -367,7 +384,7 @@ class ProvisionController extends Controller
 
     public function destroy($id)
     {
-        $record = ProvisioningRecord::findOrFail($id);
+        $record = $this->findScopedRecord((int) $id);
 
         if (! $record->mikrotikServer) {
             return back()->with('error', 'Servidor MikroTik nao encontrado.');
@@ -402,7 +419,7 @@ class ProvisionController extends Controller
 
     public function block($id)
     {
-        $record = ProvisioningRecord::findOrFail($id);
+        $record = $this->findScopedRecord((int) $id);
 
         if (! $record->mikrotikServer) {
             return back()->with('error', 'Servidor MikroTik nao encontrado.');

@@ -3,6 +3,7 @@
 namespace Modules\PortalInfra\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Modules\Core\Services\TenantContext;
 use Modules\CRM\Models\Olt;
@@ -11,16 +12,27 @@ class OltController extends Controller
 {
     public function index()
     {
-        $query = Olt::query();
-
-        if (! TenantContext::isCrossTenant()) {
-            $query->forCompany(TenantContext::companyId());
-        }
-
-        $olts = $query->latest()->paginate(15);
+        $olts = $this->scopedQuery()->latest()->paginate(15);
 
         return view('infra::olts.index', compact('olts'));
     }
+
+    /**
+     * Toda leitura/escrita de uma OLT passa por aqui. Sem isso o grupo
+     * `franqueados` (que tem a permissao `olts`) abria, alterava e apagava
+     * OLT de outra loja so pelo id, ja que `findOrFail($id)` nao checa
+     * empresa. `firstOrFail` responde 404 em vez de vazar a existencia.
+     */
+    private function findScoped(int $id): Olt
+    {
+        return $this->scopedQuery()->whereKey($id)->firstOrFail();
+    }
+
+private function scopedQuery(): Builder
+    {
+        return Olt::scoped();
+    }
+
 
     public function create()
     {
@@ -56,14 +68,14 @@ class OltController extends Controller
 
     public function edit($id)
     {
-        $olt = Olt::findOrFail($id);
+        $olt = $this->findScoped((int) $id);
 
         return view('infra::olts.edit', compact('olt'));
     }
 
     public function update(Request $request, $id)
     {
-        $olt = Olt::findOrFail($id);
+        $olt = $this->findScoped((int) $id);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -96,7 +108,7 @@ class OltController extends Controller
 
     public function destroy($id)
     {
-        $olt = Olt::findOrFail($id);
+        $olt = $this->findScoped((int) $id);
         $olt->delete();
 
         return redirect()->route('infra.olts.index')

@@ -2,6 +2,7 @@
 
 namespace Modules\PortalInfra\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -12,6 +13,25 @@ class FtthProject extends Model
     use BelongsToTenant, SoftDeletes;
 
     protected $table = 'ftth_projects';
+
+    /**
+     * O dono da rede e a filial (`branch_id`). Um projeto criado na Matriz nao
+     * aparece para o usuario de uma loja, e o inverso tambem vale.
+     */
+    protected function tenantBranchColumn(): ?string
+    {
+        return 'branch_id';
+    }
+
+    public static function scoped(?Builder $query = null): Builder
+    {
+        return ($query ?? static::query())->forTenant();
+    }
+
+    public static function findScopedOrFail(int $id): self
+    {
+        return static::scoped()->findOrFail($id);
+    }
 
     protected $fillable = [
         'company_id', 'branch_id',

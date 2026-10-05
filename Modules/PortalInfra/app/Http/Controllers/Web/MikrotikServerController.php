@@ -57,16 +57,22 @@ class MikrotikServerController extends Controller
             ->with('success', 'Servidor MikroTik cadastrado com sucesso.');
     }
 
-    /**
+/**
      * Filiais da empresa que podem receber um equipamento. A filial e o que
      * amarra o servidor aos clientes dela no provisionamento.
      *
+     * A empresa vem do formulario (o superadmin escolhe), entao ela e sempre
+     * filtrada. `forTenant` entra por cima e corta a filial de quem so opera uma
+     * loja; sem ele o seletor oferecia a Matriz.
+     *
      * @return Collection<int, Branch>
      */
+
     private function branchOptions(int $companyId)
     {
         return Branch::query()
-            ->forCompany($companyId)
+            ->where('company_id', $companyId)
+            ->forTenant()
             ->orderByRaw('parent_id is null desc')
             ->orderBy('name')
             ->get();

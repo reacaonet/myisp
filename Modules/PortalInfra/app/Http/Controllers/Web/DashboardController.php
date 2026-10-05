@@ -3,7 +3,6 @@
 namespace Modules\PortalInfra\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Database\Eloquent\Builder;
 use Modules\Core\Services\TenantContext;
 use Modules\CRM\Models\Equipment;
 use Modules\CRM\Models\MikrotikBackup;
@@ -20,12 +19,14 @@ class DashboardController extends Controller
     {
         $crossTenant = TenantContext::isCrossTenant();
 
-        $serversQuery = $this->applyScope(MikrotikServer::query());
-        $projectsQuery = $this->applyScope(FtthProject::query());
+        // Os models jaknow o corte por filial; o dashboard so combina os ids
+        // para as tabelas que dependem de outro (provisionamento, backup,
+        // uptime e os itens do desenho que apontam para um projeto).
+        $serversQuery = fn () => MikrotikServer::scoped();
+        $projectsQuery = fn () => FtthProject::scoped();
 
-        $servers = $serversQuery->orderBy('name')->get();
+        $servers = $serversQuery()->orderBy('name')->get();
         $serverIds = $crossTenant ? null : $servers->pluck('id');
-        $projectIds = $crossTenant ? null : (clone $projectsQuery)->pluck('id');
 
         $provisionsQuery = fn () => ProvisioningRecord::query()
             ->when($serverIds !== null, fn ($q) => $q->whereIn('mikrotik_server_id', $serverIds));
@@ -33,10 +34,8 @@ class DashboardController extends Controller
             ->when($serverIds !== null, fn ($q) => $q->whereIn('server_id', $serverIds));
         $uptimeQuery = fn () => UptimeMonitor::query()
             ->when($serverIds !== null, fn ($q) => $q->whereIn('server_id', $serverIds));
-        $ctosQuery = fn () => Cto::query()
-            ->when($projectIds !== null, fn ($q) => $q->whereIn('ftth_project_id', $projectIds));
-        $caixasQuery = fn () => CaixaEmenda::query()
-            ->when($projectIds !== null, fn ($q) => $q->whereIn('ftth_project_id', $projectIds));
+        $ctosQuery = fn () => Cto::scoped();
+        $caixasQuery = fn () => CaixaEmenda::scoped();
 
         $recentProvisions = $provisionsQuery()->with(['mikrotikServer', 'client'])->latest()->take(8)->get();
         $recentBackups = $backupsQuery()->with('server')->latest()->take(6)->get();
@@ -53,7 +52,7 @@ class DashboardController extends Controller
             'uptime_total' => $uptimeQuery()->count(),
             'uptime_up' => $uptimeQuery()->where('is_up', true)->count(),
             'equipment_total' => Equipment::count(),
-            'projects_total' => $projectsQuery->count(),
+            'projects_total' => $projectsQuery()->count(),
             'ctos_total' => $ctosQuery()->count(),
             'ctos_used_ports' => $ctosQuery()->sum('used_ports'),
             'ctos_capacity' => $ctosQuery()->sum('capacity'),
@@ -61,20 +60,5 @@ class DashboardController extends Controller
         ];
 
         return view('infra::dashboard', compact('stats', 'servers', 'recentProvisions', 'recentBackups', 'recentCtos', 'recentCaixas'));
-    }
-
-    protected function applyScope(Builder $query, bool $withBranch = true): Builder
-    {
-        if (TenantContext::isCrossTenant()) {
-            return $query;
-        }
-
-        $query->where('company_id', TenantContext::companyId());
-
-        if ($withBranch && TenantContext::branchId()) {
-            $query->where('branch_id', TenantContext::branchId());
-        }
-
-        return $query;
     }
 }

@@ -42,7 +42,9 @@ class InfraLoginController extends Controller
                 ->onlyInput('email');
         }
 
-        $allowedGroups = ['superadmin', 'admin', 'gerente', 'operador', 'tecnico'];
+        // `franqueados` entra no painel para ver os dados da propria franquia.
+        // O que ele enxerga e limitado pelo vinculo com a empresa, nao pelo grupo.
+        $allowedGroups = ['superadmin', 'admin', 'gerente', 'operador', 'tecnico', 'franqueados'];
 
         if (!$user->group || !in_array($user->group->slug, $allowedGroups)) {
             Auth::logout();

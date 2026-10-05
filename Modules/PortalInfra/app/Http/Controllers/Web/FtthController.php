@@ -34,30 +34,21 @@ class FtthController extends Controller
         return view('infra::dashboard', compact('stats', 'recentCtos', 'recentCaixas'));
     }
 
-    protected function applyProjectScope($query)
-    {
-        if (TenantContext::isCrossTenant()) {
-            return $query;
-        }
+/**
+ * CTOs, caixas, splitters, fibras, conexoes e fusoes nao tem coluna de tenant:
+ * o dono delas e o projeto. O trait `ScopedByFtthProject` faz esse corte, e ele
+ * ja considera a filial do usuario (via `FtthProject::scoped()`).
+ */
+protected function applyProjectScope($query)
+{
+    return $query->visibleToUser();
+}
 
-        $projectIds = FtthProject::query()
-            ->where('company_id', TenantContext::companyId())
-            ->when(TenantContext::branchId(), fn ($query) => $query->where('branch_id', TenantContext::branchId()))
-            ->pluck('id');
+protected function projectQuery()
+{
+    return FtthProject::scoped();
+}
 
-        return $query->whereIn('ftth_project_id', $projectIds);
-    }
-
-    protected function projectQuery()
-    {
-        $query = FtthProject::query();
-
-        if (! TenantContext::isCrossTenant()) {
-            $query->where('company_id', TenantContext::companyId());
-        }
-
-        return $query;
-    }
 
     public function indexCtos(Request $request)
     {
@@ -92,7 +83,7 @@ class FtthController extends Controller
 
     public function createCto()
     {
-        $caixas = CaixaEmenda::where('status', 'active')->orderBy('code')->get();
+        $caixas = CaixaEmenda::scoped()->where('status', 'active')->orderBy('code')->get();
 
         return view('infra::ctos.create', compact('caixas'));
     }
@@ -128,22 +119,22 @@ class FtthController extends Controller
 
     public function showCto($id)
     {
-        $cto = Cto::with(['caixaEmenda', 'fusions' => fn ($q) => $q->orderBy('fiber_number')])->findOrFail($id);
+        $cto = Cto::scoped()->with(['caixaEmenda', 'fusions' => fn ($q) => $q->orderBy('fiber_number')])->findOrFail($id);
 
         return view('infra::ctos.show', compact('cto'));
     }
 
     public function editCto($id)
     {
-        $cto = Cto::findOrFail($id);
-        $caixas = CaixaEmenda::where('status', 'active')->orderBy('code')->get();
+        $cto = Cto::findScopedOrFail((int) $id);
+        $caixas = CaixaEmenda::scoped()->where('status', 'active')->orderBy('code')->get();
 
         return view('infra::ctos.edit', compact('cto', 'caixas'));
     }
 
     public function updateCto(Request $request, $id)
     {
-        $cto = Cto::findOrFail($id);
+        $cto = Cto::findScopedOrFail((int) $id);
 
         $validated = $request->validate([
             'caixa_emenda_id' => 'nullable|exists:caixas_emenda,id',
@@ -174,7 +165,7 @@ class FtthController extends Controller
 
     public function destroyCto($id)
     {
-        $cto = Cto::findOrFail($id);
+        $cto = Cto::findScopedOrFail((int) $id);
         $cto->delete();
 
         return redirect()->route('infra.ftth.ctos.index')
@@ -246,21 +237,21 @@ class FtthController extends Controller
 
     public function showCaixa($id)
     {
-        $caixa = CaixaEmenda::with(['ctos', 'fusions' => fn ($q) => $q->orderBy('fiber_number')])->withCount('ctos')->findOrFail($id);
+        $caixa = CaixaEmenda::scoped()->with(['ctos', 'fusions' => fn ($q) => $q->orderBy('fiber_number')])->withCount('ctos')->findOrFail($id);
 
         return view('infra::caixas.show', compact('caixa'));
     }
 
     public function editCaixa($id)
     {
-        $caixa = CaixaEmenda::findOrFail($id);
+        $caixa = CaixaEmenda::findScopedOrFail((int) $id);
 
         return view('infra::caixas.edit', compact('caixa'));
     }
 
     public function updateCaixa(Request $request, $id)
     {
-        $caixa = CaixaEmenda::findOrFail($id);
+        $caixa = CaixaEmenda::findScopedOrFail((int) $id);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -289,7 +280,7 @@ class FtthController extends Controller
 
     public function destroyCaixa($id)
     {
-        $caixa = CaixaEmenda::findOrFail($id);
+        $caixa = CaixaEmenda::findScopedOrFail((int) $id);
         $caixa->delete();
 
         return redirect()->route('infra.ftth.caixas.index')
@@ -323,7 +314,7 @@ class FtthController extends Controller
 
     public function updateFusion(Request $request, $id)
     {
-        $fusion = FtthFusion::findOrFail($id);
+        $fusion = FtthFusion::findScopedOrFail((int) $id);
 
         $validated = $request->validate([
             'fiber_number' => 'nullable|string|max:20',
@@ -345,7 +336,7 @@ class FtthController extends Controller
 
     public function destroyFusion($id)
     {
-        $fusion = FtthFusion::with('cto', 'caixaEmenda')->findOrFail($id);
+        $fusion = FtthFusion::scoped()->with('cto', 'caixaEmenda')->findOrFail($id);
         $redirect = $fusion->cto_id
             ? route('infra.ftth.ctos.show', $fusion->cto_id)
             : route('infra.ftth.caixas.show', $fusion->caixa_emenda_id);
@@ -357,7 +348,7 @@ class FtthController extends Controller
 
     public function indexProjects(Request $request)
     {
-        $query = FtthProject::withCount('ctos', 'caixas');
+        $query = FtthProject::scoped()->withCount('ctos', 'caixas');
 
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
@@ -395,7 +386,7 @@ class FtthController extends Controller
 
     public function showProject($id)
     {
-        $project = FtthProject::withCount('ctos', 'caixas')->findOrFail($id);
+        $project = FtthProject::scoped()->withCount('ctos', 'caixas')->findOrFail($id);
         $ctos = $project->ctos()->with('caixaEmenda')->orderBy('code')->get();
         $caixas = $project->caixas()->withCount('ctos')->orderBy('code')->get();
 
@@ -404,14 +395,14 @@ class FtthController extends Controller
 
     public function editProject($id)
     {
-        $project = FtthProject::findOrFail($id);
+        $project = FtthProject::findScopedOrFail((int) $id);
 
         return view('infra::projects.edit', compact('project'));
     }
 
     public function updateProject(Request $request, $id)
     {
-        $project = FtthProject::findOrFail($id);
+        $project = FtthProject::findScopedOrFail((int) $id);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -430,16 +421,16 @@ class FtthController extends Controller
 
     public function destroyProject($id)
     {
-        $project = FtthProject::findOrFail($id);
+        $project = FtthProject::findScopedOrFail((int) $id);
 
         $ctoIds = $project->ctos()->pluck('id');
         $caixaIds = $project->caixas()->pluck('id');
 
         if ($ctoIds->isNotEmpty()) {
-            FtthFusion::whereIn('cto_id', $ctoIds)->delete();
+            FtthFusion::scoped()->whereIn('cto_id', $ctoIds)->delete();
         }
         if ($caixaIds->isNotEmpty()) {
-            FtthFusion::whereIn('caixa_emenda_id', $caixaIds)->delete();
+            FtthFusion::scoped()->whereIn('caixa_emenda_id', $caixaIds)->delete();
         }
 
         $project->ctos()->delete();
@@ -460,10 +451,12 @@ class FtthController extends Controller
             return back()->with('error', 'Nenhuma CTO selecionada.');
         }
 
-        Cto::whereIn('id', $ids)->delete();
+        // O filtro por projeto vem do model: sem ele o POST apagava qualquer
+        // id enviado, inclusive de rede de outra filial.
+        $count = Cto::scoped()->whereIn('id', $ids)->delete();
 
         return redirect()->route('infra.ftth.ctos.index')
-            ->with('success', count($ids).' CTO(s) excluida(s) com sucesso.');
+            ->with('success', $count.' CTO(s) excluida(s) com sucesso.');
     }
 
     public function bulkDestroyCaixas(Request $request)
@@ -474,10 +467,10 @@ class FtthController extends Controller
             return back()->with('error', 'Nenhuma caixa selecionada.');
         }
 
-        CaixaEmenda::whereIn('id', $ids)->delete();
+        $count = CaixaEmenda::scoped()->whereIn('id', $ids)->delete();
 
         return redirect()->route('infra.ftth.caixas.index')
-            ->with('success', count($ids).' caixa(s) excluida(s) com sucesso.');
+            ->with('success', $count.' caixa(s) excluida(s) com sucesso.');
     }
 
     public function generateNetwork()
@@ -497,22 +490,22 @@ class FtthController extends Controller
 
     public function exportKml()
     {
-        $cities = Cto::whereNotNull('city')->distinct()->pluck('city')->sort()->values();
+        $cities = Cto::scoped()->whereNotNull('city')->distinct()->pluck('city')->sort()->values();
 
         return view('infra::export-kml', compact('cities'));
     }
 
     public function map()
     {
-        $cities = Cto::whereNotNull('city')->distinct()->pluck('city')->sort()->values();
+        $cities = Cto::scoped()->whereNotNull('city')->distinct()->pluck('city')->sort()->values();
 
         return view('infra::map', compact('cities'));
     }
 
     public function mapData(Request $request)
     {
-        $queryCto = Cto::select('id', 'code', 'name', 'latitude', 'longitude', 'street', 'city', 'capacity', 'used_ports', 'status', 'color', 'caixa_emenda_id');
-        $queryCaixa = CaixaEmenda::select('id', 'code', 'name', 'latitude', 'longitude', 'street', 'city', 'capacity', 'used_ports', 'status');
+        $queryCto = Cto::scoped()->select('id', 'code', 'name', 'latitude', 'longitude', 'street', 'city', 'capacity', 'used_ports', 'status', 'color', 'caixa_emenda_id');
+        $queryCaixa = CaixaEmenda::scoped()->select('id', 'code', 'name', 'latitude', 'longitude', 'street', 'city', 'capacity', 'used_ports', 'status');
 
         if ($city = $request->get('city')) {
             $queryCto->where('city', $city);
@@ -554,8 +547,8 @@ class FtthController extends Controller
 
     public function downloadKml(string $city)
     {
-        $ctos = Cto::where('city', $city)->orderBy('code')->get();
-        $caixas = CaixaEmenda::where('city', $city)->with('ctos')->orderBy('code')->get();
+        $ctos = Cto::scoped()->where('city', $city)->orderBy('code')->get();
+        $caixas = CaixaEmenda::scoped()->where('city', $city)->with('ctos')->orderBy('code')->get();
 
         if ($ctos->isEmpty() && $caixas->isEmpty()) {
             return back()->withErrors(['city' => "Nenhuma CTO ou Caixa encontrada para {$city}."]);
@@ -572,7 +565,7 @@ class FtthController extends Controller
 
     public function exportCsvCtos(Request $request)
     {
-        $query = Cto::with(['caixaEmenda', 'ftthProject']);
+        $query = Cto::scoped()->with(['caixaEmenda', 'ftthProject']);
 
         if ($projectId = $request->get('project')) {
             $query->where('ftth_project_id', $projectId);
@@ -619,7 +612,7 @@ class FtthController extends Controller
 
     public function exportCsvCaixas(Request $request)
     {
-        $query = CaixaEmenda::with(['ftthProject'])->withCount('ctos');
+        $query = CaixaEmenda::scoped()->with(['ftthProject'])->withCount('ctos');
 
         if ($projectId = $request->get('project')) {
             $query->where('ftth_project_id', $projectId);

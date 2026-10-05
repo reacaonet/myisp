@@ -3,12 +3,13 @@
 namespace Modules\PortalInfra\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Modules\PortalInfra\Models\Concerns\ScopedByFtthProject;
 
 class FtthFusion extends Model
 {
-    use SoftDeletes;
+    use ScopedByFtthProject, SoftDeletes;
 
     protected $table = 'ftth_fusions';
 
@@ -46,10 +47,11 @@ class FtthFusion extends Model
     public function getLabelAttribute(): string
     {
         $parts = array_filter([
-            $this->fiber_number ? 'Fibra ' . $this->fiber_number : null,
-            $this->olt_port ? 'Porta OLT ' . $this->olt_port : null,
-            $this->tube ? 'Tubo ' . $this->tube : null,
+            $this->fiber_number ? 'Fibra '.$this->fiber_number : null,
+            $this->olt_port ? 'Porta OLT '.$this->olt_port : null,
+            $this->tube ? 'Tubo '.$this->tube : null,
         ]);
+
         return implode(' - ', $parts) ?: 'Fusao';
     }
 }

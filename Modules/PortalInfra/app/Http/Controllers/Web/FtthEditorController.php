@@ -3,6 +3,7 @@
 namespace Modules\PortalInfra\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use Closure;
 use Illuminate\Http\Request;
 use Modules\PortalInfra\Models\CaixaEmenda;
 use Modules\PortalInfra\Models\Cto;
@@ -17,7 +18,7 @@ class FtthEditorController extends Controller
 
     public function index(Request $request)
     {
-        $cities = Cto::whereNull('deleted_at')->whereNotNull('city')->where('city', '!=', '')
+        $cities = Cto::scoped()->whereNotNull('city')->where('city', '!=', '')
             ->distinct()->orderBy('city')->pluck('city')->values();
         $selected = $request->get('cidade');
 
@@ -27,7 +28,7 @@ class FtthEditorController extends Controller
     public function data(Request $request)
     {
         $city = $request->get('cidade');
-        $cities = Cto::whereNull('deleted_at')->whereNotNull('city')->where('city', '!=', '')
+        $cities = Cto::scoped()->whereNotNull('city')->where('city', '!=', '')
             ->distinct()->orderBy('city')->pluck('city')->values();
 
         if (! $city) {
@@ -41,7 +42,7 @@ class FtthEditorController extends Controller
             ]);
         }
 
-        $ctos = Cto::whereNull('deleted_at')->where('city', $city)
+        $ctos = Cto::scoped()->whereNull('deleted_at')->where('city', $city)
             ->orderBy('code')->get()->map(fn ($c) => [
                 'type' => 'cto',
                 'id' => $c->id,
@@ -58,7 +59,7 @@ class FtthEditorController extends Controller
                 'splitter_count' => $c->splitters()->count(),
             ]);
 
-        $caixas = CaixaEmenda::whereNull('deleted_at')->where('city', $city)
+        $caixas = CaixaEmenda::scoped()->whereNull('deleted_at')->where('city', $city)
             ->orderBy('code')->get()->map(fn ($c) => [
                 'type' => 'caixa',
                 'id' => $c->id,
@@ -126,17 +127,17 @@ class FtthEditorController extends Controller
         }
 
         return match ($type) {
-            'cto' => Cto::withTrashed()->whereKey($id)->value('code'),
-            'caixa' => CaixaEmenda::withTrashed()->whereKey($id)->value('code'),
-            'splitter' => FtthSplitter::withTrashed()->whereKey($id)->value('code')
-                ?: FtthSplitter::withTrashed()->whereKey($id)->value('name'),
+            'cto' => Cto::withTrashed()->visibleToUser()->whereKey($id)->value('code'),
+            'caixa' => CaixaEmenda::withTrashed()->visibleToUser()->whereKey($id)->value('code'),
+            'splitter' => FtthSplitter::withTrashed()->visibleToUser()->whereKey($id)->value('code')
+                ?: FtthSplitter::withTrashed()->visibleToUser()->whereKey($id)->value('name'),
             default => null,
         };
     }
 
     private function findCityProject(string $city): ?FtthProject
     {
-        return FtthProject::where('city', $city)->orderByDesc('created_at')->first();
+        return FtthProject::scoped()->where('city', $city)->orderByDesc('created_at')->first();
     }
 
     private function ensureCityProject(string $city): FtthProject
@@ -169,13 +170,13 @@ class FtthEditorController extends Controller
 
         switch ($type) {
             case 'cto':
-                $model = Cto::findOrFail($id);
+                $model = Cto::findScopedOrFail($id);
                 break;
             case 'caixa':
-                $model = CaixaEmenda::findOrFail($id);
+                $model = CaixaEmenda::findScopedOrFail($id);
                 break;
             case 'splitter':
-                $model = FtthSplitter::findOrFail($id);
+                $model = FtthSplitter::findScopedOrFail($id);
                 break;
             default:
                 return response()->json(['message' => 'Tipo inválido.'], 422);
@@ -224,7 +225,7 @@ class FtthEditorController extends Controller
 
     public function updateFiber(Request $request, int $id)
     {
-        $fiber = FtthFiberLink::findOrFail($id);
+        $fiber = FtthFiberLink::findScopedOrFail($id);
 
         $request->validate([
             'name' => 'nullable|string|max:255',
@@ -253,7 +254,7 @@ class FtthEditorController extends Controller
 
     public function destroyFiber(int $id)
     {
-        $fiber = FtthFiberLink::findOrFail($id);
+        $fiber = FtthFiberLink::findScopedOrFail($id);
         $fiber->connections()->delete();
         $fiber->delete();
 
@@ -303,7 +304,7 @@ class FtthEditorController extends Controller
 
     public function updateSplitter(Request $request, int $id)
     {
-        $splitter = FtthSplitter::findOrFail($id);
+        $splitter = FtthSplitter::findScopedOrFail($id);
 
         $request->validate([
             'name' => 'sometimes|required|string|max:255',
@@ -347,8 +348,8 @@ class FtthEditorController extends Controller
     public function updateElement(Request $request, string $type, int $id)
     {
         $model = match ($type) {
-            'cto' => Cto::findOrFail($id),
-            'caixa' => CaixaEmenda::findOrFail($id),
+            'cto' => Cto::findScopedOrFail($id),
+            'caixa' => CaixaEmenda::findScopedOrFail($id),
             default => abort(422, 'Tipo inválido.'),
         };
 
@@ -415,8 +416,8 @@ class FtthEditorController extends Controller
         ]);
 
         $source = match ($type) {
-            'cto' => Cto::findOrFail($id),
-            'caixa' => CaixaEmenda::findOrFail($id),
+            'cto' => Cto::findScopedOrFail($id),
+            'caixa' => CaixaEmenda::findScopedOrFail($id),
             default => abort(422, 'Tipo inválido.'),
         };
 
@@ -544,7 +545,7 @@ class FtthEditorController extends Controller
 
     public function destroySplitter(int $id)
     {
-        $splitter = FtthSplitter::findOrFail($id);
+        $splitter = FtthSplitter::findScopedOrFail($id);
         $splitter->connections()->delete();
         $splitter->delete();
 
@@ -558,7 +559,11 @@ class FtthEditorController extends Controller
             'source_type' => 'required|in:cto,caixa,splitter,olt,ponto',
             'source_id' => 'nullable|integer',
             'source_port' => 'nullable|integer',
-            'fiber_link_id' => 'nullable|integer|exists:ftth_fiber_links,id',
+            'fiber_link_id' => ['nullable', 'integer', function ($attribute, $value, Closure $fail) {
+                if ($value && ! FtthFiberLink::scoped()->whereKey($value)->exists()) {
+                    $fail('Fibra invalida.');
+                }
+            }],
             'target_type' => 'required|in:cto,caixa,splitter,olt,ponto',
             'target_id' => 'nullable|integer',
             'target_port' => 'nullable|integer',
@@ -579,7 +584,7 @@ class FtthEditorController extends Controller
                 continue;
             }
 
-            $splitter = FtthSplitter::findOrFail($ep['id']);
+            $splitter = FtthSplitter::findScopedOrFail((int) $ep['id']);
 
             if ($ep['port'] === 0) {
                 // Porta de entrada: apenas 1 conexão
@@ -641,7 +646,7 @@ class FtthEditorController extends Controller
 
     public function destroyConnection(int $id)
     {
-        $connection = FtthConnection::findOrFail($id);
+        $connection = FtthConnection::findScopedOrFail($id);
         $connection->delete();
 
         return response()->json(['message' => 'Conexão removida.']);
@@ -656,9 +661,9 @@ class FtthEditorController extends Controller
         abort_unless($id, 422, 'Identificador do elemento obrigatório.');
 
         $exists = match ($type) {
-            'cto' => Cto::whereKey($id)->exists(),
-            'caixa' => CaixaEmenda::whereKey($id)->exists(),
-            'splitter' => FtthSplitter::whereKey($id)->exists(),
+            'cto' => Cto::scoped()->whereKey($id)->exists(),
+            'caixa' => CaixaEmenda::scoped()->whereKey($id)->exists(),
+            'splitter' => FtthSplitter::scoped()->whereKey($id)->exists(),
             default => false,
         };
 
@@ -687,8 +692,8 @@ class FtthEditorController extends Controller
 
     public function report(string $city)
     {
-        $ctos = Cto::whereNull('deleted_at')->where('city', $city)->get();
-        $caixas = CaixaEmenda::whereNull('deleted_at')->where('city', $city)->get();
+        $ctos = Cto::scoped()->whereNull('deleted_at')->where('city', $city)->get();
+        $caixas = CaixaEmenda::scoped()->whereNull('deleted_at')->where('city', $city)->get();
         $project = $this->findCityProject($city);
         $fibers = $project ? $project->fiberLinks()->get() : collect();
         $splitters = $project ? $project->splitters()->get() : collect();
@@ -745,9 +750,9 @@ class FtthEditorController extends Controller
                 if (in_array($type, ['cto', 'caixa', 'splitter'])) {
                     $id = $c->{$side.'_id'};
                     $exists = match ($type) {
-                        'cto' => Cto::withTrashed()->whereKey($id)->whereNotNull('deleted_at')->exists(),
-                        'caixa' => CaixaEmenda::withTrashed()->whereKey($id)->whereNotNull('deleted_at')->exists(),
-                        'splitter' => FtthSplitter::withTrashed()->whereKey($id)->whereNotNull('deleted_at')->exists(),
+                        'cto' => Cto::withTrashed()->visibleToUser()->whereKey($id)->whereNotNull('deleted_at')->exists(),
+                        'caixa' => CaixaEmenda::withTrashed()->visibleToUser()->whereKey($id)->whereNotNull('deleted_at')->exists(),
+                        'splitter' => FtthSplitter::withTrashed()->visibleToUser()->whereKey($id)->whereNotNull('deleted_at')->exists(),
                         default => false,
                     };
                     if ($exists) {
@@ -828,8 +833,8 @@ class FtthEditorController extends Controller
 
     public function exportKml(string $city)
     {
-        $ctos = Cto::whereNull('deleted_at')->where('city', $city)->get();
-        $caixas = CaixaEmenda::whereNull('deleted_at')->where('city', $city)->get();
+        $ctos = Cto::scoped()->whereNull('deleted_at')->where('city', $city)->get();
+        $caixas = CaixaEmenda::scoped()->whereNull('deleted_at')->where('city', $city)->get();
         $project = $this->findCityProject($city);
         $fibers = $project ? $project->fiberLinks()->get() : collect();
         $splitters = $project ? $project->splitters()->get() : collect();
@@ -850,8 +855,8 @@ class FtthEditorController extends Controller
 
     public function exportCsv(string $city)
     {
-        $ctos = Cto::whereNull('deleted_at')->where('city', $city)->get();
-        $caixas = CaixaEmenda::whereNull('deleted_at')->where('city', $city)->get();
+        $ctos = Cto::scoped()->whereNull('deleted_at')->where('city', $city)->get();
+        $caixas = CaixaEmenda::scoped()->whereNull('deleted_at')->where('city', $city)->get();
         $project = $this->findCityProject($city);
         $fibers = $project ? $project->fiberLinks()->get() : collect();
         $splitters = $project ? $project->splitters()->get() : collect();
@@ -1034,9 +1039,9 @@ class FtthEditorController extends Controller
         }
 
         $pos = match ($type) {
-            'cto' => (fn ($m) => $m ? [(float) $m->latitude, (float) $m->longitude] : null)(Cto::withTrashed()->whereKey($id)->first()),
-            'caixa' => (fn ($m) => $m ? [(float) $m->latitude, (float) $m->longitude] : null)(CaixaEmenda::withTrashed()->whereKey($id)->first()),
-            'splitter' => (fn ($m) => $m ? [(float) $m->latitude, (float) $m->longitude] : null)(FtthSplitter::withTrashed()->whereKey($id)->first()),
+            'cto' => (fn ($m) => $m ? [(float) $m->latitude, (float) $m->longitude] : null)(Cto::withTrashed()->visibleToUser()->whereKey($id)->first()),
+            'caixa' => (fn ($m) => $m ? [(float) $m->latitude, (float) $m->longitude] : null)(CaixaEmenda::withTrashed()->visibleToUser()->whereKey($id)->first()),
+            'splitter' => (fn ($m) => $m ? [(float) $m->latitude, (float) $m->longitude] : null)(FtthSplitter::withTrashed()->visibleToUser()->whereKey($id)->first()),
             default => null,
         };
 

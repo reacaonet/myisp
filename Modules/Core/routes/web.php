@@ -5,6 +5,7 @@ use Modules\Core\Http\Controllers\CoreController;
 use Modules\Core\Http\Controllers\Web\BranchController;
 use Modules\Core\Http\Controllers\Web\CompanyController;
 use Modules\Core\Http\Controllers\Web\ContextController;
+use Modules\Core\Http\Controllers\Web\FranchiseeController;
 use Modules\Core\Http\Controllers\Web\LandingBannerController;
 use Modules\Core\Http\Controllers\Web\SystemSettingController;
 use Modules\Core\Http\Controllers\Web\UserController;
@@ -14,6 +15,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('cores', CoreController::class)->names('core');
 
     Route::post('/contexto', [ContextController::class, 'switch'])->name('core.context.switch');
+
+    // Painel do franqueado. O isolamento nao vem daqui: vem do vinculo em
+    // company_user, resolvido pelo TenantContext a cada consulta.
+    Route::prefix('franqueado')->name('core.franchisee.')->middleware('group.permission:franchisees')->group(function () {
+        Route::get('/', [FranchiseeController::class, 'index'])->name('index');
+        Route::get('/clientes', [FranchiseeController::class, 'clients'])->name('clients');
+    });
 
     Route::prefix('configuracoes')->name('core.settings.')->middleware('group.permission:settings')->group(function () {
         Route::get('/', [SystemSettingController::class, 'index'])->name('index');

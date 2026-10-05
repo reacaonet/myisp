@@ -46,6 +46,46 @@
                     </select>
                     @error('user_group_id') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
+                @if($canAssignContext)
+                <div class="md:col-span-2">
+                    <p class="text-xs font-semibold uppercase text-gray-500 mb-2">Franquia de atuacao</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Empresas / Franquias</label>
+                            <select name="company_ids[]" id="company_ids" multiple size="6"
+                                class="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500">
+                                @foreach($companies as $company)
+                                    <option value="{{ $company->id }}"
+                                        {{ in_array($company->id, old('company_ids', $user->companies->pluck('id')->all())) ? 'selected' : '' }}>
+                                        {{ $company->name }}{{ $company->is_franchise ? ' (franquia)' : '' }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">Use Ctrl ou Shift para escolher varias. Sem selecao o usuario fica sem vinculo.</p>
+                            @error('company_ids') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                            @error('company_ids.*') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Filiais</label>
+                            <select name="branch_ids[]" id="branch_ids" multiple size="6"
+                                class="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500">
+                                @foreach($branches as $branch)
+                                    <option value="{{ $branch->id }}" data-company="{{ $branch->company_id }}"
+                                        {{ in_array($branch->id, old('branch_ids', $user->branches->pluck('id')->all())) ? 'selected' : '' }}>
+                                        {{ $branch->name }} - {{ $branch->company?->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">A filial marcada ja vincula a empresa dela.</p>
+                            @error('branch_ids') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                            @error('branch_ids.*') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2">
+                        O usuario opera todas as empresas marcadas e troca de contexto no topo da tela.
+                    </p>
+                </div>
+                @endif
             </div>
             <div class="mt-4">
                 <label class="flex items-center gap-2">

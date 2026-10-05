@@ -154,6 +154,18 @@
                 @endif
 
                 {{-- Sistema --}}
+                @if($user && $user->hasPermission('franchisees'))
+                <p class="text-xs font-semibold uppercase text-gray-500 px-3 mt-6 mb-2">Minha Franquia</p>
+                <a href="{{ route('core.franchisee.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('core.franchisee.index') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3v18h18"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 15l3-3 3 3 5-5"/></svg>
+                    Painel da Franquia
+                </a>
+                <a href="{{ route('core.franchisee.clients') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('core.franchisee.clients') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 013-3h2"/></svg>
+                    Clientes da Franquia
+                </a>
+                @endif
+
                 @if($user && $user->hasPermission('settings'))
                 <p class="text-xs font-semibold uppercase text-gray-500 px-3 mt-6 mb-2">Sistema</p>
                 <a href="{{ route('core.users.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('core.users.*') ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800' }}">
@@ -203,9 +215,8 @@
         <div class="flex-1 flex flex-col overflow-hidden">
             <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
                 <h1 class="text-lg font-semibold text-gray-800">@yield('title', 'Dashboard')</h1>
-                {{-- A rede e uma empresa so: as filiais sao as unidades e aparecem
-                     como filtro nas telas, nao como contexto de topo. --}}
                 <div class="flex items-center gap-4 text-sm text-gray-500">
+                    @include('core::layouts.partials.context-switcher')
                     <span id="clock"></span>
                 </div>
             </header>
@@ -221,6 +232,48 @@
         }
         updateClock();
         setInterval(updateClock, 1000);
+
+// Destaca as filiais das empresas marcadas no formulario de usuario. Nao
+// esconde nada: num multi-select esconder option selecionada Some do
+// resultado, entao a filacao e mostrada com o nome da empresa.
+(function () {
+    var companies = document.getElementById('company_ids');
+    var branches = document.getElementById('branch_ids');
+
+    if (! companies || ! branches) {
+        return;
+    }
+
+    function marcadas() {
+        return Array.prototype.filter
+            .call(companies.options, function (o) { return o.selected; })
+            .map(function (o) { return o.value; });
+    }
+
+    function rotular() {
+        var ids = marcadas();
+
+        Array.prototype.forEach.call(branches.options, function (option) {
+            if (! option.dataset.company || ! option.textContent.trim()) {
+                return;
+            }
+
+            option.dataset.base = option.dataset.base || option.textContent.trim();
+
+            if (ids.length === 0) {
+                option.textContent = option.dataset.base;
+                return;
+            }
+
+            option.textContent = option.dataset.base
+                + (ids.indexOf(option.dataset.company) === -1 ? '  (fora das empresas marcadas)' : '');
+        });
+    }
+
+    companies.addEventListener('change', rotular);
+    rotular();
+})();
+
     </script>
     @stack('scripts')
 </body>

@@ -3,15 +3,13 @@
 namespace Modules\CRM\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
-use Modules\Core\Services\TenantContext;
-use Modules\CRM\Models\ServiceOrder;
-use Modules\CRM\Models\Client;
-use Modules\CRM\Models\Contract;
-use Modules\CRM\Models\Plan;
-use App\Models\User;
 use Modules\Core\Models\UserGroup;
+use Modules\Core\Services\TenantContext;
+use Modules\CRM\Models\Client;
+use Modules\CRM\Models\ServiceOrder;
 
 class ServiceOrderController extends Controller
 {
@@ -22,8 +20,8 @@ class ServiceOrderController extends Controller
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('codigo', 'like', "%{$search}%")
-                  ->orWhere('servico', 'like', "%{$search}%")
-                  ->orWhereHas('client', fn($c) => $c->where('name', 'like', "%{$search}%"));
+                    ->orWhere('servico', 'like', "%{$search}%")
+                    ->orWhereHas('client', fn ($c) => $c->where('name', 'like', "%{$search}%"));
             });
         }
 
@@ -40,6 +38,7 @@ class ServiceOrderController extends Controller
     {
         $clients = Client::scoped()->where('status', 'active')->orderBy('name')->get();
         $technicians = $this->getTechnicians();
+
         return view('crm::service_orders.create', compact('clients', 'technicians'));
     }
 
@@ -50,7 +49,7 @@ class ServiceOrderController extends Controller
             'contract_id' => 'nullable|exists:contracts,id',
             'plan_id' => 'nullable|exists:plans,id',
             'technician_id' => 'nullable|exists:users,id',
-            'situacao' => 'required|in:O,I,NI,M,R,A,CS,C',
+            'situacao' => 'required|in:O,I,NI,M,R,A,CS,C,F',
             'servico' => 'nullable|string',
             'tipo_servico' => 'nullable|in:instalacao,manutencao,cancelamento,recuperacao,orcamento,visita_tecnica,outro',
             'emissao' => 'nullable|date',
@@ -68,7 +67,7 @@ class ServiceOrderController extends Controller
             'serie' => 'nullable|string|max:50',
         ]);
 
-        $validated['codigo'] = 'OS-' . str_pad(ServiceOrder::max('id') + 1, 5, '0', STR_PAD_LEFT);
+        $validated['codigo'] = 'OS-'.str_pad(ServiceOrder::max('id') + 1, 5, '0', STR_PAD_LEFT);
         $validated['emissao'] ??= now()->toDateString();
         $validated['preco'] ??= 0;
         $validated['status'] = 'active';
@@ -82,6 +81,7 @@ class ServiceOrderController extends Controller
     public function show($id)
     {
         $order = ServiceOrder::query()->scoped()->with(['client', 'contract.plan', 'plan', 'technician'])->findOrFail($id);
+
         return view('crm::service_orders.show', compact('order'));
     }
 
@@ -90,6 +90,7 @@ class ServiceOrderController extends Controller
         $order = ServiceOrder::query()->scoped()->with('client', 'contract', 'plan', 'technician')->findOrFail($id);
         $clients = Client::scoped()->where('status', 'active')->orderBy('name')->get();
         $technicians = $this->getTechnicians();
+
         return view('crm::service_orders.edit', compact('order', 'clients', 'technicians'));
     }
 
@@ -102,7 +103,7 @@ class ServiceOrderController extends Controller
             'contract_id' => 'nullable|exists:contracts,id',
             'plan_id' => 'nullable|exists:plans,id',
             'technician_id' => 'nullable|exists:users,id',
-            'situacao' => 'in:O,I,NI,M,R,A,CS,C',
+            'situacao' => 'in:O,I,NI,M,R,A,CS,C,F',
             'servico' => 'nullable|string',
             'tipo_servico' => 'nullable|in:instalacao,manutencao,cancelamento,recuperacao,orcamento,visita_tecnica,outro',
             'emissao' => 'nullable|date',

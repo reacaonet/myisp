@@ -2,6 +2,7 @@
 
 namespace Modules\CRM\Models;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -29,6 +30,9 @@ class ServiceOrder extends Model
             'aprovacao' => 'date',
             'saida' => 'date',
             'data_agendamento' => 'date',
+            // Sem este cast a coluna chega crua ao Blade e a agenda do tecnico
+            // imprimia "14:00:00" em vez de "14:00".
+            'hora_agendamento' => 'datetime:H:i',
             'encerrado' => 'boolean',
         ];
     }
@@ -50,7 +54,7 @@ class ServiceOrder extends Model
 
     public function technician()
     {
-        return $this->belongsTo(\App\Models\User::class, 'technician_id');
+        return $this->belongsTo(User::class, 'technician_id');
     }
 
     /**

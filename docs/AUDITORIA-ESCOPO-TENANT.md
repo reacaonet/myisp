@@ -172,6 +172,99 @@ Nenhum registro tem `branch_id` nulo, entao nada some por omissao de dado. Mas o
 projetos serem reatribuidos. Isso e dado, nao codigo: a reatribuicao precisa ser
 feita com o servidor, nao por script.
 
+## Portal do tecnico — corrigido
+
+O tecnico nao e um `User` com guard proprio: `config/auth.php` aponta o guard
+`technician` para a **mesma** tabela `users`, distinguido por `group->slug === 'tecnico'`.
+Duas consequencias:
+
+1. **`TenantContext` nao enxergava o guard `technician`.** Ele resolvia o usuario com
+   `Auth::user()`, que so olha o guard default (`web`). No portal do tecnico caia no
+   ramo anonimo, que resolve para a empresa raiz — sem filtro de filial. Todo
+   `scoped()` do portal (CTO, caixa, fusao) era bypass. Agora existe
+   `TenantContext::authenticatedUser()`, que checa `web` e depois `technician`. O guard
+   `client` segue de fora de proposito (ver decisao 3).
+2. **Os 9 endpoints FTTH do portal nao filhavam nada.** `ftthNetwork`, `ftthCtoShow`,
+   `ftthCaixaShow`, `ftthCtoActivate`, `ftthCaixaActivate`, `ftthCtoUpdateNotes`,
+   `ftthCaixaUpdateNotes`, `ftthFusionUpdate` e `ftthFusionDone` usavam `findOrFail`
+   global: o tecnico da filial 3 abria e alterava a rede da matriz pelo id na URL. Todos
+   passaram a `scoped()`/`findScopedOrFail()`.
+
+Junto disso, `TechnicianController` (admin) aceitava qualquer id de `users` em
+`edit`/`update`/`destroy`: quem tivesse `group.permission:technicians` desligava ou
+removia o superadmin. Agora o CRUD e recortado pelo grupo `tecnico`, e o tecnico nao
+pode remover a propria conta. A rota `crm.technicians.show` — que apontava para um
+metodo inexistente e devolvia 500 — saiu do resource.
+
+### Cobertura
+
+`tests/Feature/TechnicianPortalScopeTest.php` (7 testes) fixa o cenario com matriz e
+filial na mesma empresa: listagem, `show`, `ativar`, `notas` e `fusoes` da rede alheia
+respondem 404 sem efeito no banco, as mesmas operacoes funcionam na rede do tecnico, e
+o CRUD de tecnico recusa usuario de outro grupo.
+
+Validado por mutacao: voltar o `authenticatedUser()` para so `web` faz os 4 testes de
+FTTH falharem, e so eles — o que confirma que o teste mede o corte e nao o controller.
+
+## Mudanca de endereco pelo portal do cliente — corrigido
+
+O cliente nao podia corrigir o proprio endereco, e o admin nao tinha como aprovar a
+correcao. A solucao adopted foi **chamado com endereco proposto**, nao edicao
+direta: `tickets.proposed_address` (`jsonb`) guarda o pedido, e o endereco so passa a
+valer depois que um usuario do grupo com permissao `tickets` aplica.
+
+Regras que o fluxo impoe:
+
+- **Endereco canonico** e o primeiro registro de `client.addresses()`. Aplicar o
+  endereco proposed atualiza esse registro; se o cliente nao tinha nenhum, cria.
+  `contracts.install_*` **nao** e sobrescrito — e o local historico onde o servico
+  foi instalado, nao a morada atual.
+- **Um pedido por vez.** Chamado com `proposed_address` em `open`/`in_progress`
+  bloqueia um novo pedido; os demais chamados do cliente seguem liberados.
+- **Aplicar duas vezes nao muda nada.** O segundo toque no botao cai fora pelo
+  status `resolved` e nao duplica a mensagem de auditoria.
+- **Escopo pela matriz do pedido**, nao pela URL: as acoes de aplicacao e recusa
+  localizam o chamado por `whereHas('client', Client::scoped())`, entao um agente de
+  outra franquia recebe 404 e nao consegue nem recusar.
+
+Um bug proprio do fluxo merece registro: ao abrir o pedido, `addressChangeStore`
+lia `$validated['reason']` direto. O campo e `nullable`, entao quando o cliente
+omitia a justificativa o acesso a chave inexistente virou erro 500 e **nenhum chamado
+era criado** — a tela quebrava depois do envio. Agora e `$validated['reason'] ?? null`.
+
+### Cobertura
+
+`tests/Feature/ClientAddressChangeTest.php` (16 testes) fixa: perfil mostra o
+endereco atual; o pedido vira chamado; o segundo pedido em aberto e barrado; o perfil
+mostra o pedido pendente; chamado de outro cliente e recusado; campos obrigatorios;
+aplicacao resolve o chamado; aplicacao cria o primeiro endereco quando o cliente nao
+tinha nenhum; recusa mantem o endereco; reaplicar nao surte efeito; agente de outra
+franquia recebe 404; chamado comum nao expoe o formulario de aprovacao; chamado sem
+endereco proposto nao e aplicavel; a tela do chamado mostra o confronto; `contract_id`
+de outro cliente e recusado (IDOR); e o endereco sai em uma linha so.
+
+O teste cross-tenant cria o chamado direto no banco, sem antes autenticar como o
+cliente. Isso e deliberado: o `TenantContext` e estado estatico dentro do processo, e
+autenticar como o cliente antes deixaria o contexto resolvido para a matriz — o teste
+passaria a medir o cache em vez do corte entre franchises.
+
+## Perfis web e dois models `User`
+
+Existe **dois** models `User` na mesma tabela `users`: `App\Models\User` (usado pelos
+guards `web` e `technician`) e `Modules\Core\Models\User` (usado por
+`UserController`, `CompanyController` e varios seeders). Nao ha heranca entre eles.
+
+O layout `Modules/Core/resources/views/layouts/master.blade.php` chama
+`auth()->user()->avatarUrl()`, e `auth()` pode devolver qualquer um dos dois. Com o
+metodo so no `App\Models\User`, toda tela que autenticava pelo model do modulo
+caía em 500 (`BadMethodCallException`) — 3 suites inteiras quebradas
+(`CompanySettingsScopeTest`, `MultiCompanyTest`, `OrphanRelationsTest`).
+
+A correcao foi extrair para `Modules/Core/app/Models/Concerns/HasAvatar.php` e usar
+o trait nos dois models, em vez de duplicar o metodo. `Modules\Core\Models\User`
+tambem passou a ter `city`, `state` e `avatar` no `$fillable`, para que o mesmo
+cadastro de perfil funcione nos dois caminhos.
+
 ## Fora de escopo (sem `company_id` nem `branch_id`)
 
 `Contract`, `ServiceOrder`, `Ticket`, `Payment`, `Address`, `Equipment`,
@@ -195,13 +288,25 @@ herdam o mesmo problema.
 3. **Global scope no `BelongsToTenant`.** Continua em aberto. O obstacle e o portal do
    cliente, que autentica no guard `client` e nao passa pelo `TenantContext` de
    usuario: um scope ingenuo esconderia as faturas do proprio cliente de uma
-   franquia. Se for adotado, precisa de bypass explicito para o guard `client` e
-   teste do portal — a suite atual tem 88 testes e cobre pouco desse caminho.
+   franquia. O guard `technician` ja foi resolvido (ver secao do portal do tecnico) e
+   o `client` continua de fora de proposito. Se o scope for adotado, precisa de bypass
+   explicito para o guard `client` e teste do portal.
 4. **Reatribuicao dos 5 projetos FTTH da Matriz.** Codigo pronto; falta a decisao
    de qual filial e dona de cada rede.
 5. **`reports` concedido ao grupo `franqueados`.** O `ReportController` ainda roda
-   consultas globais. Ou o controller e escopado, ou a permissao e removida do
-   grupo — decisao de produto.
+    consultas globais. Ou o controller e escopado, ou a permissao e removida do
+    grupo — decisao de produto.
+6. **`TicketController` (admin) ainda usa consulta global.** As acoes novas de
+   endereco foram escopadas, mas `index`, `show`, `updateStatus`, `reply` e
+   `destroy` continuam em `Ticket::findOrFail()` / query crua. Um usuario com a
+   permissao `tickets` ainda abre e responde chamado de outra franquia pelo id. E o
+   mesmo padrao ja corrigido nos outros modulos ("lista escopada, item nao
+   escopado"), entao a correcao e direta: `Ticket` nao tem `company_id`, o corte
+   precisa ser por `whereHas('client', Client::scoped())`, como no fluxo de
+   endereco. Falta decidir tambem se `reply` deve recusar chamado de outro cliente.
+7. **`situacao=A` com dois nomes.** O admin mostra "Aprovado" e o tecnico mostra
+   "Em Andamento" para o mesmo valor. Precisa de definicao de produto: sao o mesmo
+   estado com dois nomes, ou `A` esta sendo reaproveitado para duas etapas?
 
 ## Ordem de ataque sugerida
 

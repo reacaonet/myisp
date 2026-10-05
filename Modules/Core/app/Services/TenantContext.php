@@ -22,9 +22,30 @@ class TenantContext
 
     protected static ?int $branchId = null;
 
+    /**
+     * Usuario operador do request.
+     *
+     * O guard padrao (`web`) nao enxerga o portal do tecnico, que autentica no
+     * guard `technician` com o mesmo model `User`. Sem esta preferencia o
+     * contexto do tecnico caia no ramo anonimo e resolvia para a empresa
+     * publica/raiz — ou seja, `forTenant()` nao cortava nada dentro daquele
+     * portal, que e o caso do desenho FTTH em `tecnico/ftth`.
+     *
+     * O guard `client` fica de fora de proposito: ele autentica `Client`, que nao
+     * tem vinculo em `company_user`/`branch_user`, e o portal do cliente depende
+     * de enxergar os proprios dados. Ver `docs/AUDITORIA-ESCOPO-TENANT.md`.
+     *
+     * Quando o mesmo navegador tem os dois guards abertos, o `web` ganha: e a
+     * sessao administrativa que controla o contexto e o seletor de empresa.
+     */
+    protected static function authenticatedUser(): ?Authenticatable
+    {
+        return Auth::guard('web')->user() ?? Auth::guard('technician')->user();
+    }
+
     public static function resolve(): void
     {
-        $user = Auth::user();
+        $user = self::authenticatedUser();
         $userKey = $user?->getAuthIdentifier() !== null
             ? get_class($user).':'.$user->getAuthIdentifier()
             : null;
@@ -132,7 +153,7 @@ class TenantContext
 
     public static function allowedCompanyIds(?Authenticatable $user = null): array
     {
-        $user ??= Auth::user();
+        $user ??= self::authenticatedUser();
 
         if (! $user || ! method_exists($user, 'companies')) {
             return [self::companyId()];
@@ -147,7 +168,7 @@ class TenantContext
 
     public static function isSuperadmin(?Authenticatable $user = null): bool
     {
-        $user ??= Auth::user();
+        $user ??= self::authenticatedUser();
 
         if (! $user || ! method_exists($user, 'group')) {
             return false;
@@ -159,7 +180,7 @@ class TenantContext
     /** Filiais que o usuario logado pode assumir. */
     public static function allowedBranchIds(?Authenticatable $user = null): array
     {
-        $user ??= Auth::user();
+        $user ??= self::authenticatedUser();
 
         if (! $user || ! method_exists($user, 'branches')) {
             $id = self::branchId();
@@ -186,7 +207,7 @@ class TenantContext
      */
     public static function isBranchScoped(?Authenticatable $user = null): bool
     {
-        $user ??= Auth::user();
+        $user ??= self::authenticatedUser();
 
         if (! $user || self::isSuperadmin($user) || ! method_exists($user, 'branches')) {
             return false;

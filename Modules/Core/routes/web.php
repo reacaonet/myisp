@@ -7,6 +7,7 @@ use Modules\Core\Http\Controllers\Web\CompanyController;
 use Modules\Core\Http\Controllers\Web\ContextController;
 use Modules\Core\Http\Controllers\Web\FranchiseeController;
 use Modules\Core\Http\Controllers\Web\LandingBannerController;
+use Modules\Core\Http\Controllers\Web\ProfileController;
 use Modules\Core\Http\Controllers\Web\SystemSettingController;
 use Modules\Core\Http\Controllers\Web\UserController;
 use Modules\Core\Http\Controllers\Web\UserGroupController;
@@ -15,6 +16,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('cores', CoreController::class)->names('core');
 
     Route::post('/contexto', [ContextController::class, 'switch'])->name('core.context.switch');
+
+    // Fora do bloco `group.permission:settings` de proposito: perfil e da conta
+    // logada, nao do area de administracao. Um tecnico sem permissao de
+    // `settings` precisa poder corrigir o proprio telefone.
+    Route::prefix('perfil')->name('core.profile.')->group(function () {
+        Route::get('/', [ProfileController::class, 'edit'])->name('edit');
+        Route::put('/', [ProfileController::class, 'update'])->name('update');
+    });
 
     // Painel do franqueado. O isolamento nao vem daqui: vem do vinculo em
     // company_user, resolvido pelo TenantContext a cada consulta.

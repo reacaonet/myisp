@@ -2,26 +2,27 @@
 
 namespace App\Models;
 
-use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 use Modules\Core\Models\Branch;
 use Modules\Core\Models\Company;
+use Modules\Core\Models\Concerns\HasAvatar;
 use Modules\Core\Models\UserGroup;
+use Modules\CRM\Models\ServiceOrder;
 
-#[Fillable(['name', 'email', 'password', 'phone', 'cargo', 'cellphone', 'city', 'state', 'role', 'user_group_id', 'is_active'])]
+#[Fillable(['name', 'email', 'password', 'phone', 'cargo', 'cellphone', 'city', 'state', 'avatar', 'role', 'user_group_id', 'is_active'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, SoftDeletes;
+    use HasAvatar, HasFactory, Notifiable, SoftDeletes;
 
     protected function casts(): array
     {
@@ -69,12 +70,12 @@ class User extends Authenticatable
 
     public function serviceOrders(): HasMany
     {
-        return $this->hasMany(\Modules\CRM\Models\ServiceOrder::class, 'technician_id');
+        return $this->hasMany(ServiceOrder::class, 'technician_id');
     }
 
     public function hasPermission(string $key): bool
     {
-        if (!$this->group) {
+        if (! $this->group) {
             return false;
         }
 

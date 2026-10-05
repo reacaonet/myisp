@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Modules\Core\Models\SystemSetting;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -14,11 +14,11 @@ return new class extends Migration
             'plan_min_up_kbps' => ['128', 'number'],
         ];
 
+        // Query builder em vez do model: o hook `creating` do SystemSetting
+        // consulta `companies` via TenantContext, tabela que so e criada em
+        // 2026_09_28_000001, depois desta migration. Ver migration 000001.
         foreach ($blockDefaults as $key => [$value, $type]) {
-            SystemSetting::firstOrCreate(
-                ['key' => $key],
-                ['value' => $value, 'type' => $type, 'group' => 'block']
-            );
+            $this->seedSetting($key, $value, $type, 'block');
         }
 
         $noticeDefaults = [
@@ -29,22 +29,37 @@ return new class extends Migration
         ];
 
         foreach ($noticeDefaults as $key => [$value, $type]) {
-            SystemSetting::firstOrCreate(
-                ['key' => $key],
-                ['value' => $value, 'type' => $type, 'group' => 'aviso']
-            );
+            $this->seedSetting($key, $value, $type, 'aviso');
         }
     }
 
     public function down(): void
     {
-        SystemSetting::where('group', 'aviso')->delete();
-        SystemSetting::whereIn('key', [
+        DB::table('system_settings')->where('group', 'aviso')->delete();
+        DB::table('system_settings')->whereIn('key', [
             'block_grace_days',
             'plan_min_enabled',
             'plan_min_down_kbps',
             'plan_min_up_kbps',
         ])->delete();
+    }
+
+    private function seedSetting(string $key, string $value, string $type, string $group): void
+    {
+        // Cria somente se ainda nao existir, preservando o valor de quem ja
+        // configurou. Equivale ao firstOrCreate do model, sem passar por ele.
+        if (DB::table('system_settings')->where('key', $key)->exists()) {
+            return;
+        }
+
+        DB::table('system_settings')->insert([
+            'key' => $key,
+            'value' => $value,
+            'type' => $type,
+            'group' => $group,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     private function noticeHtml(): string

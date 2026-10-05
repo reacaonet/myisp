@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Modules\Core\Models\SystemSetting;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -16,17 +16,37 @@ return new class extends Migration
             'block_page_html' => [$this->defaultHtml(), 'textarea'],
         ];
 
+        // Query builder em vez do model: o hook `creating` do SystemSetting
+        // consulta `companies` via TenantContext, tabela que ainda nao existe
+        // nesta altura da instalacao. Sao linhas de template da raiz.
         foreach ($defaults as $key => [$value, $type]) {
-            SystemSetting::firstOrCreate(
-                ['key' => $key],
-                ['value' => $value, 'type' => $type, 'group' => 'block']
-            );
+            $this->seedSetting($key, $value, $type, 'block');
         }
     }
 
     public function down(): void
     {
-        SystemSetting::where('group', 'block')->delete();
+        DB::table('system_settings')->where('group', 'block')->delete();
+    }
+
+    /**
+     * Cria a chave somente se ainda nao existir, preservando o valor de quem
+     * ja configurou. Equivale ao firstOrCreate do model, sem passar por ele.
+     */
+    private function seedSetting(string $key, string $value, string $type, string $group): void
+    {
+        if (DB::table('system_settings')->where('key', $key)->exists()) {
+            return;
+        }
+
+        DB::table('system_settings')->insert([
+            'key' => $key,
+            'value' => $value,
+            'type' => $type,
+            'group' => $group,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     private function defaultHtml(): string

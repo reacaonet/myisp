@@ -66,7 +66,10 @@ Route::prefix('crm')->middleware('auth')->group(function () {
     });
 
     Route::middleware('group.permission:technicians')->group(function () {
+        // `show` fica de fora: o controller nunca teve esse metodo, entao a rota
+        // gerada devolvia 500. A listagem ja mostra quem precisa ser visto.
         Route::resource('technicians', TechnicianController::class)
+            ->except('show')
             ->names('crm.technicians');
     });
 

@@ -4,12 +4,12 @@ namespace Modules\PortalInfra\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Modules\Core\Services\TenantContext;
 use Modules\PortalInfra\Models\CaixaEmenda;
 use Modules\PortalInfra\Models\Cto;
 use Modules\PortalInfra\Models\FtthFusion;
 use Modules\PortalInfra\Models\FtthProject;
 use Modules\PortalInfra\Models\FtthSplitter;
+use Modules\PortalInfra\Services\FtthMapData;
 use Modules\PortalInfra\Services\KmlNetworkGenerator;
 
 class FtthController extends Controller
@@ -34,21 +34,20 @@ class FtthController extends Controller
         return view('infra::dashboard', compact('stats', 'recentCtos', 'recentCaixas'));
     }
 
-/**
- * CTOs, caixas, splitters, fibras, conexoes e fusoes nao tem coluna de tenant:
- * o dono delas e o projeto. O trait `ScopedByFtthProject` faz esse corte, e ele
- * ja considera a filial do usuario (via `FtthProject::scoped()`).
- */
-protected function applyProjectScope($query)
-{
-    return $query->visibleToUser();
-}
+    /**
+     * CTOs, caixas, splitters, fibras, conexoes e fusoes nao tem coluna de tenant:
+     * o dono delas e o projeto. O trait `ScopedByFtthProject` faz esse corte, e ele
+     * ja considera a filial do usuario (via `FtthProject::scoped()`).
+     */
+    protected function applyProjectScope($query)
+    {
+        return $query->visibleToUser();
+    }
 
-protected function projectQuery()
-{
-    return FtthProject::scoped();
-}
-
+    protected function projectQuery()
+    {
+        return FtthProject::scoped();
+    }
 
     public function indexCtos(Request $request)
     {
@@ -504,45 +503,9 @@ protected function projectQuery()
 
     public function mapData(Request $request)
     {
-        $queryCto = Cto::scoped()->select('id', 'code', 'name', 'latitude', 'longitude', 'street', 'city', 'capacity', 'used_ports', 'status', 'color', 'caixa_emenda_id');
-        $queryCaixa = CaixaEmenda::scoped()->select('id', 'code', 'name', 'latitude', 'longitude', 'street', 'city', 'capacity', 'used_ports', 'status');
-
-        if ($city = $request->get('city')) {
-            $queryCto->where('city', $city);
-            $queryCaixa->where('city', $city);
-        }
-
-        $ctos = $queryCto->orderBy('code')->get()->map(fn ($c) => [
-            'type' => 'cto',
-            'id' => $c->id,
-            'code' => $c->code,
-            'name' => $c->name,
-            'lat' => (float) $c->latitude,
-            'lng' => (float) $c->longitude,
-            'street' => $c->street,
-            'city' => $c->city,
-            'capacity' => $c->capacity,
-            'used' => $c->used_ports,
-            'status' => $c->status,
-            'color' => $c->color,
-            'caixa_id' => $c->caixa_emenda_id,
-        ]);
-
-        $caixas = $queryCaixa->orderBy('code')->get()->map(fn ($c) => [
-            'type' => 'caixa',
-            'id' => $c->id,
-            'code' => $c->code,
-            'name' => $c->name,
-            'lat' => (float) $c->latitude,
-            'lng' => (float) $c->longitude,
-            'street' => $c->street,
-            'city' => $c->city,
-            'capacity' => $c->capacity,
-            'used' => $c->used_ports,
-            'status' => $c->status,
-        ]);
-
-        return response()->json(['ctos' => $ctos, 'caixas' => $caixas]);
+        // Mesma projecao que o mapa do tecnico: os dois portais desenham a rede
+        // e um campo a menos no payload some de um lado sem o outro avisar.
+        return response()->json(app(FtthMapData::class)->build($request->string('city')->toString() ?: null));
     }
 
     public function downloadKml(string $city)

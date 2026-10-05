@@ -6,11 +6,11 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Modules\CRM\Models\ServiceOrder;
 use Modules\PortalInfra\Models\CaixaEmenda;
 use Modules\PortalInfra\Models\Cto;
 use Modules\PortalInfra\Models\FtthFusion;
 use Modules\PortalInfra\Models\FtthProject;
+use Modules\PortalInfra\Services\FtthMapData;
 
 class TechnicianPortalController extends Controller
 {
@@ -32,17 +32,20 @@ class TechnicianPortalController extends Controller
         ], $request->boolean('remember'))) {
             $user = Auth::guard('technician')->user();
 
-            if (!$user->group || $user->group->slug !== 'tecnico') {
+            if (! $user->group || $user->group->slug !== 'tecnico') {
                 Auth::guard('technician')->logout();
+
                 return back()->withErrors(['email' => 'Acesso nao permitido. Apenas tecnicos podem acessar este portal.'])->onlyInput('email');
             }
 
-            if (!$user->is_active) {
+            if (! $user->is_active) {
                 Auth::guard('technician')->logout();
+
                 return back()->withErrors(['email' => 'Usuario inativo.'])->onlyInput('email');
             }
 
             $request->session()->regenerate();
+
             return redirect()->intended(route('technician.portal.dashboard'));
         }
 
@@ -54,6 +57,7 @@ class TechnicianPortalController extends Controller
         Auth::guard('technician')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
         return redirect()->route('technician.portal.login');
     }
 
@@ -76,8 +80,12 @@ class TechnicianPortalController extends Controller
     {
         $projectId = $request->input('project');
 
-        $ctoQuery = Cto::with('ftthProject')->withCount('fusions');
-        $caixaQuery = CaixaEmenda::with('ftthProject')->withCount(['ctos', 'fusions']);
+        // `scoped()` resolve a partir do `ftth_project_id` do proprio tecnico
+        // (via `TenantContext`, que ja enxerga o guard `technician`). Sem isso o
+        // tecnico lia e alterava o desenho de rede de qualquer franquia so
+        // iterando id.
+        $ctoQuery = Cto::scoped()->with('ftthProject')->withCount('fusions');
+        $caixaQuery = CaixaEmenda::scoped()->with('ftthProject')->withCount(['ctos', 'fusions']);
 
         if ($projectId) {
             $ctoQuery->where('ftth_project_id', $projectId);
@@ -86,7 +94,7 @@ class TechnicianPortalController extends Controller
 
         $ctos = $ctoQuery->latest('id')->limit(500)->get();
         $caixas = $caixaQuery->latest('id')->limit(500)->get();
-        $projects = FtthProject::orderBy('name')->get();
+        $projects = FtthProject::scoped()->orderBy('name')->get();
 
         $stats = [
             'total_ctos' => $ctos->count(),
@@ -98,9 +106,33 @@ class TechnicianPortalController extends Controller
         return view('crm::technician.ftth.index', compact('ctos', 'caixas', 'projects', 'projectId', 'stats'));
     }
 
+    /**
+     * Mapa da rede. O Leaflet pede os marcadores por JSON, entao a tela e os
+     * dados sao dois endpoints: um renderiza o container, o outro devolve a
+     * projecao compartilhada com o mapa do admin.
+     */
+    public function ftthMap(Request $request)
+    {
+        $projectId = $request->integer('project') ?: null;
+
+        return view('crm::technician.ftth.map', [
+            'projects' => FtthProject::scoped()->orderBy('name')->get(),
+            'projectId' => $projectId,
+        ]);
+    }
+
+    public function ftthMapData(Request $request)
+    {
+        $projectId = $request->integer('project') ?: null;
+
+        return response()->json(
+            app(FtthMapData::class)->build($request->string('city')->toString() ?: null, $projectId)
+        );
+    }
+
     public function ftthCtoShow($id)
     {
-        $cto = Cto::with(['caixaEmenda', 'ftthProject', 'fusions' => fn ($q) => $q->orderBy('fiber_number')])->findOrFail($id);
+        $cto = Cto::scoped()->with(['caixaEmenda', 'ftthProject', 'fusions' => fn ($q) => $q->orderBy('fiber_number')])->findOrFail($id);
         $pendingCount = $cto->fusions->where('status', 'pending')->count();
         $doneCount = $cto->fusions->where('status', 'done')->count();
 
@@ -109,7 +141,7 @@ class TechnicianPortalController extends Controller
 
     public function ftthCaixaShow($id)
     {
-        $caixa = CaixaEmenda::with(['ftthProject', 'fusions' => fn ($q) => $q->orderBy('fiber_number')])->withCount('ctos')->findOrFail($id);
+        $caixa = CaixaEmenda::scoped()->with(['ftthProject', 'fusions' => fn ($q) => $q->orderBy('fiber_number')])->withCount('ctos')->findOrFail($id);
         $pendingCount = $caixa->fusions->where('status', 'pending')->count();
         $doneCount = $caixa->fusions->where('status', 'done')->count();
 
@@ -118,7 +150,7 @@ class TechnicianPortalController extends Controller
 
     public function ftthFusionDone($id)
     {
-        $fusion = FtthFusion::findOrFail($id);
+        $fusion = FtthFusion::findScopedOrFail((int) $id);
         $fusion->update(['status' => 'done']);
 
         $redirect = $fusion->cto_id
@@ -130,7 +162,7 @@ class TechnicianPortalController extends Controller
 
     public function ftthFusionUpdate(Request $request, $id)
     {
-        $fusion = FtthFusion::findOrFail($id);
+        $fusion = FtthFusion::findScopedOrFail((int) $id);
 
         $validated = $request->validate([
             'fiber_number' => 'nullable|string|max:20',
@@ -151,7 +183,7 @@ class TechnicianPortalController extends Controller
 
     public function ftthCtoActivate($id)
     {
-        $cto = Cto::findOrFail($id);
+        $cto = Cto::findScopedOrFail((int) $id);
         $cto->update(['status' => 'active']);
 
         return redirect()->route('technician.portal.ftth.ctos.show', $cto)
@@ -160,7 +192,7 @@ class TechnicianPortalController extends Controller
 
     public function ftthCaixaActivate($id)
     {
-        $caixa = CaixaEmenda::findOrFail($id);
+        $caixa = CaixaEmenda::findScopedOrFail((int) $id);
         $caixa->update(['status' => 'active']);
 
         return redirect()->route('technician.portal.ftth.caixas.show', $caixa)
@@ -169,7 +201,7 @@ class TechnicianPortalController extends Controller
 
     public function ftthCtoUpdateNotes(Request $request, $id)
     {
-        $cto = Cto::findOrFail($id);
+        $cto = Cto::findScopedOrFail((int) $id);
         $validated = $request->validate([
             'technician_notes' => 'nullable|string|max:2000',
         ]);
@@ -181,7 +213,7 @@ class TechnicianPortalController extends Controller
 
     public function ftthCaixaUpdateNotes(Request $request, $id)
     {
-        $caixa = CaixaEmenda::findOrFail($id);
+        $caixa = CaixaEmenda::findScopedOrFail((int) $id);
         $validated = $request->validate([
             'technician_notes' => 'nullable|string|max:2000',
         ]);
@@ -225,11 +257,16 @@ class TechnicianPortalController extends Controller
 
         $validated = $request->validate([
             'situacao' => 'nullable|in:O,A,F,C',
-            'status' => 'nullable|in:active,in_progress,resolved,closed,canceled',
+            // Alinhado ao enum real da coluna `status`
+            // (2026_07_21_140409_create_service_orders_table): aceitar
+            // `in_progress`/`resolved` fazia o select gravar valor inexistente e
+            // o proprio select da tela quebrava em modo estrito.
+            'status' => 'nullable|in:active,closed,canceled',
             'encerrado' => 'nullable|boolean',
             'diagnostico' => 'nullable|string',
             'solucao' => 'nullable|string',
-            'preco' => 'nullable|numeric|min:0',
+            // `preco` fica de fora de proposito: e campo comercial e o tecnico
+            // nao tem por que mexer no valor da OS.
         ]);
 
         if (isset($validated['encerrado'])) {
@@ -245,6 +282,7 @@ class TechnicianPortalController extends Controller
     public function profile()
     {
         $technician = Auth::guard('technician')->user();
+
         return view('crm::technician.profile.index', compact('technician'));
     }
 
@@ -273,7 +311,7 @@ class TechnicianPortalController extends Controller
             'new_password' => 'required|string|min:6|confirmed',
         ]);
 
-        if (!Hash::check($validated['current_password'], $technician->password)) {
+        if (! Hash::check($validated['current_password'], $technician->password)) {
             return back()->withErrors(['current_password' => 'Senha atual incorreta.']);
         }
 

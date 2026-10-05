@@ -137,6 +137,8 @@ Route::prefix('tecnico')->name('technician.portal.')->group(function () {
     Route::middleware('auth:technician')->group(function () {
         Route::get('dashboard', [TechnicianPortalController::class, 'dashboard'])->name('dashboard');
         Route::get('ftth', [TechnicianPortalController::class, 'ftthNetwork'])->name('ftth');
+        Route::get('ftth/mapa', [TechnicianPortalController::class, 'ftthMap'])->name('ftth.map');
+        Route::get('ftth/mapa/dados', [TechnicianPortalController::class, 'ftthMapData'])->name('ftth.map-data');
         Route::get('ftth/ctos/{cto}', [TechnicianPortalController::class, 'ftthCtoShow'])->name('ftth.ctos.show');
         Route::get('ftth/caixas/{caixa}', [TechnicianPortalController::class, 'ftthCaixaShow'])->name('ftth.caixas.show');
         Route::post('ftth/fusoes/{fusion}/executar', [TechnicianPortalController::class, 'ftthFusionDone'])->name('ftth.fusions.done');

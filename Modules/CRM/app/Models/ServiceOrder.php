@@ -2,6 +2,7 @@
 
 namespace Modules\CRM\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -50,5 +51,31 @@ class ServiceOrder extends Model
     public function technician()
     {
         return $this->belongsTo(\App\Models\User::class, 'technician_id');
+    }
+
+    /**
+     * `service_orders` nao tem `company_id`/`branch_id`: a titularidade vem do
+     * cliente. Sem ancorar no cliente escopado, uma ordem de qualquer loja
+     * entrava na listagem — e `findOrFail($id)` abria, editava, concluia e
+     * apagava a ordem alheia pelo id.
+     */
+    public function scopeScoped($query): Builder
+    {
+        return $query->whereHas('client', fn (Builder $q) => $q->scoped());
+    }
+
+    public static function scopedQuery(): Builder
+    {
+        return static::query()->scoped();
+    }
+
+    public static function findScoped(int $id): ?self
+    {
+        return static::scopedQuery()->find($id);
+    }
+
+    public static function findScopedOrFail(int $id): self
+    {
+        return static::scopedQuery()->findOrFail($id);
     }
 }

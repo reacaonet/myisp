@@ -2,6 +2,7 @@
 
 namespace Modules\CRM\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Modules\Core\Models\Concerns\BelongsToTenant;
@@ -9,6 +10,24 @@ use Modules\Core\Models\Concerns\BelongsToTenant;
 class Olt extends Model
 {
     use BelongsToTenant, SoftDeletes;
+
+    /**
+     * OLT e dado da filial: o corte usa `branch_id`.
+     */
+    protected function tenantBranchColumn(): ?string
+    {
+        return 'branch_id';
+    }
+
+    public static function scoped(?Builder $query = null): Builder
+    {
+        return ($query ?? static::query())->forTenant();
+    }
+
+    public static function findScopedOrFail(int $id): self
+    {
+        return static::scoped()->findOrFail($id);
+    }
 
     protected $fillable = [
         'company_id', 'branch_id',

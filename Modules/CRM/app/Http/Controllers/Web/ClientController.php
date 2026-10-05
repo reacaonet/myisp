@@ -62,13 +62,30 @@ class ClientController extends Controller
      */
     private function baseQuery(): Builder
     {
-        $query = Client::with(['addresses', 'branch']);
+        return $this->scopedQuery(['addresses', 'branch']);
+    }
 
-        if (! TenantContext::isCrossTenant()) {
-            $query->forCompany(TenantContext::companyId());
-        }
+    /**
+     * Unica origem de query de cliente por empresa. Toda acao que recebe um id
+     * passa por aqui, para um id de outra empresa virar 404 em vez de acesso.
+     *
+     * @param  array<int, string>  $with
+     * @return Builder<Client>
+     */
+    private function scopedQuery(array $with = []): Builder
+    {
+        // `forTenant` e o funil que corta por filial. Reimplementar o filtro
+        // aqui com `forCompany` mantinha o usuario de uma loja enxergando a
+        // agenda da matriz, que esta na mesma empresa.
+        return Client::query()->with($with)->forTenant();
+    }
 
-        return $query;
+    /**
+     * @param  array<int, string>  $with
+     */
+    private function findScoped(array $with, $id): Client
+    {
+        return $this->scopedQuery($with)->whereKey($id)->firstOrFail();
     }
 
     /**
@@ -169,19 +186,12 @@ class ClientController extends Controller
      */
     private function branchQuery()
     {
-        $query = Branch::query()->orderByRaw('parent_id is null desc')->orderBy('name');
-
-        if (! TenantContext::isCrossTenant()) {
-            $query->forCompany(TenantContext::companyId());
-
-            $allowed = TenantContext::allowedBranchIds();
-
-            $query->where(function ($q) use ($allowed) {
-                $q->whereIn('id', $allowed)->orWhereNull('parent_id');
-            });
-        }
-
-        return $query;
+        // `forTenant` restringe as filiais que aparecem no filtro e no select do
+        // formulario. A versao anterior aceitava `parent_id is null`, o que
+        // deixava o usuario de uma loja criar cliente na Matriz da rede.
+        return Branch::query()->forTenant()
+            ->orderByRaw('parent_id is null desc')
+            ->orderBy('name');
     }
 
     public function store(Request $request)
@@ -240,27 +250,27 @@ class ClientController extends Controller
 
     public function show($id)
     {
-        $client = Client::with([
+        $client = $this->findScoped([
             'addresses',
             'contracts.plan',
             'contracts.server',
             'invoices' => fn ($q) => $q->latest(),
             'serviceOrders.technician' => fn ($q) => $q->latest(),
-        ])->findOrFail($id);
+        ], $id);
 
         return view('crm::clients.show', compact('client'));
     }
 
     public function edit($id)
     {
-        $client = Client::with('addresses')->findOrFail($id);
+        $client = $this->findScoped(['addresses'], $id);
 
         return view('crm::clients.edit', compact('client') + ['branches' => $this->branchQuery()->get()]);
     }
 
     public function update(Request $request, $id)
     {
-        $client = Client::findOrFail($id);
+        $client = $this->findScoped([], $id);
 
         $tenant = $this->tenantUniqueScope($client);
 
@@ -318,19 +328,20 @@ class ClientController extends Controller
 
     public function history($id)
     {
-        $client = Client::with([
+        $client = $this->findScoped([
             'addresses',
             'contracts.plan',
             'invoices',
             'serviceOrders.technician',
-        ])->findOrFail($id);
+        ], $id);
 
         return view('crm::clients.history', compact('client'));
     }
 
     public function destroy($id)
     {
-        $client = Client::findOrFail($id);
+        $client = $this->findScoped([], $id);
+
         $client->delete();
 
         return redirect()->route('crm.clients.index')

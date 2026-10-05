@@ -2,6 +2,7 @@
 
 namespace Modules\CRM\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Modules\Billing\Models\Invoice;
@@ -58,6 +59,25 @@ class Contract extends Model
     public function invoices()
     {
         return $this->hasMany(Invoice::class);
+    }
+
+    /**
+     * `contracts` nao tem `company_id`/`branch_id`: a titularidade vem do
+     * cliente. O escopo e o do cliente, e nao uma coluna local.
+     */
+    public function scopeScoped($query): Builder
+    {
+        return $query->whereHas('client', fn (Builder $q) => $q->scoped());
+    }
+
+    public static function scopedQuery(): Builder
+    {
+        return static::query()->scoped();
+    }
+
+    public static function findScopedOrFail(int $id): self
+    {
+        return static::scopedQuery()->findOrFail($id);
     }
 
     public function activeInvoices()

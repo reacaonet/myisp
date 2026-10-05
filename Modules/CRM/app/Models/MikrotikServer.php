@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Modules\Core\Models\Concerns\BelongsToTenant;
-use Modules\Core\Services\TenantContext;
 
 class MikrotikServer extends Model
 {
@@ -35,17 +34,20 @@ class MikrotikServer extends Model
     }
 
     /**
-     * Query sempre ancorada na empresa atual, salvo navegacao cross-tenant.
+     * Servidor e dado da filial: o corte usa `branch_id`.
+     */
+    protected function tenantBranchColumn(): ?string
+    {
+        return 'branch_id';
+    }
+
+    /**
+     * Query sempre ancorada na empresa e na filial atuais, salvo navegacao
+     * cross-tenant. E o que o resto da Infra ja usa como funil.
      */
     public static function scoped(?Builder $query = null): Builder
     {
-        $query ??= static::query();
-
-        if (! TenantContext::isCrossTenant()) {
-            $query->forCompany(TenantContext::companyId());
-        }
-
-        return $query;
+        return ($query ?? static::query())->forTenant();
     }
 
     public static function findScoped(int $id): ?self

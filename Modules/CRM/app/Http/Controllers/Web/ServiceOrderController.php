@@ -3,7 +3,9 @@
 namespace Modules\CRM\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use Closure;
 use Illuminate\Http\Request;
+use Modules\Core\Services\TenantContext;
 use Modules\CRM\Models\ServiceOrder;
 use Modules\CRM\Models\Client;
 use Modules\CRM\Models\Contract;
@@ -15,7 +17,7 @@ class ServiceOrderController extends Controller
 {
     public function index(Request $request)
     {
-        $query = ServiceOrder::with(['client', 'technician']);
+        $query = ServiceOrder::query()->scoped()->with(['client', 'technician']);
 
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
@@ -36,7 +38,7 @@ class ServiceOrderController extends Controller
 
     public function create()
     {
-        $clients = Client::where('status', 'active')->orderBy('name')->get();
+        $clients = Client::scoped()->where('status', 'active')->orderBy('name')->get();
         $technicians = $this->getTechnicians();
         return view('crm::service_orders.create', compact('clients', 'technicians'));
     }
@@ -44,7 +46,7 @@ class ServiceOrderController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'client_id' => 'required|exists:clients,id',
+            'client_id' => ['required', $this->scopedClientRule()],
             'contract_id' => 'nullable|exists:contracts,id',
             'plan_id' => 'nullable|exists:plans,id',
             'technician_id' => 'nullable|exists:users,id',
@@ -79,24 +81,24 @@ class ServiceOrderController extends Controller
 
     public function show($id)
     {
-        $order = ServiceOrder::with(['client', 'contract.plan', 'plan', 'technician'])->findOrFail($id);
+        $order = ServiceOrder::query()->scoped()->with(['client', 'contract.plan', 'plan', 'technician'])->findOrFail($id);
         return view('crm::service_orders.show', compact('order'));
     }
 
     public function edit($id)
     {
-        $order = ServiceOrder::with('client', 'contract', 'plan', 'technician')->findOrFail($id);
-        $clients = Client::where('status', 'active')->orderBy('name')->get();
+        $order = ServiceOrder::query()->scoped()->with('client', 'contract', 'plan', 'technician')->findOrFail($id);
+        $clients = Client::scoped()->where('status', 'active')->orderBy('name')->get();
         $technicians = $this->getTechnicians();
         return view('crm::service_orders.edit', compact('order', 'clients', 'technicians'));
     }
 
     public function update(Request $request, $id)
     {
-        $order = ServiceOrder::findOrFail($id);
+        $order = ServiceOrder::findScopedOrFail((int) $id);
 
         $validated = $request->validate([
-            'client_id' => 'exists:clients,id',
+            'client_id' => [$this->scopedClientRule()],
             'contract_id' => 'nullable|exists:contracts,id',
             'plan_id' => 'nullable|exists:plans,id',
             'technician_id' => 'nullable|exists:users,id',
@@ -128,7 +130,7 @@ class ServiceOrderController extends Controller
 
     public function destroy($id)
     {
-        $order = ServiceOrder::findOrFail($id);
+        $order = ServiceOrder::findScopedOrFail((int) $id);
         $order->delete();
 
         return redirect()->route('crm.service-orders.index')
@@ -137,7 +139,7 @@ class ServiceOrderController extends Controller
 
     public function start($id)
     {
-        $order = ServiceOrder::findOrFail($id);
+        $order = ServiceOrder::findScopedOrFail((int) $id);
         $order->update([
             'situacao' => 'A',
             'status' => 'active',
@@ -150,7 +152,7 @@ class ServiceOrderController extends Controller
 
     public function complete($id)
     {
-        $order = ServiceOrder::findOrFail($id);
+        $order = ServiceOrder::findScopedOrFail((int) $id);
         $order->update([
             'situacao' => 'F',
             'status' => 'closed',
@@ -163,7 +165,7 @@ class ServiceOrderController extends Controller
 
     public function assign(Request $request, $id)
     {
-        $order = ServiceOrder::findOrFail($id);
+        $order = ServiceOrder::findScopedOrFail((int) $id);
 
         $validated = $request->validate([
             'technician_id' => 'required|exists:users,id',
@@ -178,6 +180,38 @@ class ServiceOrderController extends Controller
     private function getTechnicians()
     {
         $tecnicoGroupId = UserGroup::where('slug', 'tecnico')->value('id');
-        return User::where('user_group_id', $tecnicoGroupId)->where('is_active', true)->orderBy('name')->get();
+
+        $query = User::where('user_group_id', $tecnicoGroupId)->where('is_active', true);
+
+        // Tecnico de outra loja nao aparece na lista de atribuicao: a OS nao
+        // pode ser repassada para quem nao enxerga o cliente dela.
+        if (! TenantContext::isCrossTenant()) {
+            $query->where(function ($q) {
+                $q->whereHas('branches', fn ($b) => $b->whereIn('branches.id', TenantContext::allowedBranchIds()))
+                    ->orWhereDoesntHave('branches');
+            });
+        }
+
+        return $query->orderBy('name')->get();
+    }
+
+    /**
+     * `exists:clients,id` aceitava o cliente de qualquer loja: bastava o id. A
+     * regra roda contra o cliente ja escopado, e por isso rejeita quem esta
+     * fora da filial do usuario.
+     */
+    private function scopedClientRule(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail) {
+            if (! $value) {
+                $fail('Escolha um cliente.');
+
+                return;
+            }
+
+            if (! Client::scoped()->whereKey($value)->exists()) {
+                $fail('Cliente invalido.');
+            }
+        };
     }
 }

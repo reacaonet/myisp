@@ -20,7 +20,10 @@ class DashboardController extends Controller
 
         $stats = [
             'active_clients' => $scope(Client::query()->where('status', 'active'))->count(),
-            'total_clients' => Client::count(),
+            // Precisa do mesmo escopo do active_clients: sem ele o total conta a
+            // rede inteira e entrega o numero de clientes das outras franquias
+            // para quem nao e cross-tenant.
+            'total_clients' => $scope(Client::query())->count(),
             'active_contracts' => Contract::where('status', 'active')->whereHas('client', fn ($q) => $this->applyScope($q))->count(),
             'total_plans' => $scope(Plan::query())->count(),
             'recent_clients' => $scope(Client::query())->latest()->take(5)->get(),

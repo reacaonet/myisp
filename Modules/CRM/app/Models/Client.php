@@ -76,11 +76,17 @@ class Client extends Authenticatable
 
     public function scopeScoped($query)
     {
-        if (! TenantContext::isCrossTenant()) {
-            $query->forCompany(TenantContext::companyId());
-        }
+        return $this->scopeForTenant($query);
+    }
 
-        return $query;
+    /**
+     * Cliente e dado da filial: o vinculo em `branch_user` e o que define ate
+     * onde o usuario enxerga. Sem o corte, um usuario de uma loja via a agenda
+     * inteira da empresa.
+     */
+    protected function tenantBranchColumn(): ?string
+    {
+        return 'branch_id';
     }
 
     public static function findScoped(int $id): ?self

@@ -32,10 +32,17 @@ Route::prefix('crm')->middleware('auth')->group(function () {
         Route::get('clients/{client}/history', [ClientController::class, 'history'])->name('crm.clients.history');
     });
 
+    // Ver o catalogo de planos e uma coisa; mexer nele e outra. O franqueado
+    // precisa do plano para fechar contrato, mas nao pode redefinir o preco e
+    // as velocidades do produto da rede.
     Route::middleware('group.permission:plans')->group(function () {
+        Route::get('plans', [PlanController::class, 'index'])->name('crm.plans.index');
+    });
+
+    Route::middleware('group.permission:plans_manage')->group(function () {
         Route::resource('plans', PlanController::class)
             ->names('crm.plans')
-            ->except('show');
+            ->except(['index', 'show']);
     });
 
     Route::middleware('group.permission:contracts')->group(function () {

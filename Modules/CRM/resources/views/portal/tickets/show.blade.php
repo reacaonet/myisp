@@ -49,6 +49,31 @@
         </div>
     </div>
 
+    @if($ticket->isAddressChange())
+        <div class="bg-white rounded-xl shadow-sm border border-amber-300">
+            <div class="p-6 border-b border-amber-200">
+                <h3 class="text-lg font-semibold text-gray-800">Endereco solicitado</h3>
+            </div>
+            <div class="p-6">
+                @php $novo = $ticket->proposedAddress(); @endphp
+                <p class="text-sm font-medium text-gray-900">
+                    {{ $novo['street'] }}{{ $novo['number'] ? ', '.$novo['number'] : '' }}
+                </p>
+                <p class="text-sm text-gray-700">{{ $novo['neighborhood'] }} &middot; {{ $novo['city'] }}/{{ $novo['state'] }} &middot; CEP {{ $novo['zipcode'] }}</p>
+
+                <p class="mt-3 text-sm {{ $ticket->status === 'resolved' ? 'text-green-700' : 'text-yellow-700' }}">
+                    @if($ticket->status === 'resolved')
+                        Endereco aprovado e ja aplicado no seu cadastro.
+                    @elseif($ticket->status === 'closed')
+                        Solicitacao nao aprovada. O endereco atual segue valendo.
+                    @else
+                        Em analise pelo suporte. O endereco atual continua valendo ate a aprovacao.
+                    @endif
+                </p>
+            </div>
+        </div>
+    @endif
+
     <div class="bg-white rounded-xl shadow-sm border border-gray-200">
         <div class="p-6 border-b border-gray-200">
             <h3 class="text-lg font-semibold text-gray-800">Conversa</h3>

@@ -80,6 +80,8 @@ Route::prefix('crm')->middleware('auth')->group(function () {
         Route::get('/{ticket}', [TicketController::class, 'show'])->name('show');
         Route::post('/{ticket}/status', [TicketController::class, 'updateStatus'])->name('status');
         Route::post('/{ticket}/reply', [TicketController::class, 'reply'])->name('reply');
+        Route::post('/{ticket}/endereco/aplicar', [TicketController::class, 'applyProposedAddress'])->name('address.apply');
+        Route::post('/{ticket}/endereco/rejeitar', [TicketController::class, 'rejectProposedAddress'])->name('address.reject');
         Route::delete('/{ticket}', [TicketController::class, 'destroy'])->name('destroy');
     });
 
@@ -121,6 +123,9 @@ Route::prefix('crm/portal')->name('crm.portal.')->group(function () {
         Route::get('perfil', [PortalController::class, 'profile'])->name('profile');
         Route::post('perfil', [PortalController::class, 'updateProfile'])->name('profile.update');
         Route::post('perfil/senha', [PortalController::class, 'changePassword'])->name('profile.password');
+        // Mudanca de endereco nao edita direto: vira chamado para aprovacao.
+        Route::get('perfil/endereco', [PortalController::class, 'addressChangeForm'])->name('profile.address');
+        Route::post('perfil/endereco', [PortalController::class, 'addressChangeStore'])->name('profile.address.store');
         Route::get('chamados', [PortalController::class, 'tickets'])->name('tickets');
         Route::get('chamados/abrir', [PortalController::class, 'ticketCreate'])->name('tickets.create');
         Route::post('chamados', [PortalController::class, 'ticketStore'])->name('tickets.store');

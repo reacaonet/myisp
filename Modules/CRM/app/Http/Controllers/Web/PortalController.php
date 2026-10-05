@@ -6,12 +6,15 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Modules\Billing\Models\Invoice;
 use Modules\Billing\Models\PaymentGateway;
 use Modules\Billing\Services\PaymentService;
+use Modules\Core\Models\Address;
 use Modules\Core\Models\Company;
 use Modules\Core\Models\SystemSetting;
 use Modules\Core\Services\TenantContext;
+use Modules\CRM\Models\Client;
 use Modules\CRM\Models\Ticket;
 
 class PortalController extends Controller
@@ -147,7 +150,11 @@ class PortalController extends Controller
     {
         $client = Auth::guard('client')->user()->load('addresses');
 
-        return view('crm::portal.profile.index', compact('client'));
+        return view('crm::portal.profile.index', [
+            'client' => $client,
+            'currentAddress' => $this->currentAddress($client),
+            'pendingAddressChange' => $this->pendingAddressChange($client),
+        ]);
     }
 
     public function updateProfile(Request $request)
@@ -185,6 +192,122 @@ class PortalController extends Controller
             ->with('success', 'Senha alterada com sucesso.');
     }
 
+    /**
+     * Endereco principal do cliente.
+     *
+     * O sistema inteiro trata `addresses()->first()` como o endereco corrente
+     * (boleto, NFS-e, contrato e OS leem assim), entao nao ha um campo
+     * "principal": e o primeiro registro.
+     */
+    protected function currentAddress(Client $client): ?Address
+    {
+        return $client->addresses()->first();
+    }
+
+    /**
+     * Chamado de mudanca de endereco que ainda espera resposta do suporte.
+     * Existe para a tela mostrar "em analise" em vez de oferecer um segundo
+     * formulario enquanto o primeiro nao foi avaliado.
+     */
+    protected function pendingAddressChange(Client $client): ?Ticket
+    {
+        return Ticket::where('client_id', $client->id)
+            ->where('category', Ticket::CATEGORY_ADDRESS)
+            ->whereNotNull('proposed_address')
+            ->whereIn('status', ['open', 'in_progress'])
+            ->latest()
+            ->first();
+    }
+
+    public function addressChangeForm()
+    {
+        $client = Auth::guard('client')->user()->load('addresses');
+
+        if ($pending = $this->pendingAddressChange($client)) {
+            return redirect()->route('crm.portal.tickets.show', $pending)
+                ->with('error', 'Voce ja tem uma solicitacao de mudanca de endereco em analise.');
+        }
+
+        return view('crm::portal.profile.address', [
+            'client' => $client,
+            'currentAddress' => $this->currentAddress($client),
+        ]);
+    }
+
+    /**
+     * O cliente nao edita o endereco direto: a solicitacao vira chamado e so um
+     * admin aplica. Sem essa trava, o endereco usado para cobranca e NFS-e
+     * mudaria sem nenhum registro de quem pediu.
+     */
+    public function addressChangeStore(Request $request)
+    {
+        $client = Auth::guard('client')->user();
+
+        if ($pending = $this->pendingAddressChange($client)) {
+            return redirect()->route('crm.portal.tickets.show', $pending)
+                ->with('error', 'Voce ja tem uma solicitacao de mudanca de endereco em analise.');
+        }
+
+        $validated = $request->validate([
+            'street' => 'required|string|max:255',
+            'number' => 'nullable|string|max:255',
+            'referencia' => 'nullable|string|max:255',
+            'complement' => 'nullable|string|max:255',
+            'neighborhood' => 'required|string|max:255',
+            'city' => 'required|string|max:255',
+            'state' => 'required|string|size:2',
+            'zipcode' => 'required|string|max:9',
+            'reason' => 'nullable|string|max:1000',
+        ]);
+
+        $proposed = [];
+
+        foreach (Ticket::ADDRESS_FIELDS as $field) {
+            $proposed[$field] = $validated[$field] ?? null;
+        }
+
+        $proposed['state'] = mb_strtoupper($validated['state']);
+
+        $ticket = $this->createTicket($client, [
+            'subject' => 'Solicitacao de mudanca de endereco',
+            'description' => ($validated['reason'] ?? null)
+                ?: 'Cliente solicitou mudanca de endereco pelo portal.',
+            'category' => Ticket::CATEGORY_ADDRESS,
+            'proposed_address' => $proposed,
+        ]);
+
+        return redirect()->route('crm.portal.tickets.show', $ticket)
+            ->with('success', 'Solicitacao enviada. Codigo: '.$ticket->codigo);
+    }
+
+    /**
+     * Abertura de chamado pelo portal: gera o codigo e registra a primeira
+     * mensagem. Extraido para o fluxo normal e para a solicitacao de endereco
+     * nao duplicarem a mesma logica.
+     */
+    protected function createTicket(Client $client, array $data): Ticket
+    {
+        $ticket = Ticket::create(array_merge([
+            'client_id' => $client->id,
+            'codigo' => $this->nextTicketCode(),
+            'status' => 'open',
+            'priority' => 'low',
+        ], $data));
+
+        $ticket->messages()->create([
+            'sender_type' => 'client',
+            'sender_id' => $client->id,
+            'message' => $ticket->description,
+        ]);
+
+        return $ticket;
+    }
+
+    protected function nextTicketCode(): string
+    {
+        return 'CHM-'.str_pad(Ticket::max('id') + 1, 5, '0', STR_PAD_LEFT);
+    }
+
     public function tickets()
     {
         $client = Auth::guard('client')->user();
@@ -211,21 +334,24 @@ class PortalController extends Controller
         $validated = $request->validate([
             'subject' => 'required|string|max:255',
             'description' => 'required|string',
-            'category' => 'nullable|string|max:100',
-            'contract_id' => 'nullable|exists:contracts,id',
+            // Antes aceitava qualquer texto, e a lista da tela e fixa. Sem o
+            // `in:` a categoria virava lixo digitado no banco.
+            'category' => 'nullable|string|in:conexao,velocidade,fatura,instalacao,equipamento,outro',
+            // `exists` sozinho nao prende o contrato ao cliente: qualquer id
+            // valido servia, e o cliente enxergava o plano de outra pessoa.
+            'contract_id' => [
+                'nullable',
+                Rule::exists('contracts', 'id')->where(fn ($q) => $q->where('client_id', $client->id)),
+            ],
         ]);
 
         $validated['client_id'] = $client->id;
-        $validated['codigo'] = 'CHM-'.str_pad(Ticket::max('id') + 1, 5, '0', STR_PAD_LEFT);
-        $validated['status'] = 'open';
-        $validated['priority'] = 'low';
 
-        $ticket = Ticket::create($validated);
-
-        $ticket->messages()->create([
-            'sender_type' => 'client',
-            'sender_id' => $client->id,
-            'message' => $validated['description'],
+        $ticket = $this->createTicket($client, [
+            'subject' => $validated['subject'],
+            'description' => $validated['description'],
+            'category' => $validated['category'] ?? null,
+            'contract_id' => $validated['contract_id'] ?? null,
         ]);
 
         return redirect()->route('crm.portal.tickets.show', $ticket)

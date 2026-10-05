@@ -4,6 +4,13 @@
 
 @section('content')
 <div class="max-w-3xl mx-auto space-y-6">
+    @if(session('success'))
+        <div class="p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm">{{ session('success') }}</div>
+    @endif
+    @if(session('error'))
+        <div class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{{ session('error') }}</div>
+    @endif
+
     <div class="bg-white rounded-xl shadow-sm border border-gray-200">
         <div class="p-6 border-b border-gray-200 flex items-center gap-4">
             <div class="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center">
@@ -41,6 +48,64 @@
                     <dd class="font-medium text-gray-900">{{ $client->created_at->format('d/m/Y') }}</dd>
                 </div>
             </dl>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div class="p-6 border-b border-gray-200 flex items-center justify-between gap-4">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-800">Endereco</h3>
+                <p class="text-xs text-gray-500">Usado nas cobrancas e notas fiscais.</p>
+            </div>
+            @if(! $pendingAddressChange)
+                <a href="{{ route('crm.portal.profile.address') }}"
+                   class="shrink-0 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Solicitar mudanca</a>
+            @endif
+        </div>
+        <div class="p-6">
+            @if($currentAddress)
+                <dl class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div class="md:col-span-2">
+                        <dt class="text-gray-500">Logradouro</dt>
+                        <dd class="font-medium text-gray-900">
+                            {{ $currentAddress->street }}{{ $currentAddress->number ? ', '.$currentAddress->number : '' }}
+                            @if($currentAddress->referencia)
+                                <span class="text-gray-500">({{ $currentAddress->referencia }})</span>
+                            @endif
+                        </dd>
+                    </div>
+                    @if($currentAddress->complement)
+                        <div>
+                            <dt class="text-gray-500">Complemento</dt>
+                            <dd class="font-medium text-gray-900">{{ $currentAddress->complement }}</dd>
+                        </div>
+                    @endif
+                    <div>
+                        <dt class="text-gray-500">Bairro</dt>
+                        <dd class="font-medium text-gray-900">{{ $currentAddress->neighborhood }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-gray-500">Cidade</dt>
+                        <dd class="font-medium text-gray-900">{{ $currentAddress->city }}/{{ $currentAddress->state }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-gray-500">CEP</dt>
+                        <dd class="font-medium text-gray-900">{{ $currentAddress->zipcode }}</dd>
+                    </div>
+                </dl>
+            @else
+                <p class="text-sm text-gray-500">Nenhum endereco cadastrado.</p>
+            @endif
+
+            @if($pendingAddressChange)
+                <div class="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+                    <p class="font-medium">Solicitacao em analise</p>
+                    <p class="mt-1">
+                        O novo endereco fica aguardando aprovacao do suporte.
+                        <a href="{{ route('crm.portal.tickets.show', $pendingAddressChange) }}" class="underline">Acompanhar chamado {{ $pendingAddressChange->codigo }}</a>
+                    </p>
+                </div>
+            @endif
         </div>
     </div>
 

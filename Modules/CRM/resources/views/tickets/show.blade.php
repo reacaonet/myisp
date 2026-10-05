@@ -70,6 +70,72 @@
         </div>
     </div>
 
+    @if($ticket->isAddressChange())
+    <div class="bg-white rounded-xl shadow-sm border border-amber-300">
+        <div class="p-6 border-b border-amber-200">
+            <h3 class="text-lg font-semibold text-gray-800">Solicitacao de mudanca de endereco</h3>
+            <p class="text-xs text-gray-500">
+                O endereco so passa a valer para o {{ $ticket->client?->name }} depois de aplicado aqui.
+            </p>
+        </div>
+
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <p class="text-xs font-semibold uppercase text-gray-500 mb-2">Endereco atual</p>
+                    @php $atual = $ticket->client?->addresses()->first(); @endphp
+                    @if($atual)
+                        <p class="text-sm text-gray-700">{{ $atual->full_address }}</p>
+                    @else
+                        <p class="text-sm text-gray-400">Nenhum endereco cadastrado.</p>
+                    @endif
+                </div>
+                <div>
+                    <p class="text-xs font-semibold uppercase text-gray-500 mb-2">Endereco solicitado</p>
+                    @php $novo = $ticket->proposedAddress(); @endphp
+                    <p class="text-sm font-medium text-gray-900">
+                        {{ $novo['street'] }}{{ $novo['number'] ? ', '.$novo['number'] : '' }}
+                        @if($novo['referencia'])
+                            <span class="text-gray-500">({{ $novo['referencia'] }})</span>
+                        @endif
+                    </p>
+                    <p class="text-sm text-gray-700">{{ $novo['neighborhood'] }} &middot; {{ $novo['city'] }}/{{ $novo['state'] }} &middot; CEP {{ $novo['zipcode'] }}</p>
+                    @if($novo['complement'])
+                        <p class="text-sm text-gray-700">{{ $novo['complement'] }}</p>
+                    @endif
+                </div>
+            </div>
+
+            @if($ticket->status === 'resolved')
+                <p class="mt-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm">
+                    Endereco ja aplicado no cadastro.
+                </p>
+            @else
+                <div class="mt-6 flex flex-col sm:flex-row gap-3">
+                    <form method="POST" action="{{ route('crm.tickets.address.apply', $ticket) }}"
+                          onsubmit="return confirm('Aplicar este endereco no cadastro do cliente?');">
+                        @csrf
+                        <button type="submit" class="w-full px-6 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">
+                            Aplicar endereco
+                        </button>
+                    </form>
+
+                    <form method="POST" action="{{ route('crm.tickets.address.reject', $ticket) }}" class="flex-1">
+                        @csrf
+                        <div class="flex gap-2">
+                            <input type="text" name="reason" placeholder="Motivo da recusa (opcional)"
+                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <button type="submit" class="px-4 py-2 bg-white border border-red-300 text-red-700 rounded-lg text-sm font-medium hover:bg-red-50">
+                                Recusar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            @endif
+        </div>
+    </div>
+    @endif
+
     <div class="bg-white rounded-xl shadow-sm border border-gray-200">
         <div class="p-6 border-b border-gray-200">
             <h3 class="text-lg font-semibold text-gray-800">Conversa</h3>

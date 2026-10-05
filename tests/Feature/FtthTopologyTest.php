@@ -33,6 +33,27 @@ class FtthTopologyTest extends TestCase
         session()->forget(['current_company_id', 'current_branch_id']);
     }
 
+    /**
+     * CTO, caixa e splitter nao tem `company_id` nem `branch_id`: quem define o
+     * dono e o `ftth_project_id`. Sem projeto, o item fica invisivel para
+     * qualquer usuario que nao seja superadmin (por isso os testes que passam
+     * pelo editor precisam criar o projeto antes).
+     */
+    private ?FtthProject $projeto = null;
+
+    private function projeto(): FtthProject
+    {
+        if (! $this->projeto) {
+            $this->projeto = FtthProject::create([
+                'name' => 'Rede de teste',
+                'city' => 'Cidade de Teste',
+                'status' => 'active',
+            ]);
+        }
+
+        return $this->projeto;
+    }
+
     public function test_splitter_tem_progenitor_e_cto_tem_cor(): void
     {
         $this->assertTrue(Schema::hasColumn('ftth_splitters', 'parent_type'));
@@ -163,6 +184,8 @@ class FtthTopologyTest extends TestCase
         $this->actingAs($this->operadorFtth());
 
         $caixa = CaixaEmenda::create([
+            'ftth_project_id' => $this->projeto()->id,
+
             'name' => 'CEO Teste',
             'code' => 'CE-TST-001',
             'latitude' => -4.3,
@@ -205,6 +228,8 @@ class FtthTopologyTest extends TestCase
         $this->actingAs($this->operadorFtth());
 
         $cto = Cto::create([
+            'ftth_project_id' => $this->projeto()->id,
+
             'name' => 'CTO Cor',
             'code' => 'CTO-TST-001',
             'latitude' => -4.3,
@@ -232,6 +257,8 @@ class FtthTopologyTest extends TestCase
         $this->actingAs($this->operadorFtth());
 
         $cto = Cto::create([
+            'ftth_project_id' => $this->projeto()->id,
+
             'name' => 'CTO Cor Ruim',
             'code' => 'CTO-TST-002',
             'latitude' => -4.3,
@@ -254,6 +281,8 @@ class FtthTopologyTest extends TestCase
         $this->actingAs($this->operadorFtth());
 
         $caixa = CaixaEmenda::create([
+            'ftth_project_id' => $this->projeto()->id,
+
             'name' => 'CEO Origem',
             'code' => 'CE-DUP-001',
             'latitude' => -4.30,
@@ -264,6 +293,8 @@ class FtthTopologyTest extends TestCase
         ]);
 
         $cto = Cto::create([
+            'ftth_project_id' => $this->projeto()->id,
+
             'name' => 'CTO Origem',
             'code' => 'CTO-DUP-001',
             'latitude' => -4.30,
@@ -312,6 +343,8 @@ class FtthTopologyTest extends TestCase
         $this->actingAs($this->operadorFtth());
 
         $cto = Cto::create([
+            'ftth_project_id' => $this->projeto()->id,
+
             'name' => 'CTO Base',
             'code' => 'CTO-DUP-002',
             'latitude' => -4.30,
@@ -350,6 +383,8 @@ class FtthTopologyTest extends TestCase
         $this->actingAs($this->operadorFtth());
 
         $caixa = CaixaEmenda::create([
+            'ftth_project_id' => $this->projeto()->id,
+
             'name' => 'CEO Com Splitter',
             'code' => 'CE-DUP-003',
             'latitude' => -4.30,
@@ -361,6 +396,8 @@ class FtthTopologyTest extends TestCase
         ]);
 
         $cto = Cto::create([
+            'ftth_project_id' => $this->projeto()->id,
+
             'name' => 'CTO Da CEO',
             'code' => 'CTO-DUP-003',
             'latitude' => -4.3005,
@@ -371,6 +408,8 @@ class FtthTopologyTest extends TestCase
         ]);
 
         FtthSplitter::create([
+            'ftth_project_id' => $this->projeto()->id,
+
             'name' => 'Splitter 1x8',
             'code' => 'SPT-DUP-003',
             'parent_type' => 'caixa',
@@ -405,6 +444,8 @@ class FtthTopologyTest extends TestCase
         $this->actingAs($this->operadorFtth());
 
         $cto = Cto::create([
+            'ftth_project_id' => $this->projeto()->id,
+
             'name' => 'CTO Sem Ponto',
             'code' => 'CTO-DUP-004',
             'latitude' => -4.30,
@@ -447,6 +488,8 @@ class FtthTopologyTest extends TestCase
         $this->actingAs($this->operadorFtth());
 
         $caixa = CaixaEmenda::create([
+            'ftth_project_id' => $this->projeto()->id,
+
             'name' => 'CEO Sem Cor',
             'code' => 'CE-TST-002',
             'latitude' => -4.3,
@@ -468,6 +511,8 @@ class FtthTopologyTest extends TestCase
         ]);
 
         $orphan = FtthSplitter::create([
+            'ftth_project_id' => $this->projeto()->id,
+
             'name' => 'Splitter Legado',
             'code' => 'SPT-LEGADO',
             'ftth_project_id' => $project->id,
@@ -490,6 +535,8 @@ class FtthTopologyTest extends TestCase
         $this->actingAs($this->operadorFtth());
 
         $caixa = CaixaEmenda::create([
+            'ftth_project_id' => $this->projeto()->id,
+
             'name' => 'CEO Origem',
             'code' => 'CE-TST-003',
             'latitude' => -4.3,
@@ -498,6 +545,8 @@ class FtthTopologyTest extends TestCase
         ]);
 
         $cto = Cto::create([
+            'ftth_project_id' => $this->projeto()->id,
+
             'name' => 'CTO Mae',
             'code' => 'CTO-TST-003',
             'latitude' => -4.31,
@@ -508,6 +557,8 @@ class FtthTopologyTest extends TestCase
         ]);
 
         $splitter = FtthSplitter::create([
+            'ftth_project_id' => $this->projeto()->id,
+
             'name' => 'Splitter Movel',
             'code' => 'SPT-MOVEL',
             'parent_type' => 'caixa',
@@ -543,6 +594,8 @@ class FtthTopologyTest extends TestCase
         ]);
 
         $cto = Cto::create([
+            'ftth_project_id' => $this->projeto()->id,
+
             'name' => 'CTO Mapa',
             'code' => 'CTO-MAPA-1',
             'latitude' => -4.3,
@@ -555,6 +608,8 @@ class FtthTopologyTest extends TestCase
         ]);
 
         FtthSplitter::create([
+            'ftth_project_id' => $this->projeto()->id,
+
             'name' => 'Splitter Mapa',
             'code' => 'SPT-MAPA-1',
             'ftth_project_id' => $project->id,
@@ -577,6 +632,8 @@ class FtthTopologyTest extends TestCase
     public function test_no_gerado_sem_fibra_fica_inativo(): void
     {
         $caixa = CaixaEmenda::create([
+            'ftth_project_id' => $this->projeto()->id,
+
             'name' => 'CEO Antiga',
             'code' => 'CE-ANT-1',
             'latitude' => -4.3,
@@ -586,6 +643,8 @@ class FtthTopologyTest extends TestCase
         ]);
 
         Cto::create([
+            'ftth_project_id' => $this->projeto()->id,
+
             'name' => 'CTO Antiga',
             'code' => 'CTO-ANT-1',
             'latitude' => -4.3,
@@ -613,6 +672,8 @@ class FtthTopologyTest extends TestCase
     public function test_no_com_fibra_lancada_permanece_ativo(): void
     {
         $cto = Cto::create([
+            'ftth_project_id' => $this->projeto()->id,
+
             'name' => 'CTO Com Fibra',
             'code' => 'CTO-FIB-1',
             'latitude' => -4.3,
@@ -640,6 +701,8 @@ class FtthTopologyTest extends TestCase
             ])->id,
             'source_type' => 'caixa',
             'source_id' => CaixaEmenda::create([
+                'ftth_project_id' => $this->projeto()->id,
+
                 'name' => 'CEO Origem Fibra',
                 'code' => 'CE-FIB-1',
                 'latitude' => -4.3,
@@ -746,6 +809,8 @@ class FtthTopologyTest extends TestCase
         $this->actingAs($this->operadorFtth());
 
         Cto::create([
+            'ftth_project_id' => $this->projeto()->id,
+
             'name' => 'CTO Colorida',
             'code' => 'CTO-COR-1',
             'latitude' => -4.3,

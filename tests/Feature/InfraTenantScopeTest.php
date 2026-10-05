@@ -16,9 +16,12 @@ use Modules\CRM\Models\Contract;
 use Modules\CRM\Models\HotspotCoupon;
 use Modules\CRM\Models\MikrotikBackup;
 use Modules\CRM\Models\MikrotikServer;
+use Modules\CRM\Models\Olt;
 use Modules\CRM\Models\Plan;
 use Modules\CRM\Models\ProvisioningRecord;
 use Modules\CRM\Models\UptimeMonitor;
+use Modules\PortalInfra\Models\Cto;
+use Modules\PortalInfra\Models\FtthProject;
 use Tests\TestCase;
 
 class InfraTenantScopeTest extends TestCase
@@ -440,6 +443,9 @@ class InfraTenantScopeTest extends TestCase
     {
         return MikrotikServer::create([
             'company_id' => $company->id,
+            // A filial e o dono do equipamento: sem ela o servidor fica fora do
+            // alcance de quem so opera uma loja.
+            'branch_id' => $this->matrixBranch($company)?->id,
             'name' => $name,
             'ip' => $ip ?? '10.'.$company->id.'.0.'.random_int(2, 250),
             'port' => 8728,
@@ -501,5 +507,148 @@ class InfraTenantScopeTest extends TestCase
         $user->branches()->attach($this->matrixBranch($this->rootCompany())->id);
 
         return $user->fresh();
+    }
+
+    public function test_olt_de_outra_empresa_responde_404_em_todas_as_acoes(): void
+    {
+        $minha = $this->franchise();
+        $outra = $this->franchise();
+
+        // OLT fica na matriz da OUTRA loja: e exatamente o alvo que o grupo
+        // com `olts` tentaria alcançar so pelo id.
+        $oltAlheia = Olt::create([
+            'company_id' => $outra->id,
+            'branch_id' => $this->matrixBranch($outra)->id,
+            'name' => 'OLT Secreta',
+            'ip' => '10.99.0.1',
+        ]);
+
+        $user = $this->operator($minha, ['dashboard', 'olts']);
+
+        $this->actingAs($user)->get(route('infra.olts.edit', [$oltAlheia->id]))
+            ->assertNotFound();
+
+        $this->actingAs($user)->put(route('infra.olts.update', [$oltAlheia->id]), [
+            'name' => 'Sequestrada',
+            'ip' => '10.99.0.2',
+        ])->assertNotFound();
+
+        $this->actingAs($user)->delete(route('infra.olts.destroy', [$oltAlheia->id]))
+            ->assertNotFound();
+
+        // Nada foi alterado nem apagado.
+        $this->assertDatabaseHas('olts', [
+            'id' => $oltAlheia->id,
+            'name' => 'OLT Secreta',
+            'ip' => '10.99.0.1',
+        ]);
+
+        // E a propria OLT continua acessivel.
+        $minhaOlt = Olt::create([
+            'company_id' => $minha->id,
+            'branch_id' => $this->matrixBranch($minha)->id,
+            'name' => 'OLT Da Casa',
+            'ip' => '10.98.0.1',
+        ]);
+
+        $this->actingAs($user)->get(route('infra.olts.edit', [$minhaOlt->id]))->assertOk();
+    }
+
+    public function test_infra_da_matriz_fica_invisivel_para_o_usuario_da_filial(): void
+    {
+        // Mesmo caso do CRM e do financeiro: uma empresa so, com matriz e loja.
+        // O filtro antigo era so por empresa, entao o usuario da loja enxergava
+        // os equipamentos e as redes da matriz.
+        $root = $this->rootCompany();
+        $matriz = $this->matrixBranch($root);
+        $loja = $this->branch('Filial Dom Pedro MA', $root);
+
+        $servidorDaMatriz = $this->server($root, 'Mikrotik Matriz');
+        $servidorDaMatriz->update(['branch_id' => $matriz->id]);
+
+        $servidorDaLoja = $this->server($root, 'Mikrotik Dom Pedro');
+        $servidorDaLoja->update(['branch_id' => $loja->id, 'ip' => '10.77.0.1']);
+
+        $oltDaMatriz = Olt::create([
+            'company_id' => $root->id, 'branch_id' => $matriz->id,
+            'name' => 'OLT da Sede', 'ip' => '10.98.0.1',
+        ]);
+        $oltDaLoja = Olt::create([
+            'company_id' => $root->id, 'branch_id' => $loja->id,
+            'name' => 'OLT do Dom Pedro', 'ip' => '10.77.9.1',
+        ]);
+
+        $projectDaMatriz = FtthProject::create([
+            'company_id' => $root->id, 'branch_id' => $matriz->id,
+            'name' => 'Rede da Sede', 'city' => 'Cidade da Sede', 'status' => 'active',
+        ]);
+        $projectDaLoja = FtthProject::create([
+            'company_id' => $root->id, 'branch_id' => $loja->id,
+            'name' => 'Rede do Dom Pedro', 'city' => 'Dom Pedro', 'status' => 'active',
+        ]);
+
+        $ctoDaMatriz = Cto::create(['name' => 'CTO Sede', 'code' => 'SED-001', 'city' => 'Cidade da Sede', 'latitude' => -2.5, 'longitude' => -44.5, 'ftth_project_id' => $projectDaMatriz->id]);
+        $ctoDaLoja = Cto::create(['name' => 'CTO Dom Pedro', 'code' => 'DOM-001', 'city' => 'Dom Pedro', 'latitude' => -2.49, 'longitude' => -44.49, 'ftth_project_id' => $projectDaLoja->id]);
+
+        $registroDaMatriz = ProvisioningRecord::create([
+            'company_id' => $root->id, 'mikrotik_server_id' => $servidorDaMatriz->id,
+            'login' => 'pppoe-sede', 'type' => 'pppoe', 'action' => 'add',
+        ]);
+
+        $user = $this->operator($root, ['mikrotik_servers', 'olts', 'ftth', 'provisioning']);
+        $user->branches()->sync([$loja->id]);
+
+        // Equipamentos: so o da filial dele.
+        $this->actingAs($user)->get(route('infra.mikrotik-servers.index'))
+            ->assertOk()
+            ->assertSee('Mikrotik Dom Pedro')
+            ->assertDontSee('Mikrotik Matriz');
+
+        $this->actingAs($user)->get(route('infra.mikrotik-servers.edit', [$servidorDaMatriz->id]))->assertNotFound();
+        $this->actingAs($user)->get(route('infra.mikrotik-servers.edit', [$servidorDaLoja->id]))->assertOk();
+
+        // OLT: mesma regra.
+        $this->actingAs($user)->get(route('infra.olts.index'))
+            ->assertOk()
+            ->assertSee('OLT do Dom Pedro')
+            ->assertDontSee('OLT da Sede');
+        $this->actingAs($user)->get(route('infra.olts.edit', [$oltDaMatriz->id]))->assertNotFound();
+        $this->actingAs($user)->get(route('infra.olts.edit', [$oltDaLoja->id]))->assertOk();
+
+        // FTTH: o projeto e o que define o dono da rede.
+        $this->actingAs($user)->get(route('infra.ftth.projects.index'))
+            ->assertOk()
+            ->assertSee('Rede do Dom Pedro')
+            ->assertDontSee('Rede da Sede');
+        $this->actingAs($user)->get(route('infra.ftth.projects.show', [$projectDaMatriz->id]))->assertNotFound();
+        $this->actingAs($user)->get(route('infra.ftth.projects.show', [$projectDaLoja->id]))->assertOk();
+
+        $this->actingAs($user)->get(route('infra.ftth.ctos.index'))
+            ->assertOk()
+            ->assertSee('CTO Dom Pedro')
+            ->assertDontSee('CTO Sede');
+        $this->actingAs($user)->get(route('infra.ftth.ctos.show', [$ctoDaMatriz->id]))->assertNotFound();
+
+        // O editor de rede e o ponto mais critico: ele trabalhava por `city`, que
+        // e global, entao abria e alterava o desenho da outra filial.
+        $this->actingAs($user)->get(route('infra.ftth.editor.data', ['cidade' => 'Cidade da Sede']))
+            ->assertOk()
+            ->assertJsonPath('ctos', []);
+
+        $this->actingAs($user)->get(route('infra.ftth.editor.data', ['cidade' => 'Dom Pedro']))
+            ->assertOk()
+            ->assertJsonCount(1, 'ctos')
+            ->assertJsonPath('ctos.0.code', 'DOM-001');
+
+        // E nenhuma acao que muda estado aceita id da outra filial.
+        $this->actingAs($user)
+            ->putJson(route('infra.ftth.editor.elements.update', ['type' => 'cto', 'id' => $ctoDaMatriz->id]), [
+                'name' => 'Invadida',
+            ])->assertNotFound();
+
+        $this->assertDatabaseHas('ctos', ['id' => $ctoDaMatriz->id, 'name' => 'CTO Sede']);
+
+        // Provisionamento tambem herda o servidor.
+        $this->actingAs($user)->get(route('infra.provisioning.edit', [$registroDaMatriz->id]))->assertNotFound();
     }
 }

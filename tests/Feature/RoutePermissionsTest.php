@@ -30,7 +30,7 @@ class RoutePermissionsTest extends TestCase
     ];
 
     protected array $guardedUriRoots = [
-        'configuracoes', 'banners', 'usuarios', 'grupos', 'companias', 'filiais',
+        'configuracoes', 'banners', 'usuarios', 'grupos', 'companias', 'filiais', 'franqueado',
     ];
 
     protected array $guestRoutes = [

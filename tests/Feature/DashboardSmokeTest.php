@@ -105,6 +105,87 @@ class DashboardSmokeTest extends TestCase
             ->assertSee('Em andamento');
     }
 
+    /**
+     * O wrapper do shell precisa ser flex em TODOS os breakpoints, nao so em
+     * `lg`.
+     *
+     * Abaixo de `lg` ele era `display: block`: o div de conteudo deixava de ser
+     * item flex, o `flex-1` do `<main>` nao resolvia altura e o
+     * `overflow: hidden` do pai cortava o formulario no meio. O sintoma era a
+     * tela de dados pessoais sem barra de rolagem vertical, sem jeito de
+     * chegar nos campos de baixo nem de editar. No desktop nunca aparecia,
+     * porque `lg:flex` entrava e a pendencia ficava escondida.
+     */
+    public function test_shell_responsivo_do_portal_precisa_ser_flex_em_todos_os_breakpoints(): void
+    {
+        $company = Company::create(['name' => 'Rede Alfa', 'slug' => 'rede-'.uniqid(), 'is_active' => true, 'is_franchise' => true]);
+        $branch = Branch::create(['company_id' => $company->id, 'name' => 'Matriz', 'is_active' => true]);
+        $client = $this->client($company, 'Cliente da Silva');
+
+        // O guard `client` autentica o proprio model `Client` (provider
+        // `clients`), nao um model de sessao separado.
+        $html = $this->actingAs($client, 'client')
+            ->get(route('crm.portal.profile'))
+            ->assertOk()
+            ->getContent();
+
+        // Isola o wrapper do shell: e o unico elemento com `x-data` de gaveta.
+        preg_match('/<div[^>]*x-data="\{ open: false \}"[^>]*>/', $html, $m);
+        $this->assertNotEmpty($m, 'wrapper do shell nao encontrado');
+
+        $wrapper = $m[0];
+
+        $this->assertStringContainsString('flex', $wrapper);
+        $this->assertStringContainsString('overflow-hidden', $wrapper);
+        $this->assertStringContainsString('h-screen', $wrapper);
+
+        // `lg:flex` e a forma quebrada: o `flex` sem prefixo e o que segura o
+        // layout no celular. Este e o assert que trava a regressao.
+        $this->assertStringNotContainsString('lg:flex', $wrapper);
+
+        // E o `<main>` precisa ser o elemento que rola.
+        $this->assertMatchesRegularExpression(
+            '/<main class="[^"]*overflow-y-auto[^"]*"/',
+            $html,
+            'a barra de rolagem precisa ficar no main, nao na pagina inteira'
+        );
+    }
+
+    public function test_shell_responsivo_do_tecnico_precisa_ser_flex_em_todos_os_breakpoints(): void
+    {
+        $company = Company::create(['name' => 'Rede Alfa', 'slug' => 'rede-'.uniqid(), 'is_active' => true, 'is_franchise' => true]);
+        $branch = Branch::create(['company_id' => $company->id, 'name' => 'Matriz', 'is_active' => true]);
+
+        $group = UserGroup::firstOrCreate(['slug' => 'tecnico'], ['name' => 'Tecnico', 'is_active' => true]);
+        $tech = User::create([
+            'name' => 'Tecnico da Silva',
+            'email' => 'tec-'.uniqid().'@teste.local',
+            'password' => bcrypt('secret123'),
+            'user_group_id' => $group->id,
+            'is_active' => true,
+        ]);
+        $tech->companies()->attach($company->id);
+        $tech->branches()->attach($branch->id);
+
+        $html = $this->actingAs($tech->fresh(), 'technician')
+            ->get(route('technician.portal.ftth'))
+            ->assertOk()
+            ->getContent();
+
+        preg_match('/<div[^>]*x-data="\{ open: false \}"[^>]*>/', $html, $m);
+        $this->assertNotEmpty($m, 'wrapper do shell nao encontrado');
+
+        // Mesmo defeito, mesmo shell: o do tecnico tinha a mesma linha.
+        $this->assertStringNotContainsString('lg:flex', $m[0]);
+        $this->assertStringContainsString('flex', $m[0]);
+
+        $this->assertMatchesRegularExpression(
+            '/<main class="[^"]*overflow-y-auto[^"]*"/',
+            $html,
+            'a barra de rolagem precisa ficar no main, nao na pagina inteira'
+        );
+    }
+
     private function client(Company $company, string $name): Client
     {
         return Client::create([

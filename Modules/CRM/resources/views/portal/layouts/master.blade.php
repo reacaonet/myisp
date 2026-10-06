@@ -12,10 +12,13 @@
     $portalUser = Auth::guard('client')->user();
     $portalInitials = mb_strtoupper(mb_substr(trim((string) ($portalUser?->name ?? 'C')), 0, 1));
 @endphp
-{{-- `x-data` no wrapper controla a gaveta: no desktop ela e ignorada e a
-     sidebar fica sempre visivel (`lg:translate-x-0`). Sem isso o `w-64`
-     fixo espremia a area de conteudo para ~160px no celular. --}}
-<div x-data="{ open: false }" class="h-screen overflow-hidden lg:flex">
+{{-- `flex` em todos os breakpoints, e nao so em `lg`. Abaixo de `lg` o
+     wrapper virava `display: block`: o div de conteudo deixava de ser item
+     flex, o `flex-1` do `<main>` nao resolvia altura e o `overflow: hidden`
+     do pai cortava o formulario no meio - sem barra de rolagem e sem jeito de
+     chegar nos campos de baixo. No celular a sidebar e `fixed`, ou seja, sai
+     do fluxo, entao o unico item flex da linha e o de conteudo. --}}
+<div x-data="{ open: false }" class="flex h-screen overflow-hidden supports-[height:100dvh]:h-dvh">
     <div class="fixed inset-0 z-40 bg-gray-900/60 lg:hidden"
          :class="open ? '' : 'hidden'"
          @click="open = false"
